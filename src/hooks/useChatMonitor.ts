@@ -3,7 +3,6 @@ import localChatService from '../services/localChatService';
 
 const useChatMonitor = () => {
   const [unansweredMessages, setUnansweredMessages] = useState([]);
-  const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -30,20 +29,8 @@ const useChatMonitor = () => {
     };
   }, []);
 
-  const startMonitoring = () => {
-    setIsMonitoring(true);
-    // Lógica adicional de monitoramento pode ser adicionada aqui
-  };
-
-  const stopMonitoring = () => {
-    setIsMonitoring(false);
-  };
-
   return {
-    unansweredMessages,
-    isMonitoring,
-    startMonitoring,
-    stopMonitoring
+    unansweredMessages
   };
 };
 
