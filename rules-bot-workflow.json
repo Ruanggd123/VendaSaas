@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Normalize message and extract data\nconst normalized = message\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .trim();\n\n// Get tenant config\nconst tenant = await $workflow.getTenantConfig(contact);\n\nreturn { \n  normalized,\n  tenant,\n  contact\n};"
+        "functionCode": "// Normalize message and extract data\nconst normalized = message\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .trim();\n\n// Get tenant config\nconst tenant = await $workflow.getTenantConfig(contact);\n\n// Check for human agent request\nconst humanKeywords = ['atendente', 'humano', 'pessoa', 'falar com alguém'];\nconst wantsHuman = humanKeywords.some(keyword => normalized.includes(keyword));\n\nreturn { \n  normalized,\n  tenant,\n  contact,\n  wantsHuman\n};"
       },
       "name": "Process Message",
       "type": "n8n-nodes-base.function",
@@ -85,6 +85,24 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node[\"Process Message\"].json[\"normalized\"]}}",
+              "operation": "contains",
+              "value2": "atendente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
         "options": {},
         "text": "Olá! Bem-vindo à {{$node[\"Process Message\"].json[\"tenant\"].company}}. Como podemos ajudar?",
         "additionalFields": {}
@@ -128,13 +146,27 @@
     {
       "parameters": {
         "options": {},
+        "text": "Um atendente será contactado em breve. Por favor, aguarde.",
+        "additionalFields": {}
+      },
+      "name": "Human Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 500],
+      "credentials": {
+        "evolutionApi": "evolution-api-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
         "text": "Desculpe, não entendi. Por favor, escolha uma opção:\n1 - Preços\n2 - Agendamento\n3 - Pagamento\n4 - Falar com atendente",
         "additionalFields": {}
       },
       "name": "Fallback Response",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [1050, 500],
+      "position": [1050, 600],
       "credentials": {
         "evolutionApi": "evolution-api-credentials"
       }
@@ -215,6 +247,17 @@
         [
           {
             "node": "Payment Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human?": {
+      "main": [
+        [
+          {
+            "node": "Human Response",
             "type": "main",
             "index": 0
           }
