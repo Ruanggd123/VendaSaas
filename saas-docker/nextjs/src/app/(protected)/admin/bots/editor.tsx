@@ -120,7 +120,89 @@ export function BotEditor({ tenantId }: { tenantId: string }) {
             )}
           />
 
-          {/* Outros campos do formulário... */}
+          <FormField
+            control={form.control}
+            name="aiName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nome do Bot</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Atendente Virtual" />
+                </FormControl>
+                <FormDescription>
+                  Como o bot se apresentará para seus clientes
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="managerPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número do Atendente</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="+5511999999999" />
+                </FormControl>
+                <FormDescription>
+                  Número que receberá notificações de atendimento humano
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="businessHours.start"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Horário de Abertura</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="businessHours.end"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Horário de Fechamento</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="enableScheduling"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Agendamento Online</FormLabel>
+                  <FormDescription>
+                    Habilitar/desabilitar a funcionalidade de agendamentos
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
           <Button type="submit" disabled={loading}>
             {loading ? 'Salvando...' : 'Salvar Configurações'}

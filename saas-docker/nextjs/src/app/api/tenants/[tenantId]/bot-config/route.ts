@@ -31,11 +31,23 @@ export async function POST(
 ) {
   try {
     const body = await request.json()
+    
+    // Validar e formatar os dados
+    const configData = {
+      ...body,
+      businessHours: body.businessHours || {
+        start: '08:00',
+        end: '18:00',
+        days: ['mon', 'tue', 'wed', 'thu', 'fri']
+      },
+      module_scheduling: body.enableScheduling !== false,
+      products: body.services || []
+    }
 
     await prisma.tenant.update({
       where: { id: params.tenantId },
       data: {
-        bot_config: body
+        bot_config: configData
       }
     })
 

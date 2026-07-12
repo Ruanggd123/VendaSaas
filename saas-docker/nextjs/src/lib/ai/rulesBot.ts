@@ -206,14 +206,18 @@ export async function processMessageWithRules(
 }
 
 function getMainMenuMessage(settings: any): string {
-  const company = settings.ai_name || "Nossa Empresa";
-  const welcomeMsg = settings.welcome_message || `Olá! Seja bem-vindo(a) ao atendimento da *${company}*! 🤖👋`;
+  const company = settings.aiName || settings.ai_name || "Nossa Empresa";
+  const welcomeMsg = settings.welcomeMessage || settings.welcome_message || `Olá! Seja bem-vindo(a) ao atendimento da *${company}*! 🤖👋`;
   
+  const menuItems = [
+    "1️⃣ *Serviços* - Lista completa com preços",
+    "2️⃣ *Horário* - Nosso funcionamento",
+    settings.enableScheduling !== false ? "3️⃣ *Agendar* - Marque seu horário" : null,
+    "4️⃣ *Atendente* - Falar com uma pessoa"
+  ].filter(Boolean).join("\n");
+
   return `${welcomeMsg}\n\n*MENU PRINCIPAL* - Digite o número da opção:\n\n` +
-    `1️⃣ *Serviços* - Lista completa com preços\n` +
-    `2️⃣ *Horário* - Nosso funcionamento\n` +
-    `3️⃣ *Agendar* - Marque seu horário\n` +
-    `4️⃣ *Atendente* - Falar com uma pessoa\n\n` +
+    `${menuItems}\n\n` +
     `Exemplo: digite *1* para ver serviços`;
 }
 
