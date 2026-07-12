@@ -15,24 +15,20 @@ const useChatMonitor = () => {
 
       try {
         const messages = localChatService.getUnansweredMessages();
-        if (isMounted) setUnansweredMessages(messages);
-        
-        const whatsappMessages = messages.filter(msg => 
-          msg.platform === 'whatsapp' && !msg.responded
-        );
-        
-        if (whatsappMessages.length > 0) {
-          console.log('Novas mensagens do WhatsApp detectadas:', whatsappMessages);
-          if (mode === 'auto') {
+        if (isMounted) {
+          setUnansweredMessages(messages);
+          // Força o processamento imediato quando novas mensagens chegarem
+          if (messages.length > 0) {
             await localChatService.processWhatsappMessages();
           }
-          retryCount = 0;
-        } else if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`Nenhuma mensagem encontrada, tentativa ${retryCount}/${maxRetries}`);
         }
+        retryCount = 0;
       } catch (error) {
         console.error('Erro ao verificar mensagens:', error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(checkMessages, 1000);
+        }
       }
     };
 

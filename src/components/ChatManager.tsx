@@ -6,6 +6,15 @@ const ChatManager: React.FC = () => {
   const [mode, setMode] = useState<'auto' | 'manual' | 'hybrid'>('auto');
   const [message, setMessage] = useState('');
   const { unansweredMessages, isMonitoring, startMonitoring } = useChatMonitor();
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Atualiza a lista de mensagens a cada 500ms
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setForceUpdate(prev => prev + 1);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSendMessage = (platform: 'whatsapp' | 'web' = 'web') => {
     if (message.trim()) {

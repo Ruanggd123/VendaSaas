@@ -15,17 +15,23 @@ class LocalChatService {
   private whatsappResponseDelay = 2000; // Reduzido para 2 segundos
 
   addMessage(text: string, platform: 'whatsapp' | 'web', from: string, to: string) {
-    const message: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      text,
-      timestamp: new Date(),
-      responded: false,
-      platform,
-      from,
-      to
-    };
-    this.messages.push(message);
-    return message;
+    try {
+      const message: Message = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        text,
+        timestamp: new Date(),
+        responded: false,
+        platform,
+        from,
+        to
+      };
+      this.messages = [...this.messages, message]; // Garante imutabilidade
+      console.log('Mensagem adicionada:', message);
+      return message;
+    } catch (error) {
+      console.error('Erro ao adicionar mensagem:', error);
+      throw error;
+    }
   }
 
   getUnansweredMessages() {
