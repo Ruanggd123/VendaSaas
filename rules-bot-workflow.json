@@ -9,7 +9,10 @@
     },
     {
       "parameters": {
-        "options": {}
+        "options": {},
+        "responseHeaders": {
+          "X-Webhook-Secret": "={{$env.EVOLUTION_WEBHOOK_SECRET}}"
+        }
       },
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -19,9 +22,9 @@
     },
     {
       "parameters": {
-        "functionCode": "// Normalize message\nconst normalized = message\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .trim();\n\nreturn { normalized };"
+        "functionCode": "// Normalize message and extract data\nconst normalized = message\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .trim();\n\n// Get tenant config\nconst tenant = await $workflow.getTenantConfig(contact);\n\nreturn { \n  normalized,\n  tenant,\n  contact\n};"
       },
-      "name": "Normalize Message",
+      "name": "Process Message",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [650, 300]
@@ -31,7 +34,7 @@
         "conditions": {
           "string": [
             {
-              "value1": "={{$node[\"Normalize Message\"].json[\"normalized\"]}}",
+              "value1": "={{$node[\"Process Message\"].json[\"normalized\"]}}",
               "operation": "contains",
               "value2": "ola"
             }
@@ -46,12 +49,92 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node[\"Process Message\"].json[\"normalized\"]}}",
+              "operation": "contains",
+              "value2": "preco"
+            }
+          ]
+        },
         "options": {}
       },
-      "name": "Send Response",
+      "name": "Price?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node[\"Process Message\"].json[\"normalized\"]}}",
+              "operation": "contains",
+              "value2": "pagamento"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Payment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "text": "Olá! Bem-vindo à {{$node[\"Process Message\"].json[\"tenant\"].company}}. Como podemos ajudar?",
+        "additionalFields": {}
+      },
+      "name": "Greeting Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "evolutionApi": "evolution-api-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "text": "Aqui estão nossos preços:\n\n- Serviço Básico: R$ 100\n- Serviço Premium: R$ 200\n\nDeseja agendar?",
+        "additionalFields": {}
+      },
+      "name": "Price Response",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [1050, 300],
+      "credentials": {
+        "evolutionApi": "evolution-api-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "text": "Para pagamento, acesse este link: {{$node[\"Process Message\"].json[\"tenant\"].paymentLink}\n\nOu envie PIX para: {{$node[\"Process Message\"].json[\"tenant\"].pixKey}",
+        "additionalFields": {}
+      },
+      "name": "Payment Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "evolutionApi": "evolution-api-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "text": "Desculpe, não entendi. Por favor, escolha uma opção:\n1 - Preços\n2 - Agendamento\n3 - Pagamento\n4 - Falar com atendente",
+        "additionalFields": {}
+      },
+      "name": "Fallback Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 500],
       "credentials": {
         "evolutionApi": "evolution-api-credentials"
       }
@@ -73,18 +156,32 @@
       "main": [
         [
           {
-            "node": "Normalize Message",
+            "node": "Process Message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Message": {
+    "Process Message": {
       "main": [
         [
           {
             "node": "Greeting?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Price?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Payment?",
             "type": "main",
             "index": 0
           }
@@ -95,7 +192,29 @@
       "main": [
         [
           {
-            "node": "Send Response",
+            "node": "Greeting Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price?": {
+      "main": [
+        [
+          {
+            "node": "Price Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payment?": {
+      "main": [
+        [
+          {
+            "node": "Payment Response",
             "type": "main",
             "index": 0
           }
