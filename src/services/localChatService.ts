@@ -12,7 +12,7 @@ class LocalChatService {
   private messages: Message[] = [];
   private processingQueue: Message[] = [];
   private timeoutDuration = 300000; // 5 minutos
-  private whatsappResponseDelay = 10000; // 10 segundos
+  private whatsappResponseDelay = 2000; // Reduzido para 2 segundos
 
   addMessage(text: string, platform: 'whatsapp' | 'web', from: string, to: string) {
     const message: Message = {
@@ -42,12 +42,11 @@ class LocalChatService {
 
   async processWhatsappMessages() {
     try {
-      console.log('[WhatsApp] Verificando mensagens não respondidas...');
-      const whatsappMessages = this.messages.filter(
-        msg => msg.platform === 'whatsapp' && !msg.responded && !this.processingQueue.includes(msg)
-      );
-
-      console.log(`[WhatsApp] ${whatsappMessages.length} mensagens para processar`);
+      // Verificação mais rápida sem logs desnecessários
+      const whatsappMessages = this.messages
+        .filter(msg => msg.platform === 'whatsapp' && !msg.responded)
+        .filter(msg => !this.processingQueue.includes(msg))
+        .slice(0, 5); // Processa até 5 mensagens por vez
       
       for (const msg of whatsappMessages) {
         try {

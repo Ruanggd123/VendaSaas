@@ -48,7 +48,6 @@ const ChatManager: React.FC = () => {
 
     const messageProcessingInterval = setInterval(async () => {
       try {
-        console.log('[HealthCheck] Verificando status do processamento...');
         if (mode === 'auto' || mode === 'hybrid') {
           await localChatService.processWhatsappMessages();
         }
@@ -58,9 +57,9 @@ const ChatManager: React.FC = () => {
           setMode('auto');
         }
       } catch (error) {
-        console.error('[HealthCheck] Erro no processamento:', error);
+        console.error('Erro no processamento:', error);
       }
-    }, 5000);
+    }, 1000); // Processa a cada 1 segundo
 
     // Verificação de saúde a cada 30 segundos
     healthCheckInterval = setInterval(() => {

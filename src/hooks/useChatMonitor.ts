@@ -36,7 +36,7 @@ const useChatMonitor = () => {
       }
     };
 
-    const interval = setInterval(checkMessages, 3000);
+    const interval = setInterval(checkMessages, 1000); // Verifica a cada 1 segundo
     
     // Verificação imediata ao montar
     checkMessages();
