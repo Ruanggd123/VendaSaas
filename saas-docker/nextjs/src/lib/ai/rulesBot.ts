@@ -103,14 +103,31 @@ export async function processMessageWithRules(
         return response;
       }
 
-      if (cleanText === "4" || cleanText.includes("atendente") || cleanText.includes("humano")) {
-        // Pausar o atendimento automático
+      if (cleanText === "4" || cleanText.includes("atendente") || cleanText.includes("humano") || cleanText.includes("pessoa")) {
+        // Pausar o atendimento automático e notificar equipe
         await prisma.conversation.updateMany({
           where: { tenant_id: tenantId, contact_number: contactNumber },
-          data: { ai_paused: true }
+          data: { 
+            ai_paused: true,
+            last_message: `Cliente solicitou atendimento humano: "${userMessage}"`
+          }
         });
+        
+        // Notificar canal de atendimento se configurado
+        if (settings.manager_phone) {
+          await prisma.message.create({
+            data: {
+              tenant_id: tenantId,
+              contact_number: settings.manager_phone,
+              content: `📢 Novo pedido de atendimento humano de ${contactNumber}: "${userMessage}"`,
+              direction: 'outbound',
+              status: 'pending'
+            }
+          });
+        }
+
         await redis.del(stateKey);
-        return "👋 Entendido! O atendimento automático foi pausado e um atendente da nossa equipe entrará em contato em breve. Aguarde um momento!";
+        return `👋 *Atendimento humano solicitado!*\n\nUm atendente entrará em contato em breve.\n\n📞 Número para contato: ${contactNumber}\n⏳ Aguarde por favor...`;
       }
 
       // Default Fallback
@@ -190,7 +207,14 @@ export async function processMessageWithRules(
 
 function getMainMenuMessage(settings: any): string {
   const company = settings.ai_name || "Nossa Empresa";
-  return `Olá! Seja bem-vindo(a) ao canal de atendimento da *${company}*! 🤖👋\n\nComo posso ajudar você hoje? Digite o número correspondente à opção desejada:\n\n1️⃣ *Serviços & Preços*\n2️⃣ *Horários & Contatos*\n3️⃣ *Agendar Atendimento*\n4️⃣ *Falar com um Atendente*`;
+  const welcomeMsg = settings.welcome_message || `Olá! Seja bem-vindo(a) ao atendimento da *${company}*! 🤖👋`;
+  
+  return `${welcomeMsg}\n\n*MENU PRINCIPAL* - Digite o número da opção:\n\n` +
+    `1️⃣ *Serviços* - Lista completa com preços\n` +
+    `2️⃣ *Horário* - Nosso funcionamento\n` +
+    `3️⃣ *Agendar* - Marque seu horário\n` +
+    `4️⃣ *Atendente* - Falar com uma pessoa\n\n` +
+    `Exemplo: digite *1* para ver serviços`;
 }
 
 function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
