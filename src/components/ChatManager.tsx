@@ -44,11 +44,19 @@ const ChatManager: React.FC = () => {
   };
 
   useEffect(() => {
-    if (mode === 'hybrid') {
-      localChatService.hybridModeHandler().then(() => {
-        setMode('auto');
-      });
-    }
+    const interval = setInterval(() => {
+      if (mode === 'auto' || mode === 'hybrid') {
+        localChatService.processWhatsappMessages();
+      }
+      
+      if (mode === 'hybrid') {
+        localChatService.hybridModeHandler().then(() => {
+          setMode('auto');
+        });
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [mode]);
 
   return (

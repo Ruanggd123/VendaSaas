@@ -10,7 +10,9 @@ interface Message {
 
 class LocalChatService {
   private messages: Message[] = [];
+  private processingQueue: Message[] = [];
   private timeoutDuration = 300000; // 5 minutos
+  private whatsappResponseDelay = 10000; // 10 segundos
 
   addMessage(text: string, platform: 'whatsapp' | 'web', from: string, to: string) {
     const message: Message = {
@@ -34,6 +36,29 @@ class LocalChatService {
     const message = this.messages.find(msg => msg.id === messageId);
     if (message) {
       message.responded = true;
+      this.processingQueue = this.processingQueue.filter(msg => msg.id !== messageId);
+    }
+  }
+
+  async processWhatsappMessages() {
+    const whatsappMessages = this.messages.filter(
+      msg => msg.platform === 'whatsapp' && !msg.responded && !this.processingQueue.includes(msg)
+    );
+
+    for (const msg of whatsappMessages) {
+      this.processingQueue.push(msg);
+      await new Promise(resolve => setTimeout(resolve, this.whatsappResponseDelay));
+      
+      // Simula envio de resposta
+      const response = `Obrigado por sua mensagem: "${msg.text}". Estamos te respondendo agora.`;
+      this.addMessage(
+        response,
+        'whatsapp',
+        'bot_phone_number',
+        msg.from
+      );
+      
+      this.markAsResponded(msg.id);
     }
   }
 

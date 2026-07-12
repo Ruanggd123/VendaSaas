@@ -16,8 +16,10 @@ const useChatMonitor = () => {
       );
       
       if (whatsappMessages.length > 0) {
-        console.log('Novas mensagens do WhatsApp detectadas');
-        // Aqui você pode adicionar lógica para notificar ou responder automaticamente
+        console.log('Novas mensagens do WhatsApp detectadas:', whatsappMessages);
+        if (mode === 'auto') {
+          localChatService.processWhatsappMessages();
+        }
       }
     };
 
