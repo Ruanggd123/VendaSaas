@@ -44,19 +44,34 @@ const ChatManager: React.FC = () => {
   };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (mode === 'auto' || mode === 'hybrid') {
-        localChatService.processWhatsappMessages();
-      }
-      
-      if (mode === 'hybrid') {
-        localChatService.hybridModeHandler().then(() => {
+    let healthCheckInterval: NodeJS.Timeout;
+
+    const messageProcessingInterval = setInterval(async () => {
+      try {
+        console.log('[HealthCheck] Verificando status do processamento...');
+        if (mode === 'auto' || mode === 'hybrid') {
+          await localChatService.processWhatsappMessages();
+        }
+        
+        if (mode === 'hybrid') {
+          await localChatService.hybridModeHandler();
           setMode('auto');
-        });
+        }
+      } catch (error) {
+        console.error('[HealthCheck] Erro no processamento:', error);
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    // Verificação de saúde a cada 30 segundos
+    healthCheckInterval = setInterval(() => {
+      const messages = localChatService.getUnansweredMessages();
+      console.log(`[HealthCheck] Status: ${messages.length} mensagens pendentes`);
+    }, 30000);
+
+    return () => {
+      clearInterval(messageProcessingInterval);
+      clearInterval(healthCheckInterval);
+    };
   }, [mode]);
 
   return (

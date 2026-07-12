@@ -6,26 +6,46 @@ const useChatMonitor = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
-    const checkMessages = () => {
-      const messages = localChatService.getUnansweredMessages();
-      setUnansweredMessages(messages);
-      
-      // Verifica se há novas mensagens do WhatsApp
-      const whatsappMessages = messages.filter(msg => 
-        msg.platform === 'whatsapp' && !msg.responded
-      );
-      
-      if (whatsappMessages.length > 0) {
-        console.log('Novas mensagens do WhatsApp detectadas:', whatsappMessages);
-        if (mode === 'auto') {
-          localChatService.processWhatsappMessages();
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const checkMessages = async () => {
+      if (!isMounted) return;
+
+      try {
+        const messages = localChatService.getUnansweredMessages();
+        if (isMounted) setUnansweredMessages(messages);
+        
+        const whatsappMessages = messages.filter(msg => 
+          msg.platform === 'whatsapp' && !msg.responded
+        );
+        
+        if (whatsappMessages.length > 0) {
+          console.log('Novas mensagens do WhatsApp detectadas:', whatsappMessages);
+          if (mode === 'auto') {
+            await localChatService.processWhatsappMessages();
+          }
+          retryCount = 0;
+        } else if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Nenhuma mensagem encontrada, tentativa ${retryCount}/${maxRetries}`);
         }
+      } catch (error) {
+        console.error('Erro ao verificar mensagens:', error);
       }
     };
 
-    const interval = setInterval(checkMessages, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(checkMessages, 3000);
+    
+    // Verificação imediata ao montar
+    checkMessages();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [mode]);
 
   const startMonitoring = () => {
     setIsMonitoring(true);
