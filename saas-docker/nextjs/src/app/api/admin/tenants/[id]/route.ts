@@ -65,9 +65,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession();
-    if (!session || session.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    const isValid = await validateSuperAdmin(request);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Acesso negado. Credenciais inválidas ou expiradas.' }, 
+        { status: 403, headers: { 'WWW-Authenticate': 'Bearer realm="superadmin"' } }
+      );
     }
 
     const tenantId = params.id;

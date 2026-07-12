@@ -173,9 +173,36 @@ export default function SuperAdminPage() {
                 </div>
 
                 {showApiKey && (
-                  <div className="mt-2 p-2 bg-zinc-800 rounded text-xs break-all">
-                    <div className="text-zinc-500 mb-1">Chave API (Super Admin)</div>
-                    {process.env.SUPERADMIN_API_KEY}
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-zinc-500">Chave API (Super Admin)</span>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(process.env.SUPERADMIN_API_KEY || '')}
+                        className="text-xs text-indigo-400 hover:text-indigo-300"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        readOnly
+                        value={process.env.SUPERADMIN_API_KEY || ''}
+                        className="w-full p-2 bg-zinc-800 rounded text-xs break-all font-mono"
+                      />
+                      <button
+                        onClick={() => {
+                          const input = document.querySelector('input[type="password"]') as HTMLInputElement;
+                          input.type = input.type === 'password' ? 'text' : 'password';
+                        }}
+                        className="absolute right-2 top-2 text-xs text-zinc-400 hover:text-white"
+                      >
+                        👁️
+                      </button>
+                    </div>
+                    <div className="mt-1 text-[10px] text-red-400">
+                      Atenção: Esta chave fornece acesso total ao sistema
+                    </div>
                   </div>
                 )}
               </div>
@@ -184,9 +211,58 @@ export default function SuperAdminPage() {
 
           {/* AI Flow Assistant Panel */}
           {showAIAssistant && (
-            <div className="absolute top-0 right-0 w-96 h-full bg-zinc-900 border-l border-zinc-800 p-4 overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4">Assistente de Fluxo IA</h3>
-              {/* Add your AI assistant UI here */}
+            <div className="absolute top-0 right-0 w-96 h-full bg-zinc-900 border-l border-zinc-800 flex flex-col">
+              <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Assistente de Fluxo IA</h3>
+                <button 
+                  onClick={() => setShowAIAssistant(false)}
+                  className="text-zinc-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <h4 className="font-medium mb-2">Configurações Rápidas</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">Nível de Acesso</label>
+                      <select className="w-full bg-zinc-700 rounded p-2 text-sm">
+                        <option>Básico (somente leitura)</option>
+                        <option>Intermediário (ações limitadas)</option>
+                        <option>Super Admin (acesso total)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1">Modo de Operação</label>
+                      <select className="w-full bg-zinc-700 rounded p-2 text-sm">
+                        <option>Automatizado</option>
+                        <option>Assistido</option>
+                        <option>Manual</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <h4 className="font-medium mb-2">Histórico de Ações</h4>
+                  <div className="text-xs text-zinc-400 space-y-2">
+                    <div className="flex justify-between">
+                      <span>Atualização de plano</span>
+                      <span className="text-zinc-500">12/07 14:30</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Criação de cliente</span>
+                      <span className="text-zinc-500">12/07 10:15</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 border-t border-zinc-800">
+                <button className="w-full bg-indigo-600 hover:bg-indigo-500 rounded p-2 text-sm">
+                  Salvar Configurações
+                </button>
+              </div>
             </div>
           )}
 
