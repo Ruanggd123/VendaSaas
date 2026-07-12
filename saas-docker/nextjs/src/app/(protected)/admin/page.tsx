@@ -17,6 +17,8 @@ export default function SuperAdminPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const fetchTenants = async () => {
     try {
@@ -150,8 +152,43 @@ export default function SuperAdminPage() {
               <button disabled={isCreating} className="w-full rounded-lg bg-indigo-600 p-3 text-sm font-medium hover:bg-indigo-500 transition-colors">
                 {isCreating ? "Criando e Criptografando..." : "Gerar Acesso"}
               </button>
+
+              {/* Super Admin Controls */}
+              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <button 
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="text-xs text-zinc-400 hover:text-indigo-400 transition-colors"
+                  >
+                    {showApiKey ? 'Esconder' : 'Mostrar'} Chave API
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setShowAIAssistant(!showAIAssistant)}
+                    className="text-xs text-zinc-400 hover:text-indigo-400 transition-colors"
+                  >
+                    {showAIAssistant ? 'Esconder' : 'Mostrar'} Assistente IA
+                  </button>
+                </div>
+
+                {showApiKey && (
+                  <div className="mt-2 p-2 bg-zinc-800 rounded text-xs break-all">
+                    <div className="text-zinc-500 mb-1">Chave API (Super Admin)</div>
+                    {process.env.SUPERADMIN_API_KEY}
+                  </div>
+                )}
+              </div>
             </form>
           </div>
+
+          {/* AI Flow Assistant Panel */}
+          {showAIAssistant && (
+            <div className="absolute top-0 right-0 w-96 h-full bg-zinc-900 border-l border-zinc-800 p-4 overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4">Assistente de Fluxo IA</h3>
+              {/* Add your AI assistant UI here */}
+            </div>
+          )}
 
           {/* Lista de Clientes */}
           <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-xl backdrop-blur-md lg:col-span-2">

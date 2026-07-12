@@ -4,11 +4,29 @@ import { getSession } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
+// Validate superadmin access and API key
+const validateSuperAdmin = async (request: Request) => {
+  const session = await getSession();
+  if (!session || session.role !== 'superadmin') {
+    return false;
+  }
+
+  // Additional check for API key in production
+  if (process.env.NODE_ENV === 'production') {
+    const apiKey = request.headers.get('x-api-key');
+    if (apiKey !== process.env.SUPERADMIN_API_KEY) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession();
-    if (!session || session.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+    const isValid = await validateSuperAdmin(request);
+    if (!isValid) {
+      return NextResponse.json({ error: 'Acesso negado. Apenas Super Admin.' }, { status: 403 });
     }
 
     const { plan, addDays } = await request.json();
