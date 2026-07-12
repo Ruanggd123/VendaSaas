@@ -7,18 +7,38 @@ const ChatManager: React.FC = () => {
   const [message, setMessage] = useState('');
   const { unansweredMessages, isMonitoring, startMonitoring } = useChatMonitor();
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (platform: 'whatsapp' | 'web' = 'web') => {
     if (message.trim()) {
-      localChatService.addMessage(message, 'web');
+      localChatService.addMessage(
+        message, 
+        platform,
+        platform === 'whatsapp' ? 'user_phone_number' : 'web_user',
+        platform === 'whatsapp' ? 'bot_phone_number' : 'web_bot'
+      );
       setMessage('');
+      
+      if (platform === 'whatsapp' && mode === 'auto') {
+        handleRespondToUnanswered();
+      }
     }
   };
 
   const handleRespondToUnanswered = async () => {
     const messages = localChatService.getUnansweredMessages();
     for (const msg of messages) {
-      // Aqui você pode adicionar a lógica de resposta da IA
-      console.log(`Respondendo à mensagem: ${msg.text}`);
+      if (msg.platform === 'whatsapp') {
+        // Aqui você pode adicionar a lógica de resposta da IA
+        const response = `Resposta automática para: ${msg.text}`;
+        
+        // Simulando envio de resposta pelo WhatsApp
+        console.log(`Enviando para WhatsApp: ${response}`);
+        localChatService.addMessage(
+          response,
+          'whatsapp',
+          'bot_phone_number',
+          msg.from
+        );
+      }
       localChatService.markAsResponded(msg.id);
     }
   };

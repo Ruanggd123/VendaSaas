@@ -4,19 +4,23 @@ interface Message {
   timestamp: Date;
   responded: boolean;
   platform: 'whatsapp' | 'web';
+  from: string;
+  to: string;
 }
 
 class LocalChatService {
   private messages: Message[] = [];
   private timeoutDuration = 300000; // 5 minutos
 
-  addMessage(text: string, platform: 'whatsapp' | 'web') {
+  addMessage(text: string, platform: 'whatsapp' | 'web', from: string, to: string) {
     const message: Message = {
       id: Math.random().toString(36).substr(2, 9),
       text,
       timestamp: new Date(),
       responded: false,
-      platform
+      platform,
+      from,
+      to
     };
     this.messages.push(message);
     return message;

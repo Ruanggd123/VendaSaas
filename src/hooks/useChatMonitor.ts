@@ -6,11 +6,22 @@ const useChatMonitor = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const checkMessages = () => {
       const messages = localChatService.getUnansweredMessages();
       setUnansweredMessages(messages);
-    }, 10000);
+      
+      // Verifica se há novas mensagens do WhatsApp
+      const whatsappMessages = messages.filter(msg => 
+        msg.platform === 'whatsapp' && !msg.responded
+      );
+      
+      if (whatsappMessages.length > 0) {
+        console.log('Novas mensagens do WhatsApp detectadas');
+        // Aqui você pode adicionar lógica para notificar ou responder automaticamente
+      }
+    };
 
+    const interval = setInterval(checkMessages, 5000);
     return () => clearInterval(interval);
   }, []);
 
