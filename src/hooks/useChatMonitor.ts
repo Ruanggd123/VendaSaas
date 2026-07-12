@@ -8,21 +8,20 @@ const useChatMonitor = () => {
   useEffect(() => {
     let isMounted = true;
     
+    const updateMessages = () => {
+      if (!isMounted) return;
+      const messages = localChatService.getUnansweredMessages();
+      setUnansweredMessages(messages);
+    };
+
     // Atualiza imediatamente quando novas mensagens chegarem
-    const unsubscribe = localChatService.subscribe(() => {
-      if (isMounted) {
-        const messages = localChatService.getUnansweredMessages();
-        setUnansweredMessages(messages);
-      }
-    });
+    const unsubscribe = localChatService.subscribe(updateMessages);
+
+    // Verificação inicial
+    updateMessages();
 
     // Verificação periódica para garantir consistência
-    const interval = setInterval(() => {
-      if (isMounted) {
-        const messages = localChatService.getUnansweredMessages();
-        setUnansweredMessages(messages);
-      }
-    }, 3000);
+    const interval = setInterval(updateMessages, 1000);
 
     return () => {
       isMounted = false;

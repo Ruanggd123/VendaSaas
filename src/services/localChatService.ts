@@ -17,6 +17,19 @@ class LocalChatService {
 
   addMessage(text: string, platform: 'whatsapp' | 'web', from: string, to: string) {
     try {
+      // Verifica se a mensagem já existe para evitar duplicação
+      const existingMessage = this.messages.find(msg => 
+        msg.platform === platform && 
+        msg.from === from && 
+        msg.text === text &&
+        Math.abs(new Date().getTime() - msg.timestamp.getTime()) < 1000 // Dentro de 1 segundo
+      );
+      
+      if (existingMessage) {
+        console.log('Mensagem duplicada ignorada:', existingMessage);
+        return existingMessage;
+      }
+
       const message: Message = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         text,
@@ -26,9 +39,16 @@ class LocalChatService {
         from,
         to
       };
+      
       this.messages = [...this.messages, message];
       console.log('Mensagem adicionada:', message);
-      this.notifySubscribers(message); // Notifica todos os subscribers
+      this.notifySubscribers(message);
+      
+      // Processa imediatamente se for WhatsApp
+      if (platform === 'whatsapp') {
+        this.processWhatsappMessages();
+      }
+      
       return message;
     } catch (error) {
       console.error('Erro ao adicionar mensagem:', error);
@@ -50,11 +70,20 @@ class LocalChatService {
 
   async processWhatsappMessages() {
     try {
-      // Verificação mais rápida sem logs desnecessários
+      // Verifica se há mensagens pendentes
       const whatsappMessages = this.messages
-        .filter(msg => msg.platform === 'whatsapp' && !msg.responded)
-        .filter(msg => !this.processingQueue.includes(msg))
+        .filter(msg => 
+          msg.platform === 'whatsapp' && 
+          !msg.responded &&
+          !this.processingQueue.includes(msg)
+        )
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()) // Ordena por tempo
         .slice(0, 5); // Processa até 5 mensagens por vez
+
+      if (whatsappMessages.length === 0) {
+        console.log('[WhatsApp] Nenhuma mensagem pendente para processar');
+        return;
+      }
       
       for (const msg of whatsappMessages) {
         try {
