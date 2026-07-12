@@ -1,0 +1,106 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "webhookId": "evolution-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Normalize message\nconst normalized = message\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n  .trim();\n\nreturn { normalized };"
+      },
+      "name": "Normalize Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node[\"Normalize Message\"].json[\"normalized\"]}}",
+              "operation": "contains",
+              "value2": "ola"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Greeting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Send Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "evolutionApi": "evolution-api-credentials"
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Message": {
+      "main": [
+        [
+          {
+            "node": "Greeting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Greeting?": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
