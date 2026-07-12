@@ -3,9 +3,9 @@ import localChatService from '../services/localChatService';
 import useChatMonitor from '../hooks/useChatMonitor';
 
 const ChatManager: React.FC = () => {
-  const [mode, setMode] = useState<'auto' | 'manual' | 'hybrid'>('auto');
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [message, setMessage] = useState('');
-  const { unansweredMessages, isMonitoring, startMonitoring } = useChatMonitor();
+  const { unansweredMessages } = useChatMonitor();
   const [forceUpdate, setForceUpdate] = useState(0);
 
   // Atualiza a lista de mensagens a cada 500ms
@@ -80,13 +80,8 @@ const ChatManager: React.FC = () => {
 
     const messageProcessingInterval = setInterval(async () => {
       try {
-        if (mode === 'auto' || mode === 'hybrid') {
+        if (mode === 'auto') {
           await localChatService.processWhatsappMessages();
-        }
-        
-        if (mode === 'hybrid') {
-          await localChatService.hybridModeHandler();
-          setMode('auto');
         }
       } catch (error) {
         console.error('Erro no processamento:', error);
@@ -110,7 +105,6 @@ const ChatManager: React.FC = () => {
       <div className="mode-selector">
         <button onClick={() => setMode('auto')}>Automático</button>
         <button onClick={() => setMode('manual')}>Manual</button>
-        <button onClick={() => setMode('hybrid')}>Híbrido</button>
       </div>
       
       <div className="chat-window">
@@ -138,10 +132,6 @@ const ChatManager: React.FC = () => {
         Responder mensagens não respondidas
       </button>
 
-      <div className="monitoring-status">
-        {isMonitoring ? 'Monitorando...' : 'Monitoramento pausado'}
-        <button onClick={startMonitoring}>Iniciar monitoramento</button>
-      </div>
     </div>
   );
 };

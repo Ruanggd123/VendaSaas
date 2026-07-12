@@ -114,13 +114,6 @@ class LocalChatService {
     }
   }
 
-  async hybridModeHandler() {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, this.timeoutDuration);
-    });
-  }
 }
 
   // Métodos para inscrição de listeners
