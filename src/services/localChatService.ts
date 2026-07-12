@@ -10,6 +10,7 @@ interface Message {
 
 class LocalChatService {
   private messages: Message[] = [];
+  private subscribers: ((msg: Message) => void)[] = [];
   private processingQueue: Message[] = [];
   private timeoutDuration = 300000; // 5 minutos
   private whatsappResponseDelay = 2000; // Reduzido para 2 segundos
@@ -25,8 +26,9 @@ class LocalChatService {
         from,
         to
       };
-      this.messages = [...this.messages, message]; // Garante imutabilidade
+      this.messages = [...this.messages, message];
       console.log('Mensagem adicionada:', message);
+      this.notifySubscribers(message); // Notifica todos os subscribers
       return message;
     } catch (error) {
       console.error('Erro ao adicionar mensagem:', error);
@@ -89,6 +91,19 @@ class LocalChatService {
         resolve();
       }, this.timeoutDuration);
     });
+  }
+}
+
+  // Métodos para inscrição de listeners
+  subscribe(callback: (msg: Message) => void) {
+    this.subscribers.push(callback);
+    return () => {
+      this.subscribers = this.subscribers.filter(sub => sub !== callback);
+    };
+  }
+
+  private notifySubscribers(message: Message) {
+    this.subscribers.forEach(callback => callback(message));
   }
 }
 

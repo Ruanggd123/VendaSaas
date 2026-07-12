@@ -10,11 +10,18 @@ const ChatManager: React.FC = () => {
 
   // Atualiza a lista de mensagens a cada 500ms
   useEffect(() => {
-    const interval = setInterval(() => {
-      setForceUpdate(prev => prev + 1);
-    }, 500);
-    return () => clearInterval(interval);
-  }, []);
+    // Inscreve para receber notificações imediatas
+    const unsubscribe = localChatService.subscribe((newMessage) => {
+      if (newMessage.platform === 'whatsapp' && !newMessage.responded) {
+        if (mode === 'auto') {
+          localChatService.processWhatsappMessages();
+        }
+        setForceUpdate(prev => prev + 1);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [mode]);
 
   const handleSendMessage = (platform: 'whatsapp' | 'web' = 'web') => {
     if (message.trim()) {
