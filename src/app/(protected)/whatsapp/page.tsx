@@ -28,7 +28,10 @@ export default function WhatsAppIntegration() {
   useEffect(() => {
     // Initial bot message
     setTimeout(() => {
-      setMessages([{text: "Olá! Sou o assistente virtual. Vamos começar?", sender: 'bot'}]);
+      setMessages([{
+        text: "Olá! 👋 Sou o assistente virtual da assistência técnica.\nPosso te ajudar com problemas no seu aparelho celular?",
+        sender: 'bot'
+      }]);
     }, 1000);
   }, []);
 
