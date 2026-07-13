@@ -20,8 +20,17 @@ export class WhatsAppBot {
   public async handleMessage(message: string): Promise<string> {
     const lowerMessage = message.toLowerCase().trim();
 
+    // Resetar o bot se receber "iniciar" ou "novo atendimento"
+    if (lowerMessage === 'iniciar' || lowerMessage === 'novo atendimento') {
+      this.reset();
+    }
+
     switch (this.state.step) {
       case 'initial':
+        // Se já tiver dados preenchidos, oferece opção de novo atendimento
+        if (Object.keys(this.state.data).length > 0) {
+          return `Parece que você já tem um atendimento em andamento. Deseja:\n1. Continuar o atendimento anterior\n2. Iniciar um novo atendimento\n\nResponda "1" ou "2"`;
+        }
         this.state.step = 'confirm_assistance';
         return "Olá! Sou o assistente virtual da assistência técnica. Posso te ajudar com problemas no seu aparelho? (responda SIM ou NÃO)";
       
@@ -48,11 +57,14 @@ Está tudo certo? (responda SIM ou NÃO)`;
       
       case 'confirm_data':
         if (lowerMessage === 'sim' || lowerMessage === 's') {
-          this.state.step = 'complete';
-          return this.generateResponse();
+          const response = this.generateResponse();
+          this.reset(); // Resetar após finalizar
+          return response;
+        } else if (lowerMessage === 'não' || lowerMessage === 'nao' || lowerMessage === 'n') {
+          this.state.step = 'get_model';
+          return "Vamos começar novamente então. Qual é o modelo do seu aparelho?";
         }
-        this.state.step = 'get_model';
-        return "Vamos começar novamente então. Qual é o modelo do seu aparelho?";
+        return "Por favor, responda SIM ou NÃO";
       
       default:
         return "Obrigado! Um de nossos técnicos já foi notificado e entrará em contato em breve para ajudar com seu aparelho. Caso precise de mais algo, é só chamar!";

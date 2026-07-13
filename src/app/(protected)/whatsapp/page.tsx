@@ -29,7 +29,7 @@ export default function WhatsAppIntegration() {
     // Initial bot message
     setTimeout(() => {
       setMessages([{
-        text: "Olá! 👋 Sou o assistente virtual da assistência técnica.\nPosso te ajudar com problemas no seu aparelho celular?",
+        text: "Olá! 👋 Sou o assistente virtual da assistência técnica.\nPosso te ajudar com problemas no seu aparelho celular?\n\nA qualquer momento digite 'novo atendimento' para começar do zero.",
         sender: 'bot'
       }]);
     }, 1000);
