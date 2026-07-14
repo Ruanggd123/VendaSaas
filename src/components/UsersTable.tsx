@@ -4,9 +4,11 @@ import { useState } from 'react'
 
 interface User {
   id: string
-  name: string
+  name: string | null
   email: string
-  status: 'active' | 'suspended'
+  status: string
+  role: string
+  created_at: Date
 }
 
 export function UsersTable() {
@@ -31,6 +33,14 @@ export function UsersTable() {
     setConfirmAction(null)
   }
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
@@ -45,16 +55,24 @@ export function UsersTable() {
         <tbody className="bg-white divide-y divide-gray-200">
           {users.map((user) => (
             <tr key={user.id}>
-              <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {user.name || 'Não informado'}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                   user.status === 'active' 
                     ? 'bg-green-100 text-green-800' 
-                    : 'bg-yellow-100 text-yellow-800'
+                    : user.status === 'suspended'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {user.status === 'active' ? 'Ativo' : 'Suspenso'}
+                  {user.status === 'active' ? 'Ativo' : 
+                   user.status === 'suspended' ? 'Suspenso' : user.status}
                 </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {new Date(user.created_at).toLocaleDateString()}
               </td>
               <td className="px-6 py-4 whitespace-nowrap space-x-2">
                 <button
