@@ -1,4 +1,5 @@
 import { Card } from '../../../components/Card'
+import { UsersTable } from '../../../components/UsersTable'
 
 export default function AdminPage() {
   return (
@@ -24,6 +25,11 @@ export default function AdminPage() {
           icon="💰"
           trend="-3%"
         />
+      </div>
+
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-xl font-semibold mb-4">Gerenciamento de Usuários</h2>
+        <UsersTable />
       </div>
 
       <div className="bg-white shadow rounded-lg p-6">
