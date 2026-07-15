@@ -102,10 +102,17 @@ export default function SuperAdminPage() {
     // Formata o número removendo todos os caracteres não numéricos
     const formattedNumber = blacklistNumber.replace(/\D/g, '');
     
-    // Valida se tem pelo menos 11 dígitos (DDD + número)
-    if (formattedNumber.length < 11) {
-      setError("Número inválido. Deve conter DDD + número (ex: 558881681751)");
+    // Validação mais rigorosa do número
+    if (!/^55\d{10,11}$/.test(formattedNumber)) {
+      setError("Número inválido. Deve conter DDI 55 + DDD + número (ex: 558881681751)");
       return;
+    }
+
+    // Confirmação adicional para números específicos
+    if (formattedNumber === '558881681751') {
+      if (!confirm('ATENÇÃO: Este número está reportado como origem de mensagens automáticas. Confirmar bloqueio?')) {
+        return;
+      }
     }
 
     setIsBlocking(true);
