@@ -230,20 +230,36 @@ export default function SuperAdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] p-8 text-slate-900 dark:text-white -m-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#09090b] dark:to-[#111113] p-8 text-slate-900 dark:text-white -m-8">
       <div className="mx-auto max-w-7xl">
-          <header className="mb-10 flex items-center justify-between">
+          <header className="mb-12 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Super Admin</h1>
-              <p className="text-zinc-400">Gerenciamento de Clientes e Assinaturas</p>
+              <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-400 dark:to-purple-500">
+                Super Admin
+              </h1>
+              <p className="text-zinc-500 dark:text-zinc-400 mt-2">
+                Painel de controle para gerenciamento de clientes e assinaturas
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
+                SA
+              </div>
             </div>
           </header>
 
         <div className="grid gap-8 lg:grid-cols-3">
           
           {/* Formulário de Cadastro Seguro */}
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-xl backdrop-blur-md lg:col-span-1 h-fit">
-            <h2 className="mb-6 text-xl font-semibold">Novo Cliente</h2>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-lg hover:shadow-xl transition-shadow backdrop-blur-md lg:col-span-1 h-fit">
+            <div className="flex items-center mb-6">
+              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 mr-3">
+                <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold">Novo Cliente</h2>
+            </div>
             <form onSubmit={handleCreate} className="space-y-4">
               {error && <div className="rounded border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
               {success && <div className="rounded border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-400">{success}</div>}
@@ -451,16 +467,28 @@ export default function SuperAdminPage() {
           )}
 
           {/* Lista de Clientes */}
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-xl backdrop-blur-md lg:col-span-2">
-            <h2 className="mb-6 text-xl font-semibold">Clientes Ativos</h2>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-lg hover:shadow-xl transition-shadow backdrop-blur-md lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 mr-3">
+                  <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold">Clientes Ativos</h2>
+              </div>
+              <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                Total: {tenants.length} {tenants.length === 1 ? 'cliente' : 'clientes'}
+              </div>
+            </div>
             {loading ? (
               <div className="animate-pulse text-zinc-500">Carregando carteira de clientes...</div>
             ) : tenants.length === 0 ? (
               <div className="text-zinc-500">Nenhum cliente cadastrado ainda.</div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-zinc-400">
-                  <thead className="border-b border-zinc-800 text-xs uppercase text-zinc-500">
+                <table className="w-full text-left text-sm text-zinc-600 dark:text-zinc-400">
+                  <thead className="border-b border-zinc-200 dark:border-zinc-800 text-xs uppercase text-zinc-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/50">
                     <tr>
                       <th className="py-3 pr-4">Empresa</th>
                       <th className="py-3 px-4">Plano</th>
