@@ -19,6 +19,8 @@ export default function SuperAdminPage() {
   const [success, setSuccess] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [blacklistNumber, setBlacklistNumber] = useState("");
+  const [isBlocking, setIsBlocking] = useState(false);
 
   const fetchTenants = async () => {
     try {
@@ -94,6 +96,25 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handleBlockNumber = async () => {
+    if (!blacklistNumber) return;
+    setIsBlocking(true);
+    try {
+      const res = await fetch("/api/admin/blacklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number: blacklistNumber }),
+      });
+      if (!res.ok) throw new Error("Falha ao bloquear número");
+      setSuccess(`Número ${blacklistNumber} adicionado à lista negra`);
+      setBlacklistNumber("");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
   const handleSuspend = async (id: string) => {
     if (!confirm("Tem certeza que deseja suspender o acesso desta empresa imediatamente?")) return;
     try {
@@ -154,7 +175,26 @@ export default function SuperAdminPage() {
               </button>
 
               {/* Super Admin Controls */}
-              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800">
+              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800 space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Adicionar à Lista Negra</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={blacklistNumber}
+                      onChange={(e) => setBlacklistNumber(e.target.value)}
+                      placeholder="Número com DDD (ex: 5511999999999)"
+                      className="flex-1 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleBlockNumber}
+                      disabled={isBlocking || !blacklistNumber}
+                      className="rounded-lg bg-red-600 hover:bg-red-500 px-4 text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isBlocking ? "Bloqueando..." : "Bloquear"}
+                    </button>
+                  </div>
+                </div>
                 <div className="flex items-center justify-between">
                   <button 
                     type="button"
