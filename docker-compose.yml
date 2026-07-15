@@ -1,21 +1,29 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
+      - "9229:9229" # Porta para debug do Node.js
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       NEXT_PUBLIC_WIDGET_URL: /whatsapp-widget.js
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
-      OLLAMA_URL: ${OLLAMA_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-dev_key}
+      EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET:-dev_secret}
+      OLLAMA_URL: ${OLLAMA_URL:-http://localhost:11434}
+      CHOKIDAR_USEPOLLING: "true" # Melhora watch de arquivos no Docker
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/.next
     depends_on:
       - redis
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
 
   redis:
     image: redis:alpine
@@ -23,6 +31,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
 
 volumes:
   redis_data:
