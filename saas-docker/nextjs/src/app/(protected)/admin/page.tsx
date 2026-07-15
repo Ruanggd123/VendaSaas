@@ -21,6 +21,19 @@ export default function SuperAdminPage() {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [blacklistNumber, setBlacklistNumber] = useState("");
   const [isBlocking, setIsBlocking] = useState(false);
+  const [messageLogs, setMessageLogs] = useState<any[]>([]);
+
+  const fetchMessageLogs = async () => {
+    try {
+      const res = await fetch("/api/admin/message-logs");
+      if (res.ok) {
+        const data = await res.json();
+        setMessageLogs(data);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar logs:", e);
+    }
+  };
 
   const fetchTenants = async () => {
     try {
@@ -38,6 +51,17 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     fetchTenants();
+    fetchMessageLogs();
+    handleUserActivity(); // Registrar atividade inicial
+    
+    // Verificar se o número problemático já está na lista negra
+    const checkProblemNumber = async () => {
+      const res = await fetch("/api/admin/blacklist/check?number=558881681751");
+      if (res.ok && await res.json().isBlocked) {
+        setSuccess("Número 558881681751 já está na lista negra");
+      }
+    };
+    checkProblemNumber();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -96,23 +120,35 @@ export default function SuperAdminPage() {
     }
   };
 
+  const [lastUserActivity, setLastUserActivity] = useState<Date | null>(null);
+
+  // Verifica atividade do usuário a cada minuto
+  useEffect(() => {
+    const activityCheck = setInterval(() => {
+      if (lastUserActivity && new Date().getTime() - lastUserActivity.getTime() > 5 * 60 * 1000) {
+        setError('Sistema inativo - mensagens automáticas desativadas');
+      }
+    }, 60000);
+    return () => clearInterval(activityCheck);
+  }, [lastUserActivity]);
+
+  const handleUserActivity = () => {
+    setLastUserActivity(new Date());
+  };
+
   const handleBlockNumber = async () => {
+    handleUserActivity();
     if (!blacklistNumber) return;
     
-    // Formata o número removendo todos os caracteres não numéricos
     const formattedNumber = blacklistNumber.replace(/\D/g, '');
     
-    // Validação mais rigorosa do número
     if (!/^55\d{10,11}$/.test(formattedNumber)) {
       setError("Número inválido. Deve conter DDI 55 + DDD + número (ex: 558881681751)");
       return;
     }
 
-    // Confirmação adicional para números específicos
-    if (formattedNumber === '558881681751') {
-      if (!confirm('ATENÇÃO: Este número está reportado como origem de mensagens automáticas. Confirmar bloqueio?')) {
-        return;
-      }
+    if (!confirm(`Bloquear o número ${formattedNumber}? Isso impedirá qualquer comunicação.`)) {
+      return;
     }
 
     setIsBlocking(true);
@@ -192,7 +228,30 @@ export default function SuperAdminPage() {
               </button>
 
               {/* Super Admin Controls */}
-              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800 space-y-4">
+              <div 
+                className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800 space-y-4"
+                onClick={handleUserActivity}
+                onKeyDown={handleUserActivity}
+              >
+                <div className="p-3 bg-zinc-800 rounded-lg">
+                  <h3 className="text-sm font-medium mb-2">Monitor de Mensagens</h3>
+                  <div className="text-xs space-y-2 max-h-40 overflow-y-auto">
+                    {messageLogs.slice(0, 5).map((log, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span>{log.number}</span>
+                        <span className="text-zinc-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                    ))}
+                    {messageLogs.length > 5 && (
+                      <button 
+                        onClick={fetchMessageLogs}
+                        className="text-xs text-indigo-400 hover:text-indigo-300"
+                      >
+                        Ver todos ({messageLogs.length})
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Adicionar à Lista Negra</label>
                   <div className="flex gap-2">
