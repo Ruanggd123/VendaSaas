@@ -63,43 +63,47 @@ export default function SuperAdminPage() {
   };
 
   useEffect(() => {
-    fetchTenants();
-    fetchMessageLogs();
-    handleUserActivity(); // Registrar atividade inicial
-    
-    // Verificar e adicionar número problemático se necessário
-    const checkAndBlockProblemNumber = async () => {
-      const problemNumber = "558881681751";
+    const initialize = async () => {
       try {
-        // Verificar se já está bloqueado
-        const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`);
-        if (checkRes.ok) {
+        await Promise.all([
+          fetchTenants(),
+          fetchMessageLogs()
+        ]);
+        handleUserActivity();
+
+        // Verificar e adicionar número problemático se necessário
+        const problemNumber = "558881681751";
+        try {
+          const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`);
+          if (!checkRes.ok) throw new Error('Failed to check blacklist');
+          
           const { isBlocked } = await checkRes.json();
           if (isBlocked) {
             setSuccess(`Número ${problemNumber} já está na lista negra`);
             return;
           }
           
-          // Se não está bloqueado, bloquear automaticamente
           const blockRes = await fetch("/api/admin/blacklist", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ number: problemNumber }),
           });
 
-          if (blockRes.ok) {
-            setSuccess(`Número ${problemNumber} foi adicionado à lista negra automaticamente`);
-          } else {
-            setError(`Falha ao bloquear número ${problemNumber} automaticamente`);
-          }
+          if (!blockRes.ok) throw new Error('Failed to block number');
+          setSuccess(`Número ${problemNumber} foi adicionado à lista negra`);
+        } catch (err) {
+          console.error("Erro na lista negra:", err);
+          // Não mostra erro ao usuário para não poluir a UI
         }
-      } catch (err) {
-        console.error("Erro ao verificar/bloquear número:", err);
-        setError("Erro ao processar lista negra");
+      } catch (error) {
+        console.error("Erro na inicialização:", error);
+        setError("Falha ao carregar dados iniciais");
+      } finally {
+        setLoading(false);
       }
     };
-    
-    checkAndBlockProblemNumber();
+
+    initialize();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -516,11 +520,11 @@ export default function SuperAdminPage() {
                           </select>
                         </td>
                         <td className="py-4 px-4 text-xs">
-                          {tenant.users[0]?.email}
+                          {tenant.users?.[0]?.email || 'N/A'}
                         </td>
                         <td className="py-4 px-4">
-                          <div className={`text-xs mb-2 ${new Date(tenant.subscription_expires_at) < new Date() ? 'text-red-400 font-bold' : 'text-emerald-400'}`}>
-                            Validade: {new Date(tenant.subscription_expires_at).toLocaleDateString('pt-BR')}
+                          <div className={`text-xs mb-2 ${tenant.subscription_expires_at && new Date(tenant.subscription_expires_at) < new Date() ? 'text-red-400 font-bold' : 'text-emerald-400'}`}>
+                            Validade: {tenant.subscription_expires_at ? new Date(tenant.subscription_expires_at).toLocaleDateString('pt-BR') : 'N/A'}
                           </div>
                           
                           {/* Listagem de Instâncias (Celulares virtuais do cliente) */}
