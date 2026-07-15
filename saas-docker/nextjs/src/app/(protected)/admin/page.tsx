@@ -39,36 +39,44 @@ export default function SuperAdminPage() {
   const fetchMessageLogs = async () => {
     try {
       const res = await fetch("/api/admin/message-logs");
-      if (res.ok) {
-        const data = await res.json();
-        setMessageLogs(data);
-      }
+      if (!res.ok) throw new Error('Failed to fetch message logs');
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Invalid message logs data');
+      setMessageLogs(data || []);
     } catch (e) {
       console.error("Erro ao buscar logs:", e);
+      setMessageLogs([]);
     }
   };
 
   const fetchTenants = async () => {
     try {
       const res = await fetch("/api/admin/tenants");
-      if (res.ok) {
-        const data = await res.json();
-        setTenants(data);
-      }
+      if (!res.ok) throw new Error('Failed to fetch tenants');
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Invalid tenants data');
+      setTenants(data || []);
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao buscar tenants:", e);
+      setTenants([]);
+      setError("Falha ao carregar clientes");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     const initialize = async () => {
       try {
-        await Promise.all([
+        if (!mounted) return;
+        
+        await Promise.allSettled([
           fetchTenants(),
           fetchMessageLogs()
         ]);
+        
         handleUserActivity();
 
         // Verificar e adicionar número problemático se necessário
@@ -77,9 +85,9 @@ export default function SuperAdminPage() {
           const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`);
           if (!checkRes.ok) throw new Error('Failed to check blacklist');
           
-          const { isBlocked } = await checkRes.json();
-          if (isBlocked) {
-            setSuccess(`Número ${problemNumber} já está na lista negra`);
+          const data = await checkRes.json();
+          if (data?.isBlocked) {
+            if (mounted) setSuccess(`Número ${problemNumber} já está na lista negra`);
             return;
           }
           
@@ -90,24 +98,32 @@ export default function SuperAdminPage() {
           });
 
           if (!blockRes.ok) throw new Error('Failed to block number');
-          setSuccess(`Número ${problemNumber} foi adicionado à lista negra`);
+          if (mounted) setSuccess(`Número ${problemNumber} foi adicionado à lista negra`);
         } catch (err) {
           console.error("Erro na lista negra:", err);
-          // Não mostra erro ao usuário para não poluir a UI
         }
       } catch (error) {
         console.error("Erro na inicialização:", error);
-        setError("Falha ao carregar dados iniciais");
+        if (mounted) setError("Falha ao carregar dados iniciais");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     initialize();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name || !email || !phone || !password) {
+      setError("Preencha todos os campos obrigatórios");
+      return;
+    }
+
     setIsCreating(true);
     setError("");
     setSuccess("");
@@ -116,18 +132,35 @@ export default function SuperAdminPage() {
       const res = await fetch("/api/admin/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, password, plan }),
+        body: JSON.stringify({ 
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.replace(/\D/g, ''),
+          password,
+          plan 
+        }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro desconhecido ao criar cliente");
+      }
 
       setSuccess("Cliente cadastrado com sucesso!");
-      setName(""); setEmail(""); setPhone(""); setPassword("");
-      fetchTenants(); // Atualiza a lista
+      setName(""); 
+      setEmail(""); 
+      setPhone(""); 
+      setPassword("");
+      
+      // Atualiza a lista com cuidado
+      try {
+        await fetchTenants();
+      } catch (fetchError) {
+        console.error("Erro ao atualizar lista:", fetchError);
+      }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Falha ao criar cliente");
     } finally {
       setIsCreating(false);
     }
