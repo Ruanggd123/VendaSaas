@@ -67,14 +67,39 @@ export default function SuperAdminPage() {
     fetchMessageLogs();
     handleUserActivity(); // Registrar atividade inicial
     
-    // Verificar se o número problemático já está na lista negra
-    const checkProblemNumber = async () => {
-      const res = await fetch("/api/admin/blacklist/check?number=558881681751");
-      if (res.ok && await res.json().isBlocked) {
-        setSuccess("Número 558881681751 já está na lista negra");
+    // Verificar e adicionar número problemático se necessário
+    const checkAndBlockProblemNumber = async () => {
+      const problemNumber = "558881681751";
+      try {
+        // Verificar se já está bloqueado
+        const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`);
+        if (checkRes.ok) {
+          const { isBlocked } = await checkRes.json();
+          if (isBlocked) {
+            setSuccess(`Número ${problemNumber} já está na lista negra`);
+            return;
+          }
+          
+          // Se não está bloqueado, bloquear automaticamente
+          const blockRes = await fetch("/api/admin/blacklist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ number: problemNumber }),
+          });
+
+          if (blockRes.ok) {
+            setSuccess(`Número ${problemNumber} foi adicionado à lista negra automaticamente`);
+          } else {
+            setError(`Falha ao bloquear número ${problemNumber} automaticamente`);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao verificar/bloquear número:", err);
+        setError("Erro ao processar lista negra");
       }
     };
-    checkProblemNumber();
+    
+    checkAndBlockProblemNumber();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
