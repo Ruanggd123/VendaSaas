@@ -22,6 +22,19 @@ export default function SuperAdminPage() {
   const [blacklistNumber, setBlacklistNumber] = useState("");
   const [isBlocking, setIsBlocking] = useState(false);
   const [messageLogs, setMessageLogs] = useState<any[]>([]);
+  const [cooldownActive, setCooldownActive] = useState(false);
+  const [cooldownEnd, setCooldownEnd] = useState<Date | null>(null);
+
+  // Verifica cooldown periodicamente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (cooldownEnd && new Date() > cooldownEnd) {
+        setCooldownActive(false);
+        setCooldownEnd(null);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownEnd]);
 
   const fetchMessageLogs = async () => {
     try {
@@ -136,8 +149,20 @@ export default function SuperAdminPage() {
     setLastUserActivity(new Date());
   };
 
+  const activateCooldown = (minutes: number) => {
+    setCooldownActive(true);
+    const endTime = new Date();
+    endTime.setMinutes(endTime.getMinutes() + minutes);
+    setCooldownEnd(endTime);
+  };
+
   const handleBlockNumber = async () => {
     handleUserActivity();
+    
+    if (cooldownActive) {
+      setError('Sistema em cooldown - operação não permitida');
+      return;
+    }
     if (!blacklistNumber) return;
     
     const formattedNumber = blacklistNumber.replace(/\D/g, '');
@@ -234,7 +259,14 @@ export default function SuperAdminPage() {
                 onKeyDown={handleUserActivity}
               >
                 <div className="p-3 bg-zinc-800 rounded-lg">
-                  <h3 className="text-sm font-medium mb-2">Monitor de Mensagens</h3>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-medium">Monitor de Mensagens</h3>
+                    {cooldownActive && (
+                      <span className="text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded">
+                        COOLDOWN ATIVO ({Math.ceil(((cooldownEnd?.getTime() || 0) - Date.now()) / 60000)}min)
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs space-y-2 max-h-40 overflow-y-auto">
                     {messageLogs.slice(0, 5).map((log, i) => (
                       <div key={i} className="flex justify-between">
@@ -252,7 +284,18 @@ export default function SuperAdminPage() {
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => activateCooldown(30)}
+                    disabled={cooldownActive}
+                    className={`rounded-lg p-2 text-sm font-medium transition-colors ${
+                      cooldownActive 
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                        : 'bg-red-600 hover:bg-red-500 text-white'
+                    }`}
+                  >
+                    {cooldownActive ? 'Cooldown Ativo' : 'Ativar Cooldown (30min)'}
+                  </button>
                   <label className="mb-1 block text-xs text-zinc-400">Adicionar à Lista Negra</label>
                   <div className="flex gap-2">
                     <input
