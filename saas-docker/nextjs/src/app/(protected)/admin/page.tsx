@@ -1,8 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+// Tipos para os dados
+type Tenant = {
+  id: string;
+  name: string;
+  phone: string;
+  plan: string;
+  subscription_expires_at?: string;
+  users?: Array<{ email?: string }>;
+  whatsapp_instances?: Array<{
+    id: string;
+    connectionName: string;
+    name: string;
+    status: string;
+  }>;
+};
+
+type MessageLog = {
+  number: string;
+  timestamp: string;
+};
 
 export default function SuperAdminPage() {
   const router = useRouter();
@@ -37,26 +60,63 @@ export default function SuperAdminPage() {
     return () => clearInterval(interval);
   }, [cooldownEnd]);
 
-  const fetchMessageLogs = async () => {
+  const fetchMessageLogs = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/message-logs");
-      if (!res.ok) throw new Error('Failed to fetch message logs');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Resposta não é JSON");
+      }
+
       const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('Invalid message logs data');
-      setMessageLogs(data || []);
+      if (!Array.isArray(data)) {
+        throw new Error("Dados de logs inválidos");
+      }
+
+      // Validar cada item do log
+      const validatedLogs = data.filter((log: any): log is MessageLog => {
+        return typeof log.number === 'string' && 
+               typeof log.timestamp === 'string';
+      });
+
+      setMessageLogs(validatedLogs);
     } catch (e) {
       console.error("Erro ao buscar logs:", e);
       setMessageLogs([]);
+      setError("Falha ao carregar logs de mensagens");
     }
-  };
+  }, []);
 
-  const fetchTenants = async () => {
+  const fetchTenants = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/tenants");
-      if (!res.ok) throw new Error('Failed to fetch tenants');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Resposta não é JSON");
+      }
+
       const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('Invalid tenants data');
-      setTenants(data || []);
+      if (!Array.isArray(data)) {
+        throw new Error("Dados de tenants inválidos");
+      }
+
+      // Validar cada tenant
+      const validatedTenants = data.filter((tenant: any): tenant is Tenant => {
+        return typeof tenant.id === 'string' &&
+               typeof tenant.name === 'string' &&
+               typeof tenant.phone === 'string' &&
+               typeof tenant.plan === 'string';
+      });
+
+      setTenants(validatedTenants);
     } catch (e) {
       console.error("Erro ao buscar tenants:", e);
       setTenants([]);
@@ -64,27 +124,39 @@ export default function SuperAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-    
+    const abortController = new AbortController();
+
     const initialize = async () => {
       try {
         if (!mounted) return;
         
-        await Promise.allSettled([
+        const [tenantsResult, logsResult] = await Promise.allSettled([
           fetchTenants(),
           fetchMessageLogs()
         ]);
-        
+
+        if (tenantsResult.status === 'rejected') {
+          console.error('Erro ao carregar tenants:', tenantsResult.reason);
+        }
+
+        if (logsResult.status === 'rejected') {
+          console.error('Erro ao carregar logs:', logsResult.reason);
+        }
+
         handleUserActivity();
 
         // Verificar e adicionar número problemático se necessário
         const problemNumber = "558881681751";
         try {
-          const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`);
-          if (!checkRes.ok) throw new Error('Failed to check blacklist');
+          const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`, {
+            signal: abortController.signal
+          });
+          
+          if (!checkRes.ok) throw new Error(`HTTP error! status: ${checkRes.status}`);
           
           const data = await checkRes.json();
           if (data?.isBlocked) {
@@ -96,16 +168,21 @@ export default function SuperAdminPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ number: problemNumber }),
+            signal: abortController.signal
           });
 
-          if (!blockRes.ok) throw new Error('Failed to block number');
+          if (!blockRes.ok) throw new Error(`HTTP error! status: ${blockRes.status}`);
           if (mounted) setSuccess(`Número ${problemNumber} foi adicionado à lista negra`);
         } catch (err) {
-          console.error("Erro na lista negra:", err);
+          if (err.name !== 'AbortError') {
+            console.error("Erro na lista negra:", err);
+          }
         }
       } catch (error) {
-        console.error("Erro na inicialização:", error);
-        if (mounted) setError("Falha ao carregar dados iniciais");
+        if (mounted && error.name !== 'AbortError') {
+          console.error("Erro na inicialização:", error);
+          setError("Falha ao carregar dados iniciais");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -115,8 +192,9 @@ export default function SuperAdminPage() {
 
     return () => {
       mounted = false;
+      abortController.abort();
     };
-  }, []);
+  }, [fetchTenants, fetchMessageLogs]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
