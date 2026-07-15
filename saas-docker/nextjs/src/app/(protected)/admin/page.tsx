@@ -98,12 +98,22 @@ export default function SuperAdminPage() {
 
   const handleBlockNumber = async () => {
     if (!blacklistNumber) return;
+    
+    // Formata o número removendo todos os caracteres não numéricos
+    const formattedNumber = blacklistNumber.replace(/\D/g, '');
+    
+    // Valida se tem pelo menos 11 dígitos (DDD + número)
+    if (formattedNumber.length < 11) {
+      setError("Número inválido. Deve conter DDD + número (ex: 558881681751)");
+      return;
+    }
+
     setIsBlocking(true);
     try {
       const res = await fetch("/api/admin/blacklist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: blacklistNumber }),
+        body: JSON.stringify({ number: formattedNumber }),
       });
       if (!res.ok) throw new Error("Falha ao bloquear número");
       setSuccess(`Número ${blacklistNumber} adicionado à lista negra`);
@@ -183,7 +193,7 @@ export default function SuperAdminPage() {
                       type="text"
                       value={blacklistNumber}
                       onChange={(e) => setBlacklistNumber(e.target.value)}
-                      placeholder="Número com DDD (ex: 5511999999999)"
+                      placeholder="Número com DDD (ex: 558881681751)"
                       className="flex-1 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none"
                     />
                     <button
