@@ -4,20 +4,43 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_KEY = process.env.GEMINI_API_KEY || "";
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
-// Um Fallback super inteligente que simula uma IA de vendas conversando de forma fluida
+// Rate Limit in-memory (Reinicia esporadicamente na Vercel, mas ajuda a segurar spam rápido)
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
+const MAX_REQUESTS_PER_WINDOW = 5;
+const ipRequests = new Map<string, { count: number, resetTime: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const userLimit = ipRequests.get(ip);
+  
+  if (userLimit && userLimit.resetTime > now) {
+    if (userLimit.count >= MAX_REQUESTS_PER_WINDOW) return false;
+    userLimit.count++;
+  } else {
+    ipRequests.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+  }
+  return true;
+}
+
+// Fallback super inteligente que simula uma IA de vendas conversando de forma fluida
 function generateSmartFallback(message: string): string {
   const lowerMsg = message.toLowerCase().replace(/[^a-z0-9 ]/g, '');
   
+  // Tratamento de negação e objeção
+  if (lowerMsg.includes("nao quero") || lowerMsg.includes("outra coisa") || lowerMsg.includes("cancelar") || lowerMsg.includes("nao") || lowerMsg.includes("errado") || lowerMsg.includes("ruim")) {
+    return "Entendo perfeitamente! Como esta é apenas uma demonstração do meu sistema, as vezes me empolgo. 😅 \n\nVocê gostaria de ver outras opções ou prefere falar com um atendente humano?";
+  }
+
   // Se o usuário mandou números, como um CEP ou CPF
   if (/\d{5}/.test(lowerMsg)) {
     return "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu gerar o Pix de ativação rápida!";
   }
 
-  if (lowerMsg.includes("sim") || lowerMsg.includes("quero") || lowerMsg.includes("vamos")) {
+  if (lowerMsg.includes("sim") || (lowerMsg.includes("quero") && !lowerMsg.includes("nao")) || lowerMsg.includes("vamos")) {
     return "Perfeito! 🚀 O seu pedido foi criado com sucesso.\n\nAqui está o código Pix Copia e Cola para a primeira mensalidade:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nAssim que o pagamento for aprovado, o técnico irá até sua casa amanhã de manhã. Posso confirmar?";
   }
 
-  if (lowerMsg.includes("plano") || lowerMsg.includes("valor") || lowerMsg.includes("preço") || lowerMsg.includes("mega") || lowerMsg.includes("giga")) {
+  if (lowerMsg.includes("plano") || lowerMsg.includes("valor") || lowerMsg.includes("preco") || lowerMsg.includes("mega") || lowerMsg.includes("giga")) {
     return "Temos as melhores opções de Fibra! 🚀\n\n🔹 *500 Mega* - R$ 99,90/mês\n🔹 *1 Giga* - R$ 149,90/mês (Campeão de Vendas 🏆)\n\nMe passe o seu *CEP* para eu ver qual desses chega com velocidade máxima na sua casa!";
   }
 
@@ -31,6 +54,14 @@ function generateSmartFallback(message: string): string {
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "unknown_ip";
+    
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json({ 
+        reply: "⚠️ Limite de demonstração atingido para evitar abusos no servidor. Aguarde um minuto para mandar mais mensagens." 
+      });
+    }
+
     const body = await req.json();
     const { message } = body;
 
@@ -38,12 +69,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mensagem não enviada" }, { status: 400 });
     }
 
+    // Se a API Key estiver configurada na Vercel, a IA real funciona
     if (genAI) {
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
-        const prompt = `Você é um bot de vendas de internet fibra ótica. Seja super breve, humano, persuasivo, use emojis e *negrito*. 
-NÃO mande textos grandes. Você vende o plano de 500 Mega (R$99,90) e 1 Giga (R$149,90).
+        const prompt = `Você é um bot de vendas de internet fibra ótica. Seu objetivo é fechar uma venda.
+Aja de forma super breve, extremamente educada, humana e persuasiva. Use emojis e *negrito*.
+Se o cliente negar algo ou quiser outra coisa, mude de abordagem educadamente.
+NÃO mande textos grandes, maximo 3 linhas. Você vende o plano de 500 Mega (R$99,90) e 1 Giga (R$149,90).
 Mensagem do cliente: "${message}"`;
 
         const result = await model.generateContent(prompt);
@@ -51,10 +85,12 @@ Mensagem do cliente: "${message}"`;
         
         return NextResponse.json({ reply: text });
       } catch (error) {
+        console.error("Erro na API real da IA, caindo para o Fallback inteligente", error);
         return NextResponse.json({ reply: generateSmartFallback(message) });
       }
     }
 
+    // Se não tiver chave, vai pro fallback inteligente
     return NextResponse.json({ reply: generateSmartFallback(message) });
 
   } catch (error) {
