@@ -51,13 +51,15 @@ export default function WhatsappBotDemo() {
       } else {
         // Simple Bot Mode (Simulated flow)
         await new Promise(resolve => setTimeout(resolve, 1500)); // fake delay
-        const lower = userMsg.toLowerCase();
-        if (lower.includes("valor") || lower.includes("preço") || lower.includes("plano")) {
+        const lower = userMsg.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+        if (lower.includes("valor") || lower.includes("preco") || lower.includes("plano") || lower.includes("planos")) {
           botReply = "Temos o Plano Básico (R$ 97/mês) e o Plano Premium (R$ 197/mês).\n\nDigite 1 para Básico.\nDigite 2 para Premium.";
-        } else if (lower === "1" || lower === "2") {
-          botReply = "Ótimo! Um atendente humano irá prosseguir com seu pedido em instantes. Nosso horário de atendimento é de seg a sex das 08h às 18h.";
+        } else if (lower === "1") {
+          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nAqui está o código Pix Copia e Cola para pagamento:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nEnvie o comprovante aqui assim que pagar!";
+        } else if (lower === "2") {
+          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nAqui está o código Pix Copia e Cola para pagamento:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nEnvie o comprovante aqui assim que pagar!";
         } else {
-          botReply = "Desculpe, sou um robô de fluxo simples e não entendi sua mensagem. Digite 'planos' para ver nossas opções ou 'falar com atendente' para aguardar na fila.";
+          botReply = "Desculpe, não entendi. Digite 'planos' para ver nossas opções e preços.";
         }
       }
 
