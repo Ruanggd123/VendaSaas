@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, CheckCircle2, ChevronRight, Play, Star, Users, Zap, Shield, Rocket, MonitorSmartphone, MousePointerClick, TrendingUp, Layers } from "lucide-react";
+import { ArrowRight, ChevronRight, Layout, MousePointerClick, TrendingUp, MonitorSmartphone, Layers, ShieldCheck, Zap } from "lucide-react";
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -51,7 +51,7 @@ export default function TechBoostPresentation() {
           </div>
           <div className="hidden md:flex items-center gap-4">
             <button className="bg-white text-slate-900 px-6 py-2.5 rounded-full text-sm font-bold hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.3)]">
-              Quero este Modelo
+              Adquirir Modelo
             </button>
           </div>
         </div>
@@ -63,18 +63,17 @@ export default function TechBoostPresentation() {
           <Reveal>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-8">
               <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-              Modelo Premium de Alta Conversão
+              O modelo-âncora para o seu portfólio premium
             </div>
           </Reveal>
           <Reveal delay={100}>
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white max-w-4xl mx-auto leading-[1.1] mb-8">
-              A cereja do bolo dos <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-purple-500 animate-gradient-x">seus projetos digitais.</span>
+              TechBoost.
             </h1>
           </Reveal>
           <Reveal delay={200}>
             <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed font-medium">
-              Apresentamos o <strong>TechBoost</strong>. Não é apenas mais um site; é uma máquina de conversão com visual de revista internacional, criado para te colocar no mesmo patamar das gigantes da tecnologia como Apple, Microsoft e Stripe.
+              Não se trata de um template. Trata-se de um <strong>ativo estratégico de posicionamento digital</strong>. O TechBoost foi arquitetado para ser a peça central do seu catálogo de serviços — o projeto que você apresenta quando o cliente exige algo além do óbvio. É o modelo que justifica um ticket elevado porque entrega, visual e estruturalmente, o que 90% das agências não conseguem produzir.
             </p>
           </Reveal>
           <Reveal delay={300} className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -94,17 +93,17 @@ export default function TechBoostPresentation() {
         </div>
       </section>
 
-      {/* Vantagens Section */}
-      <section className="py-24 bg-white/[0.02] border-y border-white/5" id="vantagens">
+      {/* Arquitetura Visual Section */}
+      <section className="py-24 bg-white/[0.02] border-y border-white/5">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <Reveal className="space-y-8">
               <h2 className="text-4xl md:text-5xl font-black text-white leading-tight tracking-tight">
-                Visual "Uau" do <br />
-                <span className="text-blue-400">Primeiro ao Último Pixel.</span>
+                Arquitetura Visual de <br />
+                <span className="text-blue-400">Alta Performance.</span>
               </h2>
               <p className="text-lg text-slate-400 leading-relaxed">
-                O front-end do TechBoost foi arquitetado com uma identidade visual arrojada e premium, perfeita para empresas que querem se posicionar como líderes inovadoras no mercado digital.
+                A estética do TechBoost é construída sobre uma premissa clara: <strong>autoridade imediata</strong>.
               </p>
               
               <ul className="space-y-6 mt-8">
@@ -113,8 +112,8 @@ export default function TechBoostPresentation() {
                     <MonitorSmartphone className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <h4 className="text-xl font-bold text-white mb-2">Paleta Noturna Premium</h4>
-                    <p className="text-slate-400">Degradê profundo que mescla Azul Royal e Roxo Aurora. O fundo escuro faz com que sua mensagem salte aos olhos e seja lida sem esforço.</p>
+                    <h4 className="text-xl font-bold text-white mb-2">Cromática Noturna e Sofisticada</h4>
+                    <p className="text-slate-400 leading-relaxed">A fusão entre o Azul Royal profundo e o Roxo Aurora não é aleatória. Essa paleta foi escolhida para transmitir ao mesmo tempo <strong>segurança corporativa</strong> e <strong>inovação tecnológica</strong>. O fundo escuro atua como uma tela de cinema, onde cada elemento ganha protagonismo absoluto.</p>
                   </div>
                 </li>
                 <li className="flex gap-4">
@@ -122,80 +121,114 @@ export default function TechBoostPresentation() {
                     <Layers className="w-6 h-6 text-purple-400" />
                   </div>
                   <div>
-                    <h4 className="text-xl font-bold text-white mb-2">Glassmorphism & Neon</h4>
-                    <p className="text-slate-400">Bordas de vidro fosco com brilhos neon que dão um ar futurista. Causa um impacto visual imediato em qualquer apresentação.</p>
+                    <h4 className="text-xl font-bold text-white mb-2">Camadas e Profundidade (Glassmorphism)</h4>
+                    <p className="text-slate-400 leading-relaxed">Utilizamos o efeito de vidro fosco e bordas com leve luminescência para criar uma hierarquia de profundidade. Os cards não são planos; eles flutuam, dando a sensação de que o sistema está "vivo" e em camadas.</p>
+                  </div>
+                </li>
+                <li className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                    <MousePointerClick className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-white mb-2">Microinterações que Geram Fricção Positiva</h4>
+                    <p className="text-slate-400 leading-relaxed">Em vez de animações exageradas, aplicamos movimentos sutis de <em>tilt</em> nos cards e <em>hover glow</em> nos botões. Pequenos detalhes que criam uma <strong>experiência tátil e memorável</strong>, aumentando o tempo de permanência.</p>
                   </div>
                 </li>
               </ul>
             </Reveal>
 
             <Reveal delay={200} className="relative">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4 translate-y-8">
-                  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-colors">
-                    <MousePointerClick className="w-8 h-8 text-blue-400 mb-4" />
-                    <h4 className="text-lg font-bold text-white mb-2">Micro-interações</h4>
-                    <p className="text-sm text-slate-400">Botões com preenchimento líquido e brilho externo viciante.</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-colors">
-                    <TrendingUp className="w-8 h-8 text-purple-400 mb-4" />
-                    <h4 className="text-lg font-bold text-white mb-2">Gatilhos Visuais</h4>
-                    <p className="text-sm text-slate-400">Elementos posicionados nos locais de maior atenção térmica do olho humano.</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl p-6 shadow-xl shadow-blue-900/50">
-                    <Rocket className="w-8 h-8 text-white mb-4" />
-                    <h4 className="text-lg font-bold text-white mb-2">Animações Dinâmicas</h4>
-                    <p className="text-sm text-blue-100">Não é poluição visual; é narrativa que prende a atenção do visitante do início ao fim.</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-colors">
-                    <Shield className="w-8 h-8 text-green-400 mb-4" />
-                    <h4 className="text-lg font-bold text-white mb-2">Botões Magnéticos</h4>
-                    <p className="text-sm text-slate-400">CTAs que pulsam sutilmente, aumentando a taxa de cadastro em até 40%.</p>
-                  </div>
-                </div>
+              <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent p-1 shadow-2xl">
+                 <img src="https://images.unsplash.com/photo-1618761714954-0b8cd0026356?auto=format&fit=crop&q=80&w=800" alt="Interface Abstrata" className="w-full h-[600px] object-cover rounded-2xl opacity-60 mix-blend-screen" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-transparent to-transparent rounded-3xl"></div>
               </div>
             </Reveal>
           </div>
         </div>
       </section>
 
+      {/* Engenharia de Conversão */}
+      <section className="py-24 relative">
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-6">Engenharia de Conversão aplicada ao Design</h2>
+            <p className="text-lg text-slate-400 max-w-3xl mx-auto">Beleza sem propósito é decoração. No TechBoost, cada pixel possui uma função mercadológica.</p>
+          </Reveal>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <Reveal delay={100} className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/10 transition-colors">
+              <ShieldCheck className="w-10 h-10 text-blue-400 mb-6" />
+              <h4 className="text-xl font-bold text-white mb-4">Leitura Térmica do Olhar</h4>
+              <p className="text-slate-400 leading-relaxed">Posicionamos os selos e chamadas estrategicamente nos pontos de maior atenção visual (baseados em mapas de calor). O visitante não precisa procurar a oferta; ela encontra o olhar dele.</p>
+            </Reveal>
+            
+            <Reveal delay={200} className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-blue-500/20 rounded-3xl p-8 shadow-xl shadow-blue-900/20">
+              <MousePointerClick className="w-10 h-10 text-white mb-6" />
+              <h4 className="text-xl font-bold text-white mb-4">CTAs com Persuasão</h4>
+              <p className="text-blue-100 leading-relaxed">O botão principal possui uma pulsação rítmica controlada que atua como um imã visual, reduzindo a taxa de hesitação e direcionando o clique de forma orgânica.</p>
+            </Reveal>
+            
+            <Reveal delay={300} className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/10 transition-colors">
+              <TrendingUp className="w-10 h-10 text-purple-400 mb-6" />
+              <h4 className="text-xl font-bold text-white mb-4">Narrativa por Scroll</h4>
+              <p className="text-slate-400 leading-relaxed">As animações são reveladas progressivamente, construindo uma argumentação comercial que conduz o lead do "interesse" até a "ação", exatamente como um bom vendedor faria.</p>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* Versatilidade */}
-      <section className="py-32 relative">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <Reveal>
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-6">Versatilidade Total para Qualquer Nicho</h2>
-            <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-16">
-              Este modelo é a coringa do seu portfólio. Por ter um design moderno e tecnológico, ele se adapta perfeitamente a diversos mercados.
+      <section className="py-24 relative bg-white/[0.02] border-y border-white/5">
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-6">Versatilidade Estratégica</h2>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              A estrutura modular permite adaptação natural a diferentes mercados, sem perder a essência premium.
             </p>
           </Reveal>
           
-          <div className="grid md:grid-cols-4 gap-6">
-            {["SaaS & Softwares", "Agências de Marketing", "Startups Buscando Investimento", "Marcas Pessoais de Alto Padrão"].map((nicho, i) => (
-              <Reveal key={i} delay={i * 100} className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:border-blue-500/50 transition-colors flex items-center justify-center text-center">
-                <span className="font-bold text-slate-300">{nicho}</span>
-              </Reveal>
-            ))}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Reveal delay={100} className="bg-[#0f172a] border border-white/10 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-colors">
+              <h4 className="text-lg font-bold text-white mb-3">SaaS e Startups</h4>
+              <p className="text-sm text-slate-400">Transmite maturidade e escalabilidade, essencial para rodadas de investimento.</p>
+            </Reveal>
+            <Reveal delay={200} className="bg-[#0f172a] border border-white/10 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-colors">
+              <h4 className="text-lg font-bold text-white mb-3">Agências e Consultorias</h4>
+              <p className="text-sm text-slate-400">Funciona como vitrine de credibilidade, mostrando que você entrega o que promete.</p>
+            </Reveal>
+            <Reveal delay={300} className="bg-[#0f172a] border border-white/10 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-colors">
+              <h4 className="text-lg font-bold text-white mb-3">Infoprodutos de Alto Ticket</h4>
+              <p className="text-sm text-slate-400">O design escuro e tecnológico valoriza o conteúdo, criando percepção de exclusividade.</p>
+            </Reveal>
+            <Reveal delay={400} className="bg-[#0f172a] border border-white/10 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-colors">
+              <h4 className="text-lg font-bold text-white mb-3">Marcas Pessoais (C-Level)</h4>
+              <p className="text-sm text-slate-400">Posiciona executivos e líderes como referências inovadoras em seus segmentos.</p>
+            </Reveal>
           </div>
         </div>
       </section>
 
       {/* Discurso / CTA Final */}
-      <section className="py-32 relative overflow-hidden bg-gradient-to-br from-blue-900 via-[#030712] to-purple-900 border-t border-white/10">
+      <section className="py-32 relative overflow-hidden bg-gradient-to-br from-blue-900 via-[#030712] to-purple-900">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
         <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
           <Reveal>
-            <div className="mb-10 text-6xl text-blue-500/30 font-serif leading-none">"</div>
-            <p className="text-2xl md:text-4xl font-bold text-white mb-12 leading-tight tracking-tight">
-              O site que fecha vendas <br className="hidden md:block"/> enquanto você dorme.
+            <div className="mb-8 text-6xl text-blue-500/30 font-serif leading-none">"</div>
+            <p className="text-2xl md:text-3xl font-bold text-white mb-10 leading-relaxed italic">
+              Enquanto seus concorrentes utilizam estruturas quadradas e ultrapassadas, seu projeto rodará em uma interface fluida. Em menos de 2 segundos, o visitante entenderá que está lidando com uma empresa avaliada em milhões — e essa percepção é o que antecede qualquer venda.
             </p>
-            <p className="text-lg text-blue-200 mb-12 max-w-3xl mx-auto font-medium">
-              Imagine seu cliente chegando ao seu site e, em menos de 2 segundos, sentir que está visitando uma plataforma avaliada em milhões de dólares. Com o modelo TechBoost, você entrega isso. Um ativo digital de alto valor agregado que justifica um ticket mais alto.
-            </p>
-            <button className="px-12 py-5 bg-white text-slate-900 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:scale-105 hover:bg-blue-50">
-              Quero Vender com o TechBoost
-            </button>
+            
+            <h3 className="text-xl text-blue-300 font-bold mb-12">O Diferencial que você entrega ao seu cliente.</h3>
+
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-10 backdrop-blur-md max-w-2xl mx-auto">
+              <h2 className="text-2xl font-black text-white mb-4">Pronto para elevar o padrão do seu portfólio.</h2>
+              <p className="text-slate-400 mb-8">
+                Adquira o TechBoost e tenha na mão o recurso que faltava para desbancar propostas concorrentes e fechar contratos com valores significativamente mais altos.
+              </p>
+              <button className="w-full sm:w-auto px-12 py-5 bg-white text-slate-900 rounded-full font-black text-lg transition-all shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:scale-105 hover:bg-blue-50">
+                Adquirir Modelo TechBoost
+              </button>
+            </div>
           </Reveal>
         </div>
       </section>
