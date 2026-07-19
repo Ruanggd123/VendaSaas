@@ -203,70 +203,66 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="max-w-7xl mx-auto px-6 pt-16 md:pt-28 pb-24 md:pb-36 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-        <div className="lg:col-span-7 space-y-6 md:space-y-8 text-center lg:text-left">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-mono uppercase tracking-wider animate-fade-in">
-            <Sparkles className="w-3.5 h-3.5" /> Automação de Vendas 2026
+      <section className="max-w-7xl mx-auto px-6 pt-20 md:pt-32 pb-24 md:pb-40 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+        <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-xs font-bold uppercase tracking-widest shadow-lg shadow-indigo-500/10 animate-fade-in">
+            <Sparkles className="w-4 h-4 text-indigo-400" /> A Nova Era da Automação
           </div>
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white animate-fade-in-up">
-            Transforme conversas em{" "}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">faturamento real</span>{" "}
-            no piloto automático.
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[1.05] text-white animate-fade-in-up">
+            Venda no <br className="hidden lg:block" />
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animate-gradient-x">piloto automático.</span>
           </h1>
-          <p className="text-sm sm:text-base lg:text-lg text-slate-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed animate-fade-in-up animation-delay-200">
-            Desenvolvemos Sites Premium de alta conversão e Bots com Inteligência Artificial integrados para qualificar leads, agendar clientes e fechar vendas no WhatsApp 24h por dia.
+          <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium animate-fade-in-up animation-delay-200">
+            Chega de perder clientes por demora no atendimento. Nossos Sistemas Premium e Inteligências Artificiais agendam, qualificam e fecham vendas para você <strong className="text-white">24 horas por dia, 7 dias por semana.</strong>
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up animation-delay-400">
+          <div className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start pt-4 animate-fade-in-up animation-delay-400">
             <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
-              className="group px-8 py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-2xl shadow-lg shadow-green-600/25 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-green-500/30 flex items-center justify-center gap-2">
-              <MessageSquare className="w-4 h-4" /> Começar Agora
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              className="group px-8 py-5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-black rounded-2xl shadow-2xl shadow-green-500/30 transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 text-lg">
+              <MessageSquare className="w-5 h-5" /> Falar com um Consultor
+              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </a>
-            <Link href="/login" className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-300 font-bold transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20">
-              Já tenho conta — Entrar
-            </Link>
+            <a href="#portfolio" className="px-8 py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white font-bold transition-all duration-300 flex items-center justify-center gap-2 hover:border-white/20 text-lg group">
+              Ver Demonstrações <ArrowRight className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity group-hover:translate-x-1" />
+            </a>
           </div>
-          <div className="flex flex-wrap items-center gap-4 justify-center lg:justify-start pt-4 animate-fade-in-up animation-delay-600">
-            {["Sem setup complexo", "Suporte dedicado", "Ativação em 24h"].map((t) => (
-              <div key={t} className="flex items-center gap-2 text-xs text-slate-500">
-                <CheckCircle2 className="w-4 h-4 text-green-500" /> <span>{t}</span>
+          <div className="flex flex-wrap items-center gap-6 justify-center lg:justify-start pt-6 animate-fade-in-up animation-delay-600 opacity-80">
+            {["Sem setup complexo", "Suporte dedicado VIP", "Ativação em 24h"].map((t) => (
+              <div key={t} className="flex items-center gap-2 text-sm font-semibold text-slate-400">
+                <CheckCircle2 className="w-5 h-5 text-green-500" /> <span>{t}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bot Preview */}
+        {/* Bot Preview Hologram */}
         <div className="lg:col-span-5 relative flex justify-center animate-fade-in-left">
-          <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 blur-3xl rounded-full -z-10" />
-          <div className="w-full max-w-sm bg-[#0a0f1a]/80 border border-white/10 rounded-3xl p-6 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-3 -left-3 w-16 h-16 bg-indigo-500/15 blur-2xl rounded-full" />
-            <div className="absolute -bottom-3 -right-3 w-16 h-16 bg-purple-500/15 blur-2xl rounded-full" />
-            <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/30">
-                <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-0.5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-transparent blur-[100px] rounded-full -z-10" />
+          <div className="w-full max-w-sm bg-[#0a0f1a]/60 border border-white/20 rounded-[2rem] p-6 backdrop-blur-2xl shadow-2xl relative overflow-hidden ring-1 ring-white/10">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+            <div className="flex items-center gap-4 border-b border-white/10 pb-5 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/40 relative">
+                <div className="absolute inset-0 bg-white/20 mix-blend-overlay"></div>
+                <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-1 relative z-10" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Nexus Assistant</h4>
-                <span className="text-[10px] text-green-400 flex items-center gap-1 font-mono uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> Online agora
+                <h4 className="text-base font-extrabold text-white">Nexus Assistant</h4>
+                <span className="text-xs text-green-400 flex items-center gap-1.5 font-bold uppercase tracking-wider mt-0.5">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]" /> Online agora
                 </span>
               </div>
             </div>
-            <div className="space-y-3 min-h-[200px] text-xs font-sans">
-              <div className="bg-white/5 rounded-2xl rounded-tl-md p-3.5 max-w-[85%] text-slate-300 border border-white/5">
+            <div className="space-y-4 min-h-[220px] text-sm font-medium">
+              <div className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[85%] text-slate-200 border border-white/5 shadow-sm">
                 Olá! Vi que você quer impulsionar o seu negócio. Como posso te ajudar hoje?
               </div>
-              <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-2xl rounded-tr-md p-3.5 max-w-[80%] ml-auto text-white shadow-lg shadow-green-500/20">
-                Quero um site completo com robô de vendas
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl rounded-tr-sm p-4 max-w-[80%] ml-auto text-white shadow-xl shadow-green-500/20">
+                Quero automatizar minhas vendas no WhatsApp
               </div>
-              <div className="bg-white/5 rounded-2xl rounded-tl-md p-3.5 max-w-[85%] text-slate-300 border border-white/5">
-                <span className="flex items-center gap-1.5 text-indigo-400 text-[10px] font-mono mb-1.5">
-                  <Bot className="w-3 h-3" /> Nexus IA
+              <div className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[90%] text-slate-200 border border-white/5 shadow-sm">
+                <span className="flex items-center gap-1.5 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-2">
+                  <Bot className="w-4 h-4" /> Nexus IA
                 </span>
-                Excelente escolha! Vou te mostrar o Combo Motor de Vendas completo...
-              </div>
-              <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-2xl rounded-tr-md p-3.5 max-w-[70%] ml-auto text-white shadow-lg shadow-green-500/20 text-center font-bold">
-                Quero contratar agora!
+                Perfeito! Nossa IA atende, qualifica e agenda seus clientes em segundos. Você só acompanha o dinheiro entrando na conta. 🚀
               </div>
             </div>
           </div>
@@ -293,60 +289,73 @@ export default function LandingPage() {
       </section>
 
       {/* ── Portfólio / Exemplos ── */}
-      <section id="portfolio" className="max-w-7xl mx-auto px-6 py-20 md:py-28">
-        <Reveal className="text-center space-y-4 mb-16">
-          <span className="inline-block px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 text-xs font-mono uppercase tracking-wider">Portfólio</span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white">Veja o que podemos construir para você</h2>
-          <p className="text-sm text-slate-400 max-w-xl mx-auto">Nossos sites e sistemas são projetados com alta tecnologia, focando 100% na experiência do seu usuário e conversão de vendas.</p>
+      <section id="portfolio" className="max-w-7xl mx-auto px-6 py-20 md:py-28 relative">
+        {/* Glow Effects */}
+        <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-purple-600/10 blur-[150px] rounded-full -z-10 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-600/10 blur-[150px] rounded-full -z-10 pointer-events-none" />
+
+        <Reveal className="text-center space-y-4 mb-16 relative z-10">
+          <span className="inline-block px-4 py-1.5 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-full text-purple-300 text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-500/5">Demonstração ao vivo</span>
+          <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tight">Experimente o Futuro</h2>
+          <p className="text-base text-slate-400 max-w-2xl mx-auto font-medium">Não acredite apenas na nossa palavra. Teste agora mesmo a qualidade absurda dos sistemas que vamos construir para o seu negócio.</p>
         </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Reveal delay={100} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
-            <a href="#planos" className="block w-full h-full">
+          <Reveal delay={100} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.3)]">
+            <Link href="/templates/landing-page" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
-                <img src="/images/website_mockup.png" alt="Site Institucional" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                <img src="/images/website_mockup.png" alt="Site Institucional" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/80 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
               </div>
-              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Site Landing Page</h3>
-                <p className="text-sm text-zinc-200 drop-shadow-md">Design moderno, focado em conversão e captação de leads. Perfeito para escalar sua operação.</p>
-                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
-                  Ver Planos &rarr;
+              <div className="p-8 absolute bottom-0 left-0 w-full z-10">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4 border border-blue-500/30 backdrop-blur-md">
+                  <Globe className="w-5 h-5 text-blue-400" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Landing Page</h3>
+                <p className="text-sm text-slate-300 font-medium line-clamp-2">Acesse agora uma demonstração real de como seu site de alta conversão ficará.</p>
+                <div className="mt-5 flex items-center gap-2 text-blue-400 text-sm font-bold opacity-80 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 duration-300">
+                  Acessar Demonstração <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
-            </a>
+            </Link>
           </Reveal>
           
-          <Reveal delay={200} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
-            <a href="#planos" className="block w-full h-full">
+          <Reveal delay={200} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(249,115,22,0.3)]">
+            <Link href="/templates/ecommerce" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
-                <img src="/images/store_mockup.png" alt="Loja Virtual" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                <img src="/images/store_mockup.png" alt="Loja Virtual" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/80 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
               </div>
-              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Loja Virtual (E-commerce)</h3>
-                <p className="text-sm text-zinc-200 drop-shadow-md">Plataforma robusta para vender seus produtos, totalmente integrada com pagamentos automatizados.</p>
-                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
-                  Ver Planos &rarr;
+              <div className="p-8 absolute bottom-0 left-0 w-full z-10">
+                <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center mb-4 border border-orange-500/30 backdrop-blur-md">
+                  <ShoppingBag className="w-5 h-5 text-orange-400" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">E-Commerce</h3>
+                <p className="text-sm text-slate-300 font-medium line-clamp-2">Teste a experiência de compra perfeita que seus clientes terão na sua loja virtual.</p>
+                <div className="mt-5 flex items-center gap-2 text-orange-400 text-sm font-bold opacity-80 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 duration-300">
+                  Acessar Demonstração <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
-            </a>
+            </Link>
           </Reveal>
           
-          <Reveal delay={300} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
-            <a href="#planos" className="block w-full h-full">
+          <Reveal delay={300} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(34,197,94,0.3)]">
+            <Link href="/templates/whatsapp-bot" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
-                <img src="/images/chat_mockup.png" alt="Bot IA" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                <img src="/images/chat_mockup.png" alt="Bot IA" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/80 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
               </div>
-              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Assistente IA no WhatsApp</h3>
-                <p className="text-sm text-zinc-200 drop-shadow-md">Seu robô inteligente que atende, vende e agenda 24h por dia, sem precisar de humanos.</p>
-                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
-                  Ver Planos &rarr;
+              <div className="p-8 absolute bottom-0 left-0 w-full z-10">
+                <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center mb-4 border border-green-500/30 backdrop-blur-md">
+                  <Bot className="w-5 h-5 text-green-400" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Bot IA de Vendas</h3>
+                <p className="text-sm text-slate-300 font-medium line-clamp-2">Veja como a nossa IA atende perfeitamente como se fosse um humano pelo WhatsApp.</p>
+                <div className="mt-5 flex items-center gap-2 text-green-400 text-sm font-bold opacity-80 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0 duration-300">
+                  Acessar Demonstração <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
-            </a>
+            </Link>
           </Reveal>
         </div>
       </section>
