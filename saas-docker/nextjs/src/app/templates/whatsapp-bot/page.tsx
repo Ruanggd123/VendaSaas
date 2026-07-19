@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, Phone, Video, MoreVertical, Smile, Paperclip, Mic, Send, CheckCheck } from "lucide-react";
+import { ChevronRight, Phone, Video, MoreVertical, Smile, Paperclip, Mic, Send, CheckCheck, Bot, Sparkles } from "lucide-react";
 
 type Message = { id: string; text: string; sender: 'user' | 'bot'; time: string };
 
@@ -13,6 +13,7 @@ export default function WhatsappBotDemo() {
   ]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isAIMode, setIsAIMode] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,15 +37,29 @@ export default function WhatsappBotDemo() {
     setIsTyping(true);
 
     try {
-      // Fetch AI response
-      const res = await fetch("/api/demo-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg })
-      });
-      
-      const data = await res.json();
-      const botReply = data.reply || "Desculpe, não consegui entender.";
+      let botReply = "";
+
+      if (isAIMode) {
+        // Fetch AI response
+        const res = await fetch("/api/demo-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMsg })
+        });
+        const data = await res.json();
+        botReply = data.reply || "Desculpe, não consegui entender.";
+      } else {
+        // Simple Bot Mode (Simulated flow)
+        await new Promise(resolve => setTimeout(resolve, 1500)); // fake delay
+        const lower = userMsg.toLowerCase();
+        if (lower.includes("valor") || lower.includes("preço") || lower.includes("plano")) {
+          botReply = "Temos o Plano Básico (R$ 97/mês) e o Plano Premium (R$ 197/mês).\n\nDigite 1 para Básico.\nDigite 2 para Premium.";
+        } else if (lower === "1" || lower === "2") {
+          botReply = "Ótimo! Um atendente humano irá prosseguir com seu pedido em instantes. Nosso horário de atendimento é de seg a sex das 08h às 18h.";
+        } else {
+          botReply = "Desculpe, sou um robô de fluxo simples e não entendi sua mensagem. Digite 'planos' para ver nossas opções ou 'falar com atendente' para aguardar na fila.";
+        }
+      }
 
       const replyTime = new Date();
       const replyTimeStr = `${String(replyTime.getHours()).padStart(2, '0')}:${String(replyTime.getMinutes()).padStart(2, '0')}`;
@@ -59,7 +74,47 @@ export default function WhatsappBotDemo() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ece5dd] font-sans flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#ece5dd] font-sans flex flex-col md:flex-row items-center justify-center p-4 gap-8">
+      
+      {/* Configuration Panel (For Demo Presenter) */}
+      <div className="bg-white rounded-3xl p-6 shadow-xl max-w-sm w-full md:w-80">
+        <h3 className="font-bold text-lg text-slate-900 mb-2">Painel de Demonstração</h3>
+        <p className="text-sm text-slate-500 mb-6">Mostre para o seu cliente a diferença de um bot comum engessado e a nossa Inteligência Artificial.</p>
+        
+        <div className="space-y-3">
+          <button 
+            onClick={() => {
+              setIsAIMode(false);
+              setMessages([{ id: "0", text: "Bem-vindo. Digite 'planos' para ver os preços.", sender: 'bot', time: 'Agora' }]);
+            }}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${!isAIMode ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'}`}
+          >
+            <Bot className="w-6 h-6" />
+            <div className="text-left">
+              <div className="font-bold text-sm">Bot Simples (Fluxo)</div>
+              <div className="text-xs opacity-80">Limitado, menu numérico.</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => {
+              setIsAIMode(true);
+              setMessages([
+                { id: "1", text: "Olá! Gostaria de saber mais sobre os planos.", sender: 'user', time: '10:30' },
+                { id: "2", text: "Olá! Sou a IA da Nexus Telecom. 👋\nTemos planos a partir de 500 Mega por apenas R$ 99,90/mês. Gostaria de verificar a viabilidade para o seu CEP?", sender: 'bot', time: '10:30' }
+              ]);
+            }}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${isAIMode ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-md shadow-purple-500/20' : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'}`}
+          >
+            <Sparkles className="w-6 h-6" />
+            <div className="text-left">
+              <div className="font-bold text-sm">Inteligência Artificial</div>
+              <div className="text-xs opacity-80">Vende, entende contexto.</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Phone Mockup Frame */}
       <div className="w-full max-w-[400px] h-[800px] bg-black rounded-[3rem] p-3 shadow-2xl relative overflow-hidden ring-1 ring-zinc-800">
         <div className="absolute top-0 inset-x-0 h-7 bg-black z-50 rounded-t-[3rem]">
@@ -72,10 +127,12 @@ export default function WhatsappBotDemo() {
           {/* WhatsApp Header */}
           <div className="bg-[#008069] text-white pt-10 pb-3 px-4 flex items-center gap-3 z-10 shrink-0">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=nexus" alt="Bot" className="w-full h-full p-1 bg-teal-50" />
+              <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${isAIMode ? 'nexus' : 'robot'}`} alt="Bot" className="w-full h-full p-1 bg-teal-50" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-[17px] truncate leading-tight">Vendas Automáticas IA</h2>
+              <h2 className="font-semibold text-[17px] truncate leading-tight">
+                {isAIMode ? "Assistente IA (Premium)" : "Atendimento Padrão"}
+              </h2>
               <p className="text-xs text-white/80">
                 {isTyping ? "digitando..." : "online"}
               </p>
@@ -103,7 +160,7 @@ export default function WhatsappBotDemo() {
             <div className="flex justify-center mb-4">
               <span className="bg-[#ffeecd] text-zinc-600 text-xs px-4 py-2 rounded-xl text-center shadow-sm max-w-[90%] leading-relaxed">
                 <span className="block mb-1">🔒</span>
-                As mensagens e chamadas são protegidas com a criptografia de ponta a ponta. Converse de verdade com a IA!
+                Demonstração ativada: {isAIMode ? "Você está falando com a IA poderosa." : "Você está falando com um bot simples de fluxo."}
               </span>
             </div>
 
@@ -139,7 +196,7 @@ export default function WhatsappBotDemo() {
               <input 
                 type="text" 
                 placeholder="Escreva uma mensagem" 
-                className="flex-1 bg-transparent py-3 outline-none text-[15px]"
+                className="flex-1 bg-transparent py-3 outline-none text-[15px] text-zinc-900 placeholder-zinc-500"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
               />
@@ -162,7 +219,7 @@ export default function WhatsappBotDemo() {
 
       {/* Return Button */}
       <Link href="/" className="fixed bottom-6 right-6 z-50 px-4 py-2 bg-zinc-900 text-white rounded-full text-sm font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
-        <ChevronRight className="w-4 h-4 rotate-180" /> Voltar ao Nexus
+        <ChevronRight className="w-4 h-4 rotate-180" /> Voltar
       </Link>
     </div>
   );
