@@ -1,0 +1,194 @@
+{
+  "name": "Vendedor IA - WhatsApp (Ollama Local)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-webhook",
+        "options": {}
+      },
+      "id": "webhook-receive",
+      "name": "Webhook (Evolution API)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai dados da mensagem recebida do Evolution\nconst body = $json.body;\nconst data = body.data || {};\nconst from = data.from || '';\nconst text = data.text?.message || data.text || '';\nconst pushName = data.pushName || '';\n\nreturn {\n  telefone: from.replace('@s.whatsapp.net', '').replace('@c.us', ''),\n  mensagem: text,\n  nome_contato: pushName,\n  raw: $json\n};"
+      },
+      "id": "parse-evolution",
+      "name": "Parse Evolution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepara o prompt unificado para o Ollama\nconst input = $input.first().json;\nconst mensagem = input.mensagem || '';\nconst nome = input.nome_contato || '';\nconst telefone = input.telefone || '';\n\n// Carrega o prompt de vendas\nconst systemPrompt = `Você é o Carlos, consultor comercial da Agência WebPro. \n\nREGRAS:\n1. Seja amigável e direto\n2. SEMPRE responda saudações como 'oi', 'olá', 'bom dia' com uma saudação amigável e pergunte o nome/ramo\n3. NUNCA diga 'Desculpe, estou passando por uma instabilidade'\n4. Se o cliente mostrar interesse, apresente os planos:\n   - Plano Solo: R$97/mês - Site institucional + IA\n   - Plano Equipe: R$197/mês - Site + IA + CRM\n   - Plano Corporativo: R$497/mês - Completo + Prioridade\n5. Se o cliente estiver pronto para comprar, gere um link de pagamento\n6. Se o cliente quiser falar com humano, agende um contato\n\nIMPORTANTE: Responda APENAS a mensagem do cliente, sem metadados.`;\n\nreturn {\n  telefone: telefone,\n  mensagem: mensagem,\n  nome: nome,\n  system_prompt: systemPrompt\n};"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepara Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama3.1:latest"
+            },
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"{{ $json.system_prompt }}\"},{\"role\":\"user\",\"content\":\"{{ $json.mensagem }}\"}]"
+            },
+            {
+              "name": "stream",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-response",
+      "name": "Ollama (Resposta)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai dados da resposta do Ollama\nconst resposta = $json.message?.content || '';\n\n// Detecta intenções na resposta\nconst lower = resposta.toLowerCase();\n\nlet pronto_pagamento = false;\nlet quer_humano = false;\nlet objecao = null;\nlet servico_interesse = null;\n\nif (lower.includes('link') || lower.includes('pagamento') || lower.includes('comprar') || lower.includes('fechar') || lower.includes('quero')) {\n  pronto_pagamento = true;\n}\nif (lower.includes('humano') || lower.includes('atendente') || lower.includes('pessoa') || lower.includes('liga')) {\n  quer_humano = true;\n}\nif (lower.includes('caro') || lower.includes('preço') || lower.includes('$$')) {\n  objecao = 'preco';\n} else if (lower.includes('pensar') || lower.includes('depois') || lower.includes('volto')) {\n  objecao = 'pensar';\n}\nif (lower.includes('solo') || lower.includes('97')) servico_interesse = 'solo';\nif (lower.includes('equipe') || lower.includes('197')) servico_interesse = 'equipe';\nif (lower.includes('corporativo') || lower.includes('497')) servico_interesse = 'corporativo';\n\nreturn {\n  resposta: resposta,\n  pronto_pagamento: pronto_pagamento,\n  quer_humano: quer_humano,\n  objecao: objecao,\n  servico_interesse: servico_interesse\n};"
+      },
+      "id": "extract-intent",
+      "name": "Extrai Intenção",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.pronto_pagamento}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-pagamento",
+      "name": "Pronto p/ Pagamento?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.quer_humano}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-humano",
+      "name": "Quer Humano?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution:8080/message/sendText/evolution",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $node['Parse Evolution'].json.telefone }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $node['Extrai Intenção'].json.resposta }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Evolution (Enviar Resposta)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://evolution:8080/message/sendText/evolution",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $node['Parse Evolution'].json.telefone }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ 'Ótimo! Vou te encaminhar para um atendente humano. Em breve alguém entrará em contato.\\n\\n' + $node['Extrai Intenção'].json.resposta }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-humano",
+      "name": "Evolution (Encaminhar Humano)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1500, 450]
+    }
+  ],
+  "connections": {
+    "Webhook (Evolution API)": {
+      "main": [[ { "node": "Parse Evolution", "type": "main", "index": 0 } ]]
+    },
+    "Parse Evolution": {
+      "main": [[ { "node": "Prepara Prompt", "type": "main", "index": 0 } ]]
+    },
+    "Prepara Prompt": {
+      "main": [[ { "node": "Ollama (Resposta)", "type": "main", "index": 0 } ]]
+    },
+    "Ollama (Resposta)": {
+      "main": [[ { "node": "Extrai Intenção", "type": "main", "index": 0 } ]]
+    },
+    "Extrai Intenção": {
+      "main": [
+        [ { "node": "Pronto p/ Pagamento?", "type": "main", "index": 0 } ],
+        [ { "node": "Quer Humano?", "type": "main", "index": 1 } ]
+      ]
+    },
+    "Pronto p/ Pagamento?": {
+      "main": [
+        [ { "node": "Evolution (Enviar Resposta)", "type": "main", "index": 0 } ],
+        []
+      ]
+    },
+    "Quer Humano?": {
+      "main": [
+        [ { "node": "Evolution (Enviar Resposta)", "type": "main", "index": 0 } ],
+        [ { "node": "Evolution (Encaminhar Humano)", "type": "main", "index": 0 } ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

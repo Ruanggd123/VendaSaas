@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: saas_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: senha_secreta
+      POSTGRES_DB: saas
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - saas_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_redis
+    restart: always
+    volumes:
+      - ./redis:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - saas_network
+
+  evolution:
+    image: atendai/evolution-api:latest
+    container_name: saas_evolution
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://admin:senha_secreta@postgres:5432/saas
+      - REDIS_URL=redis://redis:6379
+      - INSTANCE_NAME=evolution
+    volumes:
+      - ./evolution:/app/instances
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - saas_network
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: saas_n8n
+    restart: always
+    environment:
+      - N8N_DATABASE_TYPE=postgresdb
+      - N8N_DATABASE_POSTGRESDB_HOST=postgres
+      - N8N_DATABASE_POSTGRESDB_DATABASE=saas
+      - N8N_DATABASE_POSTGRESDB_USER=admin
+      - N8N_DATABASE_POSTGRESDB_PASSWORD=senha_secreta
+      - N8N_ENCRYPTION_KEY=chave_de_criptografia_aleatoria
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - ./n8n:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - saas_network
+
+  nextjs:
+    build:
+      context: ../dashboard-saas
+      dockerfile: Dockerfile
+    container_name: saas_nextjs
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://admin:senha_secreta@postgres:5432/saas
+      - NEXTAUTH_SECRET=qualquer_chave_secreta
+      - NEXTAUTH_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - saas_network
+
+networks:
+  saas_network:
+    driver: bridge

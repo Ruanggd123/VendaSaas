@@ -1,0 +1,431 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model Tenant {
+  id                      String    @id @default(uuid())
+  name                    String
+  phone                   String    @unique
+  plan                    String    @default("solo")
+  status                  String    @default("active")
+  settings                String    @default("{}") // Usamos String no SQLite. No Postgres será Json.
+  subscription_expires_at DateTime?
+  created_at              DateTime  @default(now())
+
+  users              User[]
+  conversations      Conversation[]
+  messages           Message[]
+  leads              Lead[]
+  projects           Project[]
+  whatsapp_instances WhatsappInstance[]
+  appointments       Appointment[]
+  sales              Sale[]
+  documents          Document[]
+  active_modules     ActiveModule[]
+  service_orders     ServiceOrder[]
+  retail_orders      RetailOrder[]
+  accounting_tasks   AccountingTask[]
+  custom_modules     CustomModule[]
+  partners           Partner[]
+
+  @@map("tenants")
+}
+
+model WhatsappInstance {
+  id             String   @id @default(uuid())
+  tenant_id      String
+  partner_id     String?
+  name           String   @unique // Nome na Evolution API (ex: tenant_123_uuid)
+  connectionName String   // Nome dado pelo usuário (ex: "Atendimento Matriz")
+  status         String   @default("connecting") // connecting, open, etc.
+  phone_number   String?  // O número do WhatsApp quando conectado
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  partner Partner? @relation(fields: [partner_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([partner_id])
+  @@map("whatsapp_instances")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  tenant_id     String
+  email         String   @unique
+  password_hash String
+  role          String   @default("agent")
+  name          String?
+  created_at    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model Conversation {
+  id              String    @id @default(uuid())
+  tenant_id       String
+  instance_name   String?
+  contact_number  String
+  contact_name    String?
+  profile_picture String?
+  status          String    @default("active")
+  ai_paused       Boolean   @default(false)
+  last_message_at DateTime?
+  created_at      DateTime  @default(now())
+
+  tenant   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  messages Message[]
+  leads    Lead[]
+
+  @@unique([tenant_id, contact_number])
+  @@index([tenant_id])
+  @@map("conversations")
+}
+
+model Message {
+  id              String   @id @default(uuid())
+  tenant_id       String
+  conversation_id String
+  direction       String
+  content         String
+  ai_generated    Boolean  @default(false)
+  metadata        String?  // JSON como string para SQLite
+  created_at      DateTime @default(now())
+
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, conversation_id])
+  @@map("messages")
+}
+
+model Lead {
+  id                 String   @id @default(uuid())
+  tenant_id          String
+  conversation_id    String?
+  name               String?
+  phone              String?
+  email              String?
+  status             String?  // Pode receber valores do AutoVendas como "NEW", "CONTACTED"
+  interested_product String?
+  value              Float?
+  
+  // Campos adicionados pela integração AutoVendas
+  category           String?
+  city               String?
+  estado             String?
+  source             String?
+  lastContactedAt    DateTime?
+  nextContactAt      DateTime?
+  contactAttempts    Int      @default(0)
+  partner_id         String?
+  notes              String?  @db.Text
+
+  created_at         DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversation_id], references: [id], onDelete: SetNull)
+  partner      Partner?      @relation(fields: [partner_id], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+  sales        Sale[]
+  service_orders     ServiceOrder[]
+  retail_orders      RetailOrder[]
+  accounting_tasks   AccountingTask[]
+
+  @@index([tenant_id])
+  @@map("leads")
+}
+
+model Partner {
+  id                String        @id @default(uuid())
+  tenant_id         String
+  name              String
+  email             String?
+  password_hash     String?
+  whatsappNumber    String?
+  referralCode      String        @unique
+  commissionRate    Float         @default(30.0) // 30% by default
+  trial_ends_at     DateTime?
+  access_expires_at DateTime?
+  settings          String?       @default("{}") // JSON: products, ai_prompt, etc.
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  
+  tenant           Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  leads            Lead[]
+  commissions      PartnerCommission[]
+  withdrawals      PartnerWithdrawal[]
+  whatsapp_instances WhatsappInstance[]
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id])
+  @@map("partners")
+}
+
+model PartnerCommission {
+  id             String   @id @default(uuid())
+  partner_id     String
+  sale_id        String   @unique
+  amount         Float
+  type           String   // "fixed" or "percentage"
+  status         String   @default("pending") // pending, paid, cancelled
+  created_at     DateTime @default(now())
+  withdrawal_id  String?
+
+  partner        Partner              @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  sale           Sale                 @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  withdrawal     PartnerWithdrawal?   @relation(fields: [withdrawal_id], references: [id])
+
+  @@index([partner_id])
+  @@map("partner_commissions")
+}
+
+model PartnerWithdrawal {
+  id             String          @id @default(uuid())
+  partner_id     String
+  amount         Float
+  status         String          @default("pending") // pending, approved, rejected
+  pixKey         String
+  pixKeyType     String          // cpf, cnpj, email, phone, random
+  approved_at    DateTime?
+  rejected_at    DateTime?
+  admin_id       String?
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+
+  partner        Partner              @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  commissions    PartnerCommission[]
+
+  @@index([partner_id])
+  @@index([status])
+  @@map("partner_withdrawals")
+}
+
+model Project {
+  id                String   @id @default(uuid())
+  tenant_id         String
+  name              String
+  status            String   @default("pendente")
+  prazo_entrega     DateTime
+  desconto_aplicado Float    @default(0)
+  dias_atraso       Int      @default(0)
+  created_at        DateTime @default(now())
+
+  tenant            Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@map("projects")
+}
+
+// Configurações globais do sistema (para o Super Admin)
+// Armazena chaves de API de pagamento, preços de planos, etc.
+model SystemConfig {
+  id         String   @id @default(uuid())
+  key        String   @unique  // ex: "payment_provider", "asaas_api_key", "mercadopago_token"
+  value      String            // o valor (pode ser JSON stringificado)
+  updated_at DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+// Agendamentos (criados via IA ou manualmente)
+model Appointment {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  lead_id      String?
+  service_name String
+  duration_min Int       @default(60)   // duração em minutos
+  scheduled_at DateTime
+  status       String    @default("scheduled") // scheduled, confirmed, completed, cancelled, no_show
+  notes        String?
+  reminder_sent Boolean  @default(false)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead   Lead?  @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id])
+  @@index([scheduled_at])
+  @@map("appointments")
+}
+
+// Vendas / Cobranças
+model Sale {
+  id              String    @id @default(uuid())
+  tenant_id       String
+  lead_id         String?
+  product_name    String
+  amount          Float
+  status          String    @default("pending") // pending, paid, overdue, cancelled
+  payment_link    String?
+  payment_id      String?   // ID retornado pelo gateway (Asaas, MP)
+  subscription_id String?   // ID da assinatura no Asaas/MP
+  is_recurring    Boolean   @default(false)
+  due_date        DateTime?
+  paid_at         DateTime?
+  notes           String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead       Lead?              @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  commission PartnerCommission?
+
+  @@index([tenant_id])
+  @@map("sales")
+}
+
+// ----------------------------------------------------
+// MULTISECTOR & KNOWLEDGE BASE (FASE 1)
+// ----------------------------------------------------
+
+model Document {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  title        String
+  content_text String    @db.Text
+  file_url     String?
+  mime_type    String?   // ex: application/pdf, text/plain
+  status       String    @default("pending") // pending, processing, indexed, error
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  tenant       Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  chunks       DocumentChunk[]
+
+  @@index([tenant_id])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id           String    @id @default(uuid())
+  document_id  String
+  chunk_index  Int
+  text_content String    @db.Text
+  // pgvector: 768 dimensions for text-embedding-004
+  embedding    Unsupported("vector(768)")? 
+  created_at   DateTime  @default(now())
+
+  document     Document  @relation(fields: [document_id], references: [id], onDelete: Cascade)
+
+  @@index([document_id])
+  @@map("document_chunks")
+}
+
+model ActiveModule {
+  id           String    @id @default(uuid())
+  tenant_id    String
+  module_name  String    // ex: "odontologia", "varejo", "assistencia"
+  settings     String    @default("{}") // configuracoes especificas do modulo
+  activated_at DateTime  @default(now())
+
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, module_name])
+  @@map("active_modules")
+}
+
+// ----------------------------------------------------
+// FASE 2: NOVOS MÓDULOS SETORIAIS
+// ----------------------------------------------------
+
+// Assistência Técnica
+model ServiceOrder {
+  id               String    @id @default(uuid())
+  tenant_id        String
+  lead_id          String?
+  device_model     String
+  reported_issue   String    @db.Text
+  estimated_budget Float?
+  status           String    @default("pending") // pending, diagnosing, waiting_parts, repairing, ready, delivered
+  notes            String?   @db.Text
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead   Lead?  @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id])
+  @@map("service_orders")
+}
+
+// Varejo
+model RetailOrder {
+  id               String    @id @default(uuid())
+  tenant_id        String
+  lead_id          String?
+  total_amount     Float
+  status           String    @default("cart") // cart, paid, shipped, delivered
+  shipping_address String?   @db.Text
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead   Lead?  @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  items  RetailOrderItem[]
+
+  @@index([tenant_id])
+  @@map("retail_orders")
+}
+
+model RetailOrderItem {
+  id               String      @id @default(uuid())
+  retail_order_id  String
+  product_name     String
+  quantity         Int         @default(1)
+  unit_price       Float
+  created_at       DateTime    @default(now())
+
+  order RetailOrder @relation(fields: [retail_order_id], references: [id], onDelete: Cascade)
+
+  @@index([retail_order_id])
+  @@map("retail_order_items")
+}
+
+// Contabilidade
+model AccountingTask {
+  id          String    @id @default(uuid())
+  tenant_id   String
+  lead_id     String?
+  task_type   String    // e.g. DARF, GPS, Declaracao, NF
+  description String    @db.Text
+  due_date    DateTime?
+  status      String    @default("requested") // requested, processing, done
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead   Lead?  @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id])
+  @@map("accounting_tasks")
+}
+
+// Módulos Customizados do Usuário (Criados via Web ou IA WhatsApp)
+model CustomModule {
+  id            String    @id @default(uuid())
+  tenant_id     String
+  key           String    // identificador do modulo (ex: "petshop")
+  icon          String    @default("🏪")
+  title         String
+  description   String    @db.Text
+  system_prompt String    @db.Text
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, key])
+  @@map("custom_modules")
+}

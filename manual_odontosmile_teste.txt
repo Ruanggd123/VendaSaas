@@ -1,0 +1,32 @@
+==================================================
+MANUAL DE ATENDIMENTO - CLÍNICA ODONTOSMILE
+==================================================
+
+Este manual contém as regras de negócios oficiais da OdontoSmile para a assistente virtual responder aos clientes no WhatsApp.
+
+1. HORÁRIO E DIAS DE ATENDIMENTO
+- Segunda a Sexta: das 08:00 às 18:00.
+- Sábado: das 08:00 às 12:00.
+- Domingo: Fechado (urgências são encaminhadas para o Hospital Geral).
+
+2. NOSSA EQUIPE DE DENTISTAS
+- Dra. Mariana Souza: Especialista em Ortodontia (Aparelhos) e Odontopediatria. Atende terças e quintas.
+- Dr. Carlos Eduardo: Especialista em Implantes e Canal. Atende segundas, quartas e sextas.
+- Dra. Beatriz Costa: Clínica Geral e Clareamento. Atende todos os dias úteis.
+
+3. TABELA DE PROCEDIMENTOS E PREÇOS (Procedimentos mais comuns)
+- Consulta Geral/Avaliação: R$ 80,00 (caso o paciente feche o tratamento no mesmo dia, a avaliação é gratuita).
+- Limpeza Preventiva com Flúor: R$ 150,00.
+- Clareamento Dental a Laser: R$ 850,00.
+- Restauração Simples: R$ 120,00.
+- Tratamento de Canal (Endodontia): A partir de R$ 450,00 (depende do dente, necessário passar por avaliação).
+
+4. PLANOS E CONVÊNIOS ACEITOS
+- Aceitamos os planos: Amil Dental, Unimed Odonto, SulAmérica Odonto e Porto Seguro.
+- NÃO aceitamos Bradesco Dental nem convênios públicos (SUS).
+- Para quem não tem convênio, facilitamos o pagamento em até 6x sem juros no cartão de crédito ou com 10% de desconto à vista no Pix.
+
+5. LOCALIZAÇÃO E CONTATO
+- Endereço: Avenida Paulista, nº 1000, Edifício Horizon, Sala 402 - São Paulo/SP.
+- Ponto de referência: Próximo ao metrô Trianon-Masp.
+- Estacionamento terceirizado no subsolo do prédio (grátis nos primeiros 15 minutos para consultas rápidas).

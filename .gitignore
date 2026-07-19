@@ -1,0 +1,11 @@
+.aider*
+.env
+saas-docker/postgres/
+saas-docker/ollama/
+saas-docker/redis/
+node_modules/
+
+saas-docker/postgres/
+saas-docker/ollama/
+saas-docker/redis/
+node_modules/

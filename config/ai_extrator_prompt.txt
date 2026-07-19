@@ -1,0 +1,25 @@
+Analise a conversa entre o lead e o consultor (última interação + histórico resumido) e extraia as seguintes informações em JSON. Se algum campo não estiver presente, use `null` ou o valor padrão indicado.
+
+Retorne **apenas** o JSON, sem comentários.
+
+Campos obrigatórios:
+- "nome": string ou null
+- "ramo": string ou null (ex.: "salão de beleza", "clínica odontológica")
+- "interesse": string // "baixo", "medio" ou "alto"
+- "servico_interesse": string // qual serviço/produto despertou interesse? (ex.: "site_basico", "saas_solo", null)
+- "objecao": string ou null // principal objeção mencionada (ex.: "preço", "falta de tempo", "desconhecimento", null)
+- "pronto_para_pagamento": boolean // true se o lead pediu link de pagamento ou confirmou compra
+- "quer_falar_humano": boolean // true se pediu para falar com uma pessoa ou demonstrou insatisfação com a IA
+- "resumo": string // resumo em uma frase do estágio atual da conversa
+
+Exemplo de saída:
+{
+  "nome": "Maria",
+  "ramo": "clínica de estética",
+  "interesse": "alto",
+  "servico_interesse": "saas_solo",
+  "objecao": "preço",
+  "pronto_para_pagamento": false,
+  "quer_falar_humano": false,
+  "resumo": "Lead interessada no plano Solo, mas acha o valor mensal elevado."
+}
