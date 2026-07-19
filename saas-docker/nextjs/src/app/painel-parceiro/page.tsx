@@ -224,6 +224,8 @@ export default function PainelParceiro() {
   const [asaasMsg, setAsaasMsg] = useState('');
   const [asaasError, setAsaasError] = useState('');
   const [asaasConnected, setAsaasConnected] = useState(false);
+  const [asaasEnv, setAsaasEnv] = useState<'sandbox' | 'production'>('sandbox');
+  const [asaasBalance, setAsaasBalance] = useState<number | null>(null);
 
   const handleAsaasSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,11 +235,11 @@ export default function PainelParceiro() {
       const r = await fetch('/api/asaas/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: asaasApiKey, tenantId: data?.tenantId })
+        body: JSON.stringify({ apiKey: asaasApiKey, tenantId: data?.tenantId, environment: asaasEnv })
       });
       const d = await r.json();
       if (d.error) { setAsaasError(d.error); }
-      else { setAsaasMsg(d.message); setAsaasConnected(true); setTimeout(() => setShowAsaasModal(false), 3000); }
+      else { setAsaasMsg(d.message); setAsaasBalance(d.balance); setAsaasConnected(true); setTimeout(() => setShowAsaasModal(false), 4000); }
     } catch { setAsaasError('Erro de conexão. Tente novamente.'); }
     setAsaasLoading(false);
   };
@@ -701,8 +703,40 @@ export default function PainelParceiro() {
                   </p>
                 </div>
 
-                {!asaasConnected ? (
                   <form onSubmit={handleAsaasSetup} className="space-y-4">
+                    {/* Seletor de Ambiente */}
+                    <div>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Ambiente</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAsaasEnv('sandbox')}
+                          className={`flex flex-col items-center gap-1 py-3 px-4 rounded-xl border text-xs font-bold transition-all ${
+                            asaasEnv === 'sandbox'
+                              ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
+                              : 'bg-white/[0.02] border-white/[0.06] text-zinc-500 hover:border-white/10'
+                          }`}
+                        >
+                          <span className="text-base">🧪</span>
+                          Sandbox
+                          <span className="text-[9px] font-normal opacity-70">Para testes</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAsaasEnv('production')}
+                          className={`flex flex-col items-center gap-1 py-3 px-4 rounded-xl border text-xs font-bold transition-all ${
+                            asaasEnv === 'production'
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                              : 'bg-white/[0.02] border-white/[0.06] text-zinc-500 hover:border-white/10'
+                          }`}
+                        >
+                          <span className="text-base">🚀</span>
+                          Produção
+                          <span className="text-[9px] font-normal opacity-70">Dinheiro real</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Chave de API do Asaas</label>
                       <div className="relative">
@@ -711,12 +745,12 @@ export default function PainelParceiro() {
                           value={asaasApiKey}
                           onChange={e => setAsaasApiKey(e.target.value)}
                           required
-                          placeholder="$aact_YTU5YmM2OWI..." 
+                          placeholder="$aact_YTU5YmM2OWI..."
                           className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all pr-12"
                         />
                         <ShieldCheck className="w-4 h-4 text-zinc-600 absolute right-3 top-1/2 -translate-y-1/2" />
                       </div>
-                      <p className="text-[10px] text-zinc-600 mt-1.5">Começa com <code className="text-zinc-400">$aact_</code> (Produção) ou <code className="text-zinc-400">$aact_sandbox</code> (Testes)</p>
+                      <p className="text-[10px] text-zinc-600 mt-1.5">Encontre em: <strong className="text-zinc-500">Asaas → Minha Conta → Integrações → Chave de API</strong></p>
                     </div>
 
                     {asaasError && (
@@ -746,7 +780,13 @@ export default function PainelParceiro() {
                     <div>
                       <h4 className="text-base font-bold text-white mb-1">Integração Completa!</h4>
                       <p className="text-[11px] text-zinc-400 leading-relaxed">{asaasMsg}</p>
-                      <p className="text-[11px] text-zinc-500 mt-2">O Webhook foi configurado automaticamente. Todo pagamento aprovado será processado pelo sistema.</p>
+                      {asaasBalance !== null && (
+                        <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                          <Banknote className="w-4 h-4 text-emerald-400" />
+                          <span className="text-sm font-bold text-emerald-400">Saldo {asaasEnv === 'sandbox' ? 'Sandbox' : 'Real'}: R$ {Number(asaasBalance).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-zinc-500 mt-3">O Webhook foi configurado automaticamente. Todo pagamento aprovado será processado pelo sistema.</p>
                     </div>
                   </div>
                 )}

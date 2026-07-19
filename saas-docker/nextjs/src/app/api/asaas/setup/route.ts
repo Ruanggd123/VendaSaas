@@ -6,34 +6,42 @@ const prisma = new PrismaClient();
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { apiKey, tenantId } = body;
+    const { apiKey, tenantId, environment = "sandbox" } = body;
 
     if (!apiKey) {
       return NextResponse.json({ error: "Chave de API do Asaas não fornecida." }, { status: 400 });
     }
 
     // 1. Validar a Chave de API batendo no Asaas
-    const asaasUrl = apiKey.includes("sandbox") 
-      ? "https://sandbox.asaas.com/api/v3" 
-      : "https://api.asaas.com/v3";
+    const asaasUrl = environment === "production"
+      ? "https://api.asaas.com/v3"
+      : "https://sandbox.asaas.com/api/v3";
+
+    console.log(`[Asaas Setup] Tentando conectar ao ambiente: ${environment} (${asaasUrl})`);
 
     const balanceRes = await fetch(`${asaasUrl}/finance/balance`, {
       headers: {
         "access_token": apiKey,
+        "Content-Type": "application/json",
         "User-Agent": "NexusSaaS/1.0"
       }
     });
 
     if (!balanceRes.ok) {
-      return NextResponse.json({ error: "Chave de API inválida ou sem permissão." }, { status: 401 });
+      const errorBody = await balanceRes.text();
+      console.error(`[Asaas Setup] Erro de validação (${balanceRes.status}):`, errorBody);
+      return NextResponse.json({ 
+        error: `Chave de API inválida ou sem permissão. (Código: ${balanceRes.status}). Verifique se você selecionou o ambiente correto.` 
+      }, { status: 401 });
     }
 
+    const balanceData = await balanceRes.json();
+    console.log("[Asaas Setup] Saldo atual:", balanceData.balance);
+
     // 2. Configurar o Webhook Automaticamente
-    // Pegamos a URL base da variável de ambiente, ou um fallback seguro.
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nexus-six-olive.vercel.app";
     const webhookUrl = `${baseUrl}/api/asaas/webhook`;
 
-    // No Asaas v3, o webhook de cobranças fica em /webhooks
     const webhookRes = await fetch(`${asaasUrl}/webhooks`, {
       method: "POST",
       headers: {
@@ -42,9 +50,9 @@ export async function POST(req: Request) {
         "User-Agent": "NexusSaaS/1.0"
       },
       body: JSON.stringify({
-        name: "Nexus Integração",
+        name: "Nexus Integracao",
         url: webhookUrl,
-        email: "financeiro@nexussaas.com", // Pode ser o email do tenant
+        email: "financeiro@nexussaas.com",
         enabled: true,
         interrupted: false,
         apiVersion: 3,
@@ -53,53 +61,66 @@ export async function POST(req: Request) {
       })
     });
 
-    // É comum o Asaas retornar erro se o webhook já existir. Tratamos isso.
+    let webhookOk = webhookRes.ok;
+    let webhookMsg = "";
     if (!webhookRes.ok) {
-      const errorData = await webhookRes.json();
-      console.warn("Aviso ao criar webhook:", errorData);
-      // Se der erro que já existe, podemos tentar fazer um PUT, ou apenas ignorar se a intenção é só validar.
+      const wErr = await webhookRes.text();
+      console.warn("[Asaas Setup] Aviso ao criar webhook (pode já existir):", wErr);
+      webhookMsg = " (Webhook já configurado ou ignorado — verifique no painel Asaas se necessário)";
+    } else {
+      console.log("[Asaas Setup] Webhook criado com sucesso!");
     }
 
     // 3. Salvar no Banco de Dados (Supabase via Prisma)
-    if (tenantId) {
-      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const targetTenantId = tenantId;
+    if (targetTenantId) {
+      const tenant = await prisma.tenant.findUnique({ where: { id: targetTenantId } });
       if (tenant) {
         let settings = {};
-        try {
-          settings = JSON.parse(tenant.settings || "{}");
-        } catch(e) {}
-        
-        settings = { ...settings, asaasApiKey: apiKey, asaasWebhookConfigured: true };
-        
+        try { settings = JSON.parse(tenant.settings || "{}"); } catch(e) {}
+        settings = { 
+          ...settings, 
+          asaasApiKey: apiKey, 
+          asaasEnvironment: environment,
+          asaasWebhookConfigured: true,
+          asaasWebhookUrl: webhookUrl,
+          asaasConnectedAt: new Date().toISOString()
+        };
         await prisma.tenant.update({
-          where: { id: tenantId },
+          where: { id: targetTenantId },
           data: { settings: JSON.stringify(settings) }
         });
       }
     } else {
-       // Apenas para DEMO: atualizar o primeiro tenant se existir
-       const firstTenant = await prisma.tenant.findFirst();
-       if (firstTenant) {
-          let settings = {};
-          try {
-            settings = JSON.parse(firstTenant.settings || "{}");
-          } catch(e) {}
-          settings = { ...settings, asaasApiKey: apiKey, asaasWebhookConfigured: true };
-          await prisma.tenant.update({
-            where: { id: firstTenant.id },
-            data: { settings: JSON.stringify(settings) }
-          });
-       }
+      // Fallback: atualizar o primeiro tenant (para demo)
+      const firstTenant = await prisma.tenant.findFirst();
+      if (firstTenant) {
+        let settings = {};
+        try { settings = JSON.parse(firstTenant.settings || "{}"); } catch(e) {}
+        settings = { 
+          ...settings, 
+          asaasApiKey: apiKey, 
+          asaasEnvironment: environment,
+          asaasWebhookConfigured: true,
+          asaasWebhookUrl: webhookUrl,
+          asaasConnectedAt: new Date().toISOString()
+        };
+        await prisma.tenant.update({
+          where: { id: firstTenant.id },
+          data: { settings: JSON.stringify(settings) }
+        });
+      }
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: "Integração com Asaas configurada e Webhook ativado com sucesso!" 
+      message: `Integração com Asaas (${environment === "production" ? "Produção" : "Sandbox"}) configurada! Webhook ativado em ${webhookUrl}.${webhookMsg}`,
+      balance: balanceData.balance ?? null
     });
 
   } catch (error: any) {
-    console.error("Erro interno no setup do Asaas:", error);
-    return NextResponse.json({ error: "Erro interno no servidor." }, { status: 500 });
+    console.error("[Asaas Setup] Erro interno:", error);
+    return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
