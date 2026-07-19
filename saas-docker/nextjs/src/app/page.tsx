@@ -81,6 +81,80 @@ function CountUp({ target, suffix = "" }: { target: number; suffix?: string }) {
   return <span ref={ref} className="tabular-nums">{count}{suffix}</span>;
 }
 
+function AnimatedHologram() {
+  const SCRIPT = [
+    { sender: "bot", text: "Olá! Vi que você quer impulsionar o seu negócio. Como posso te ajudar hoje?" },
+    { sender: "user", text: "Quero automatizar minhas vendas no WhatsApp" },
+    { sender: "bot", text: "Perfeito! Nossa IA atende, qualifica e agenda seus clientes em segundos. Você só acompanha o dinheiro entrando na conta. 🚀" }
+  ];
+
+  const [messages, setMessages] = useState<any[]>([]);
+  const [index, setIndex] = useState(0);
+  const [isTyping, setIsTyping] = useState(true);
+
+  useEffect(() => {
+    if (index >= SCRIPT.length) {
+      setIsTyping(false);
+      return;
+    }
+    
+    const isBot = SCRIPT[index].sender === "bot";
+    setIsTyping(isBot);
+    
+    const timer = setTimeout(() => {
+      setMessages((prev) => [...prev, SCRIPT[index]]);
+      setIsTyping(false);
+      setIndex((i) => i + 1);
+    }, isBot ? 2500 : 1500);
+
+    return () => clearTimeout(timer);
+  }, [index]);
+
+  return (
+    <div className="lg:col-span-5 relative flex justify-center animate-fade-in-left h-full">
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-transparent blur-[100px] rounded-full -z-10" />
+      <div className="w-full max-w-sm bg-[#0a0f1a]/60 border border-white/20 rounded-[2rem] p-6 backdrop-blur-2xl shadow-2xl relative overflow-hidden ring-1 ring-white/10 h-[380px] flex flex-col">
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        <div className="flex items-center gap-4 border-b border-white/10 pb-5 mb-5 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/40 relative">
+            <div className="absolute inset-0 bg-white/20 mix-blend-overlay"></div>
+            <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-1 relative z-10" />
+          </div>
+          <div>
+            <h4 className="text-base font-extrabold text-white">Nexus Assistant</h4>
+            <span className="text-xs text-green-400 flex items-center gap-1.5 font-bold uppercase tracking-wider mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]" /> Online agora
+            </span>
+          </div>
+        </div>
+        
+        <div className="flex-1 space-y-4 text-sm font-medium overflow-y-auto pr-2 flex flex-col">
+          {messages.map((m, i) => (
+            m.sender === "bot" ? (
+              <div key={i} className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[90%] text-slate-200 border border-white/5 shadow-sm animate-fade-in-up">
+                {i === 2 && <span className="flex items-center gap-1.5 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-2"><Bot className="w-4 h-4" /> Nexus IA</span>}
+                {m.text}
+              </div>
+            ) : (
+              <div key={i} className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl rounded-tr-sm p-4 max-w-[80%] ml-auto text-white shadow-xl shadow-green-500/20 animate-fade-in-up">
+                {m.text}
+              </div>
+            )
+          ))}
+          
+          {isTyping && (
+            <div className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[40%] text-slate-200 border border-white/5 shadow-sm animate-fade-in-up flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selected, setSelected] = useState({ site: "" as string, bot: "" as string, modules: [] as string[] });
@@ -234,39 +308,8 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Bot Preview Hologram */}
-        <div className="lg:col-span-5 relative flex justify-center animate-fade-in-left">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-transparent blur-[100px] rounded-full -z-10" />
-          <div className="w-full max-w-sm bg-[#0a0f1a]/60 border border-white/20 rounded-[2rem] p-6 backdrop-blur-2xl shadow-2xl relative overflow-hidden ring-1 ring-white/10">
-            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-            <div className="flex items-center gap-4 border-b border-white/10 pb-5 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden shadow-lg shadow-indigo-500/40 relative">
-                <div className="absolute inset-0 bg-white/20 mix-blend-overlay"></div>
-                <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-1 relative z-10" />
-              </div>
-              <div>
-                <h4 className="text-base font-extrabold text-white">Nexus Assistant</h4>
-                <span className="text-xs text-green-400 flex items-center gap-1.5 font-bold uppercase tracking-wider mt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]" /> Online agora
-                </span>
-              </div>
-            </div>
-            <div className="space-y-4 min-h-[220px] text-sm font-medium">
-              <div className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[85%] text-slate-200 border border-white/5 shadow-sm">
-                Olá! Vi que você quer impulsionar o seu negócio. Como posso te ajudar hoje?
-              </div>
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl rounded-tr-sm p-4 max-w-[80%] ml-auto text-white shadow-xl shadow-green-500/20">
-                Quero automatizar minhas vendas no WhatsApp
-              </div>
-              <div className="bg-white/10 rounded-2xl rounded-tl-sm p-4 max-w-[90%] text-slate-200 border border-white/5 shadow-sm">
-                <span className="flex items-center gap-1.5 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Bot className="w-4 h-4" /> Nexus IA
-                </span>
-                Perfeito! Nossa IA atende, qualifica e agenda seus clientes em segundos. Você só acompanha o dinheiro entrando na conta. 🚀
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Bot Preview Hologram Animated */}
+        <AnimatedHologram />
       </section>
 
       {/* ── Metrics ── */}

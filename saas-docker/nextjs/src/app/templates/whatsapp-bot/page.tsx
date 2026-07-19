@@ -2,52 +2,61 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, Phone, Video, Search, MoreVertical, Smile, Paperclip, Mic, CheckCheck } from "lucide-react";
+import { ChevronRight, Phone, Video, MoreVertical, Smile, Paperclip, Mic, Send, CheckCheck } from "lucide-react";
 
-type Message = { id: number; text: string; sender: 'user' | 'bot'; time: string };
-
-const SCRIPT: Message[] = [
-  { id: 1, text: "Olá! Gostaria de saber mais sobre os planos da internet.", sender: 'user', time: '10:30' },
-  { id: 2, text: "Olá! Sou a IA da Nexus Telecom. 👋\n\nTemos planos a partir de 500 Mega por apenas R$ 99,90/mês. Gostaria de verificar a viabilidade para o seu CEP?", sender: 'bot', time: '10:30' },
-  { id: 3, text: "Sim, meu cep é 01001-000", sender: 'user', time: '10:31' },
-  { id: 4, text: "Perfeito! Verifiquei aqui e temos cobertura de Fibra Óptica para a Praça da Sé (São Paulo/SP). 🎉\n\nQual plano você prefere?\n1️⃣ 500 Mega - R$ 99,90\n2️⃣ 1 Giga - R$ 149,90", sender: 'bot', time: '10:31' },
-  { id: 5, text: "Quero o de 1 Giga", sender: 'user', time: '10:32' },
-  { id: 6, text: "Excelente escolha! 🚀 O plano de 1 Giga é ideal para streaming em 4K e jogos online sem lag.\n\nPara agendar a instalação, vou precisar de alguns dados rápidos. Podemos prosseguir com o seu CPF?", sender: 'bot', time: '10:32' }
-];
+type Message = { id: string; text: string; sender: 'user' | 'bot'; time: string };
 
 export default function WhatsappBotDemo() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [messages, setMessages] = useState<Message[]>([
+    { id: "1", text: "Olá! Gostaria de saber mais sobre os planos da internet.", sender: 'user', time: '10:30' },
+    { id: "2", text: "Olá! Sou a IA da Nexus Telecom. 👋\n\nTemos planos a partir de 500 Mega por apenas R$ 99,90/mês. Gostaria de verificar a viabilidade para o seu CEP?", sender: 'bot', time: '10:30' }
+  ]);
+  const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (currentIndex >= SCRIPT.length) return;
-
-    const msg = SCRIPT[currentIndex];
-    
-    if (msg.sender === 'bot') {
-      setIsTyping(true);
-      const timer = setTimeout(() => {
-        setIsTyping(false);
-        setMessages(prev => [...prev, msg]);
-        setCurrentIndex(c => c + 1);
-      }, 1500);
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(() => {
-        setMessages(prev => [...prev, msg]);
-        setCurrentIndex(c => c + 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentIndex]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!inputText.trim() || isTyping) return;
+
+    const userMsg = inputText.trim();
+    setInputText("");
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    // Add user message
+    setMessages(prev => [...prev, { id: Date.now().toString(), text: userMsg, sender: 'user', time: timeStr }]);
+    setIsTyping(true);
+
+    try {
+      // Fetch AI response
+      const res = await fetch("/api/demo-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg })
+      });
+      
+      const data = await res.json();
+      const botReply = data.reply || "Desculpe, não consegui entender.";
+
+      const replyTime = new Date();
+      const replyTimeStr = `${String(replyTime.getHours()).padStart(2, '0')}:${String(replyTime.getMinutes()).padStart(2, '0')}`;
+
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: botReply, sender: 'bot', time: replyTimeStr }]);
+    } catch (error) {
+      const replyTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: "Tive um erro de conexão temporário. Pode tentar novamente?", sender: 'bot', time: replyTimeStr }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex items-center justify-center p-4">
@@ -94,7 +103,7 @@ export default function WhatsappBotDemo() {
             <div className="flex justify-center mb-4">
               <span className="bg-[#ffeecd] text-zinc-600 text-xs px-4 py-2 rounded-xl text-center shadow-sm max-w-[90%] leading-relaxed">
                 <span className="block mb-1">🔒</span>
-                As mensagens e chamadas são protegidas com a criptografia de ponta a ponta.
+                As mensagens e chamadas são protegidas com a criptografia de ponta a ponta. Converse de verdade com a IA!
               </span>
             </div>
 
@@ -124,21 +133,29 @@ export default function WhatsappBotDemo() {
           </div>
 
           {/* Input Area */}
-          <div className="bg-[#f0f2f5] p-2 flex items-end gap-2 shrink-0 relative z-10">
+          <form onSubmit={handleSend} className="bg-[#f0f2f5] p-2 flex items-end gap-2 shrink-0 relative z-10">
             <div className="flex-1 bg-white rounded-3xl min-h-[44px] flex items-center px-3 gap-3 shadow-sm">
               <Smile className="w-6 h-6 text-zinc-500 shrink-0" />
               <input 
                 type="text" 
-                placeholder="Mensagem" 
+                placeholder="Escreva uma mensagem" 
                 className="flex-1 bg-transparent py-3 outline-none text-[15px]"
-                disabled
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
               />
               <Paperclip className="w-6 h-6 text-zinc-500 shrink-0" />
             </div>
-            <div className="w-11 h-11 bg-[#00a884] rounded-full flex items-center justify-center shrink-0 shadow-sm">
-              <Mic className="w-6 h-6 text-white fill-current" />
-            </div>
-          </div>
+            <button 
+              type={inputText.trim() ? "submit" : "button"}
+              className="w-11 h-11 bg-[#00a884] rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-95"
+            >
+              {inputText.trim() ? (
+                <Send className="w-5 h-5 text-white ml-1" />
+              ) : (
+                <Mic className="w-6 h-6 text-white fill-current" />
+              )}
+            </button>
+          </form>
 
         </div>
       </div>
