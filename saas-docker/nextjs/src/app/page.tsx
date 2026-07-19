@@ -301,37 +301,52 @@ export default function LandingPage() {
         </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Reveal delay={100} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-            <div className="aspect-[4/3] w-full relative">
-              <img src="/images/website_mockup.png" alt="Site Institucional" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-            </div>
-            <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-              <h3 className="text-lg font-bold text-white mb-2">Site Landing Page</h3>
-              <p className="text-xs text-zinc-300">Design moderno, focado em conversão e captação de leads. Perfeito para escalar sua operação.</p>
-            </div>
+          <Reveal delay={100} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
+            <a href="#planos" className="block w-full h-full">
+              <div className="aspect-[4/3] w-full relative">
+                <img src="/images/website_mockup.png" alt="Site Institucional" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
+                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Site Landing Page</h3>
+                <p className="text-sm text-zinc-200 drop-shadow-md">Design moderno, focado em conversão e captação de leads. Perfeito para escalar sua operação.</p>
+                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+                  Ver Planos &rarr;
+                </div>
+              </div>
+            </a>
           </Reveal>
           
-          <Reveal delay={200} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-            <div className="aspect-[4/3] w-full relative">
-              <img src="/images/store_mockup.png" alt="Loja Virtual" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-            </div>
-            <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-              <h3 className="text-lg font-bold text-white mb-2">Loja Virtual (E-commerce)</h3>
-              <p className="text-xs text-zinc-300">Plataforma robusta para vender seus produtos, totalmente integrada com pagamentos automatizados.</p>
-            </div>
+          <Reveal delay={200} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
+            <a href="#planos" className="block w-full h-full">
+              <div className="aspect-[4/3] w-full relative">
+                <img src="/images/store_mockup.png" alt="Loja Virtual" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
+                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Loja Virtual (E-commerce)</h3>
+                <p className="text-sm text-zinc-200 drop-shadow-md">Plataforma robusta para vender seus produtos, totalmente integrada com pagamentos automatizados.</p>
+                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+                  Ver Planos &rarr;
+                </div>
+              </div>
+            </a>
           </Reveal>
           
-          <Reveal delay={300} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-            <div className="aspect-[4/3] w-full relative">
-              <img src="/images/chat_mockup.png" alt="Bot IA" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-            </div>
-            <div className="p-6 absolute bottom-0 left-0 w-full z-10">
-              <h3 className="text-lg font-bold text-white mb-2">Assistente IA no WhatsApp</h3>
-              <p className="text-xs text-zinc-300">Seu robô inteligente que atende, vende e agenda 24h por dia, sem precisar de humanos.</p>
-            </div>
+          <Reveal delay={300} className="group relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all block">
+            <a href="#planos" className="block w-full h-full">
+              <div className="aspect-[4/3] w-full relative">
+                <img src="/images/chat_mockup.png" alt="Bot IA" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+              <div className="p-6 absolute bottom-0 left-0 w-full z-10">
+                <h3 className="text-xl font-bold text-white mb-2 drop-shadow-md">Assistente IA no WhatsApp</h3>
+                <p className="text-sm text-zinc-200 drop-shadow-md">Seu robô inteligente que atende, vende e agenda 24h por dia, sem precisar de humanos.</p>
+                <div className="mt-4 flex items-center text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+                  Ver Planos &rarr;
+                </div>
+              </div>
+            </a>
           </Reveal>
         </div>
       </section>
