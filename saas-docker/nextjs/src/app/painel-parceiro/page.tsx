@@ -217,6 +217,31 @@ export default function PainelParceiro() {
   const [passwordMsg, setPasswordMsg] = useState(''); const [passwordError, setPasswordError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // ── Asaas Integration ──
+  const [showAsaasModal, setShowAsaasModal] = useState(false);
+  const [asaasApiKey, setAsaasApiKey] = useState('');
+  const [asaasLoading, setAsaasLoading] = useState(false);
+  const [asaasMsg, setAsaasMsg] = useState('');
+  const [asaasError, setAsaasError] = useState('');
+  const [asaasConnected, setAsaasConnected] = useState(false);
+
+  const handleAsaasSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!asaasApiKey.trim()) return;
+    setAsaasLoading(true); setAsaasMsg(''); setAsaasError('');
+    try {
+      const r = await fetch('/api/asaas/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: asaasApiKey, tenantId: data?.tenantId })
+      });
+      const d = await r.json();
+      if (d.error) { setAsaasError(d.error); }
+      else { setAsaasMsg(d.message); setAsaasConnected(true); setTimeout(() => setShowAsaasModal(false), 3000); }
+    } catch { setAsaasError('Erro de conexão. Tente novamente.'); }
+    setAsaasLoading(false);
+  };
+
   const [access, setAccess] = useState<{ accessExpiresAt: string | null; expired: boolean; remainingMinutes: number; remainingSeconds: number; remainingMs: number } | null>(null);
   const [activating, setActivating] = useState(false); const [activateSuccess, setActivateSuccess] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -603,8 +628,132 @@ export default function PainelParceiro() {
           </GlassCard>
         </Reveal>
 
+        {/* ═══════════ INTEGRAÇÃO ASAAS ═══════════ */}
+        <Reveal delay={550}>
+          <GlassCard className="p-6 md:p-8 border-indigo-500/10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <GradientIcon icon={Banknote} gradient="from-emerald-500 to-teal-500" />
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="text-sm font-bold text-white">Integração Asaas</h3>
+                    {asaasConnected && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold">
+                        <CheckCircle2 className="w-3 h-3" /> Conectado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 leading-relaxed max-w-md">
+                    Configure o gateway de pagamento do seu sistema. Cole sua chave da API do Asaas e o sistema configura o Webhook automaticamente — sem precisar mexer em mais nada.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowAsaasModal(true); setAsaasMsg(''); setAsaasError(''); }}
+                className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+              >
+                <Zap className="w-4 h-4" />{asaasConnected ? 'Reconfigurar' : 'Conectar Asaas'}
+              </button>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { n: '1', t: 'Cole sua API Key', d: 'Acesse: Configurações → Integrações → Chave de API.', ic: Settings, g: 'from-indigo-500 to-purple-500' },
+                { n: '2', t: 'Clique em Conectar', d: 'O sistema valida a chave e configura o Webhook automaticamente.', ic: Zap, g: 'from-emerald-500 to-teal-500' },
+                { n: '3', t: 'Pronto — 100% Automático', d: 'Todo Pix pago, boleto ou cartão cai na sua conta e o sistema libera o cliente.', ic: CheckCircle2, g: 'from-amber-500 to-orange-500' },
+              ].map((s, i) => (
+                <div key={i} className="flex items-start gap-3 bg-white/[0.02] rounded-xl p-4 border border-white/[0.04]">
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${s.g} p-[1px] shrink-0 mt-0.5`}><div className="w-full h-full rounded-lg bg-zinc-950 flex items-center justify-center"><s.ic className="w-4 h-4 text-white" /></div></div>
+                  <div><p className="text-xs font-bold text-white mb-1">{s.t}</p><p className="text-[10px] text-zinc-500 leading-relaxed">{s.d}</p></div>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </Reveal>
+
         {/* ═══════════ FOOTER ═══════════ */}
         <p className="text-center text-[10px] text-zinc-700 pb-8">Nexus SaaS — Dúvidas? Fale com o administrador pelo WhatsApp.</p>
+
+        {/* ═══════════ MODAL ASAAS ═══════════ */}
+        {showAsaasModal && (
+          <div className="fixed inset-0 z-[60] bg-zinc-950/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => !asaasLoading && setShowAsaasModal(false)}>
+            <div className="max-w-md w-full rounded-3xl border border-white/10 bg-zinc-900/95 backdrop-blur-2xl p-8 space-y-6 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-[60px]" />
+              <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-[60px]" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <GradientIcon icon={Banknote} gradient="from-emerald-500 to-teal-500" />
+                    <div>
+                      <h3 className="text-base font-extrabold text-white">Conectar Asaas</h3>
+                      <p className="text-[10px] text-zinc-500">Configure seu gateway de pagamento</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowAsaasModal(false)} disabled={asaasLoading} className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all">
+                    <XCircle className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 mb-5 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                    Use a <strong>Chave de API</strong> encontrada em: <strong>Asaas → Minha Conta → Configurações → Integrações</strong>. Não compartilhe com ninguém.
+                  </p>
+                </div>
+
+                {!asaasConnected ? (
+                  <form onSubmit={handleAsaasSetup} className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Chave de API do Asaas</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={asaasApiKey}
+                          onChange={e => setAsaasApiKey(e.target.value)}
+                          required
+                          placeholder="$aact_YTU5YmM2OWI..." 
+                          className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all pr-12"
+                        />
+                        <ShieldCheck className="w-4 h-4 text-zinc-600 absolute right-3 top-1/2 -translate-y-1/2" />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-1.5">Começa com <code className="text-zinc-400">$aact_</code> (Produção) ou <code className="text-zinc-400">$aact_sandbox</code> (Testes)</p>
+                    </div>
+
+                    {asaasError && (
+                      <div className="flex items-center gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                        <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                        <p className="text-[11px] text-red-400">{asaasError}</p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={asaasLoading || !asaasApiKey.trim()}
+                      className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2"
+                    >
+                      {asaasLoading ? (
+                        <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Validando e configurando...</>
+                      ) : (
+                        <><Zap className="w-4 h-4" /> Conectar e Configurar Webhook</>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="text-center space-y-4 py-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white mb-1">Integração Completa!</h4>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">{asaasMsg}</p>
+                      <p className="text-[11px] text-zinc-500 mt-2">O Webhook foi configurado automaticamente. Todo pagamento aprovado será processado pelo sistema.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
