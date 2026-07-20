@@ -36,10 +36,23 @@ export async function POST(req: Request) {
       }
       
       if (messageData && messageData.key && messageData.key.remoteJid) {
-        // Ignorar status do whatsapp e grupos se não for o foco
         const remoteJid = messageData.key.remoteJid;
-        if (remoteJid.includes("@g.us") || remoteJid === "status@broadcast") {
-          return NextResponse.json({ success: true, ignored: "Grupo ou Status" });
+        
+        // Ignorar status do whatsapp
+        if (remoteJid === "status@broadcast") {
+          return NextResponse.json({ success: true, ignored: "Status" });
+        }
+
+        // 0. Busca o Tenant para verificar permissões de grupo e limites
+        let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+
+        // Verificação de Grupos
+        if (remoteJid.includes("@g.us")) {
+           const groupId = remoteJid.replace("@g.us", "");
+           const allowedGroups = webhookTenant?.whitelisted_groups || "";
+           if (!allowedGroups.includes(groupId)) {
+             return NextResponse.json({ success: true, ignored: "Grupo não autorizado" });
+           }
         }
 
         const contactNumber = remoteJid.replace("@s.whatsapp.net", "");
