@@ -406,7 +406,7 @@ export default function LandingPage() {
         <Reveal className="text-center space-y-4 mb-16">
           <span className="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-xs font-mono uppercase tracking-wider">Monte seu Plano</span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white">O que você precisa?</h2>
-          <p className="text-sm text-slate-400 max-w-xl mx-auto">Escolha seu site, seu bot e complete com módulos especializados. Se levar site + bot, ganha desconto no combo.</p>
+          <p className="text-sm text-slate-400 max-w-xl mx-auto">Escolha o seu modelo de negócio: Compre o sistema avulso e cuide da hospedagem sozinho, ou assine um Plano de IA e ganhe o Site 100% grátis.</p>
         </Reveal>
 
         <Reveal>
@@ -414,13 +414,18 @@ export default function LandingPage() {
 
             {/* ── STEP 1: Sites ── */}
             <div>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-                  <span className="text-xs font-black text-indigo-400">1</span>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-black text-indigo-400">1</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Comprar Sistema Avulso</h3>
+                    <p className="text-[11px] text-slate-500">Pagamento único pelo código (Você cuida da hospedagem)</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Escolha seu Site</h3>
-                  <p className="text-[11px] text-slate-500">Pagamento único + mensalidade de manutenção</p>
+                <div className="px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl max-w-xs">
+                  <p className="text-[10px] text-red-300 leading-tight"><strong>Desvantagem:</strong> Custos com servidores (VPS), hospedagem e manutenção técnica mensal são de sua total responsabilidade.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -508,13 +513,18 @@ export default function LandingPage() {
 
             {/* ── STEP 2: Bots ── */}
             <div>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                  <span className="text-xs font-black text-purple-400">2</span>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-black text-purple-400">2</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Assinar Plano SaaS (Bot IA)</h3>
+                    <p className="text-[11px] text-slate-500">Hospedagem, Suporte e Bot IA inclusos na mensalidade</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Escolha seu Bot</h3>
-                  <p className="text-[11px] text-slate-500">Atendente automatizado no WhatsApp</p>
+                <div className="px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-xl max-w-sm">
+                  <p className="text-[10px] text-green-300 leading-tight"><strong>Vantagem de Ouro:</strong> Ao assinar qualquer plano abaixo, o <strong>Setup do seu Site sai de GRAÇA</strong> e nós pagamos todos os seus custos de servidor e hospedagem!</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
