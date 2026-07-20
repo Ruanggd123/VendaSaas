@@ -192,16 +192,14 @@ export default function LandingPage() {
   const getOriginalMonthly = () => `R$ ${getSiteMonthly() + getBotMonthly() + getModulesMonthly()}`;
   const getTotalMonthly = () => {
     const siteM = getSiteMonthly();
-    const botM = combo ? Math.round(getBotMonthly() * 0.8) : getBotMonthly();
+    const botM = getBotMonthly();
     const modM = getModulesMonthly();
     return `R$ ${siteM + botM + modM}`;
   };
   const getSavings = () => {
-    if (!combo) return "";
-    const saving = Math.round(getBotMonthly() * 0.2);
-    return `R$ ${saving}/mês`;
+    if (!combo || !selected.site) return "";
+    return `${getSiteSetup(selected.site)} de Setup`;
   };
-  const getBotPrice = () => combo ? `R$ ${Math.round(getBotMonthly() * 0.8)}` : `R$ ${getBotMonthly()}`;
   const getModulesPrice = () => `R$ ${getBotMonthly()}`;
 
   const getSummaryText = () => {
@@ -527,7 +525,7 @@ export default function LandingPage() {
                     name: "Plano Start",
                     desc: "O básico que funciona",
                     price: "R$ 67/mês",
-                    features: ["Site Básico Incluso", "Até 350 conversas/mês", "Atendimento via IA", "1 Número de WhatsApp"],
+                    features: ["Site Básico INCLUSO (Grátis)", "Até 350 conversas/mês", "Atendimento via IA", "1 Número de WhatsApp"],
                     color: "cyan",
                     tag: null,
                   },
@@ -537,7 +535,7 @@ export default function LandingPage() {
                     name: "Plano Growth",
                     desc: "Para quem quer crescer",
                     price: "R$ 147/mês",
-                    features: ["Site Completo Incluso", "Até 1000 conversas/mês", "Vendedor IA 24h", "Qualificação de Leads"],
+                    features: ["Plataforma INCLUSA (Grátis)", "Até 1000 conversas/mês", "Vendedor IA 24h", "Qualificação de Leads"],
                     color: "purple",
                     tag: "Mais Vendido",
                   },
@@ -547,7 +545,7 @@ export default function LandingPage() {
                     name: "Plano Scale",
                     desc: "Para operações robustas",
                     price: "R$ 497/mês",
-                    features: ["E-commerce Incluso", "Conversas Ilimitadas", "Até 3 números WhatsApp", "Painel Multiatendimento"],
+                    features: ["E-commerce INCLUSO (Grátis)", "Conversas Ilimitadas", "Até 3 números WhatsApp", "Painel Multiatendimento"],
                     color: "emerald",
                     tag: "Avançado",
                   },
@@ -753,29 +751,31 @@ export default function LandingPage() {
                         {/* Setup */}
                         {selected.site && (
                           <div className="mb-3">
-                            <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">Setup (pagamento único)</span>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-2xl font-black text-white">{getSiteSetup(selected.site)}</span>
+                            <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">Setup (Criação do site)</span>
+                            <div className="flex items-baseline gap-2 mt-1">
+                              {combo ? (
+                                <>
+                                  <span className="text-lg font-black text-slate-500 line-through">{getSiteSetup(selected.site)}</span>
+                                  <span className="text-xl font-black text-green-400">ISENTO NO COMBO</span>
+                                </>
+                              ) : (
+                                <span className="text-2xl font-black text-white">{getSiteSetup(selected.site)}</span>
+                              )}
                             </div>
                           </div>
                         )}
 
                         {/* Monthly total */}
-                        <div className={selected.site ? "border-t border-white/5 pt-3" : ""}>
+                        <div className={selected.site ? "border-t border-white/5 pt-3 mt-1" : ""}>
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Mensalidade total</span>
+                            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Assinatura Mensal</span>
                             {combo && (
                               <span className="px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-full text-[10px] font-bold text-green-400">
-                                Economize {getSavings()}
+                                Economizou {getSavings()}!
                               </span>
                             )}
                           </div>
-                          {combo && selected.site && (
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-mono text-slate-500 line-through">{getOriginalMonthly()}</span>
-                            </div>
-                          )}
-                          <div className="flex items-baseline gap-1">
+                          <div className="flex items-baseline gap-1 mt-2">
                             <span className={`text-3xl font-black ${combo ? "text-amber-400" : "text-white"}`}>{getTotalMonthly()}</span>
                             <span className="text-xs text-slate-400">/mês</span>
                           </div>
