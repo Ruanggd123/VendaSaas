@@ -65,8 +65,9 @@ services:
       dockerfile: Dockerfile
     container_name: saas_nextjs
     restart: always
+    env_file:
+      - ./nextjs/.env
     environment:
-      - DATABASE_URL=postgresql://admin:MudeEstaSenhaAgora@2026@postgres:5432/saas
       - NEXTAUTH_SECRET=MudeEstaChaveSecreta@2026
       - NEXTAUTH_URL=http://localhost:3000
       - EVOLUTION_URL=http://evolution:8080
@@ -100,9 +101,10 @@ services:
     container_name: saas_worker
     restart: always
     command: npx tsx src/worker.ts
+    env_file:
+      - ./nextjs/.env
     environment:
       - IS_WORKER=true
-      - DATABASE_URL=postgresql://admin:MudeEstaSenhaAgora@2026@postgres:5432/saas
       - EVOLUTION_URL=http://evolution:8080
       - EVOLUTION_API_KEY=ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df
       - SMTP_HOST=${SMTP_HOST:-}
