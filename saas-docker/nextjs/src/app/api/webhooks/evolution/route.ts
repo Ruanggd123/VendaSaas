@@ -60,7 +60,6 @@ export async function POST(req: Request) {
         const fromMe = messageData.key.fromMe || false;
 
         // 0. Verifica Lista Negra (ignored_numbers)
-        let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
         if (webhookTenant && webhookTenant.settings) {
           const settings = typeof webhookTenant.settings === "string" ? JSON.parse(webhookTenant.settings) : webhookTenant.settings;
           if (settings?.ignored_numbers) {

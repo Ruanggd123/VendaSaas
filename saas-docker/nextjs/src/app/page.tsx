@@ -168,14 +168,14 @@ export default function LandingPage() {
   }));
 
   const siteData: Record<string, { name: string; desc: string; setup: string; monthly: number }> = {
-    site_basic: { name: "Presença Digital", desc: "Landing page de alta conversão", setup: "R$ 997", monthly: 97 },
-    site_pro: { name: "Secretária Inteligente", desc: "Site com agendador online automático", setup: "R$ 1.997", monthly: 197 },
-    site_ent: { name: "Enterprise", desc: "Loja virtual completa", setup: "R$ 3.497", monthly: 347 },
+    site_basic: { name: "Site Avulso", desc: "Landing page avulsa", setup: "R$ 2.500", monthly: 0 },
+    site_pro: { name: "Plataforma Completa", desc: "Sistema web avançado avulso", setup: "R$ 4.500", monthly: 0 },
+    site_ent: { name: "E-commerce Avulso", desc: "Loja virtual completa avulsa", setup: "R$ 8.500", monthly: 0 },
   };
   const botData: Record<string, { name: string; desc: string; monthly: number }> = {
-    bot_starter: { name: "Bot Starter", desc: "Automação com botões", monthly: 97 },
-    bot_pro: { name: "Bot Pro IA", desc: "IA que atende e vende 24h", monthly: 197 },
-    bot_equipe: { name: "Bot Equipe", desc: "Multi-número com painel", monthly: 397 },
+    bot_starter: { name: "Plano Start", desc: "O básico que funciona", monthly: 67 },
+    bot_pro: { name: "Plano Growth", desc: "Para quem quer crescer", monthly: 147 },
+    bot_equipe: { name: "Plano Scale", desc: "Para operações robustas", monthly: 497 },
   };
 
   const getSiteData = (id: string) => siteData[id] || null;
