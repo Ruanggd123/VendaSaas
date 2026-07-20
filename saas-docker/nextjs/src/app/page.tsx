@@ -168,9 +168,9 @@ export default function LandingPage() {
   }));
 
   const siteData: Record<string, { name: string; desc: string; setup: string; monthly: number }> = {
-    site_basic: { name: "Site Avulso", desc: "Landing page avulsa", setup: "R$ 2.500", monthly: 0 },
-    site_pro: { name: "Plataforma Completa", desc: "Sistema web avançado avulso", setup: "R$ 4.500", monthly: 0 },
-    site_ent: { name: "E-commerce Avulso", desc: "Loja virtual completa avulsa", setup: "R$ 8.500", monthly: 0 },
+    site_basic: { name: "Site Avulso", desc: "Landing page avulsa", setup: "R$ 497", monthly: 0 },
+    site_pro: { name: "Plataforma Completa", desc: "Sistema web avançado avulso", setup: "R$ 997", monthly: 0 },
+    site_ent: { name: "E-commerce Avulso", desc: "Loja virtual completa avulsa", setup: "R$ 1.997", monthly: 0 },
   };
   const botData: Record<string, { name: string; desc: string; monthly: number }> = {
     bot_starter: { name: "Plano Start", desc: "O básico que funciona", monthly: 67 },
@@ -432,7 +432,7 @@ export default function LandingPage() {
                     icon: Globe,
                     name: "Site Avulso",
                     desc: "Landing page de alta conversão sem assinatura",
-                    setup: "R$ 2.500",
+                    setup: "R$ 497",
                     monthly: "Sem mensalidade",
                     features: ["Design responsivo", "SEO otimizado", "Hospedagem por conta do cliente", "Código fonte liberado"],
                     color: "indigo",
@@ -443,7 +443,7 @@ export default function LandingPage() {
                     icon: Rocket,
                     name: "Plataforma Completa",
                     desc: "Sistema web avançado avulso",
-                    setup: "R$ 4.500",
+                    setup: "R$ 997",
                     monthly: "Sem mensalidade",
                     features: ["Painel administrativo", "Agendador online 24/7", "Banco de dados", "Instalação na sua VPS"],
                     color: "purple",
@@ -454,7 +454,7 @@ export default function LandingPage() {
                     icon: ShoppingBag,
                     name: "E-commerce Avulso",
                     desc: "Loja virtual completa sem aluguel",
-                    setup: "R$ 8.500",
+                    setup: "R$ 1.997",
                     monthly: "Sem mensalidade",
                     features: ["Catálogo de produtos", "Carrinho e pagamento", "Gestão de pedidos", "Deploy dedicado"],
                     color: "amber",
