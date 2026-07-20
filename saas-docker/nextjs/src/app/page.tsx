@@ -223,11 +223,11 @@ export default function LandingPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#030712] text-white overflow-hidden font-sans relative">
+    <main className="min-h-screen text-white overflow-hidden font-sans relative">
       {/* Ambient Glow */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-600/8 blur-[200px] rounded-full -z-10 animate-pulse duration-[8000ms]" />
-      <div className="absolute top-[700px] right-1/4 w-[700px] h-[700px] bg-purple-600/8 blur-[220px] rounded-full -z-10" />
-      <div className="absolute bottom-[400px] left-1/3 w-[500px] h-[500px] bg-cyan-600/4 blur-[160px] rounded-full -z-10" />
+      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-600/8 blur-[200px] rounded-full -z-10 animate-float" />
+      <div className="absolute top-[700px] right-1/4 w-[700px] h-[700px] bg-purple-600/8 blur-[220px] rounded-full -z-10 animate-float animation-delay-200" />
+      <div className="absolute bottom-[400px] left-1/3 w-[500px] h-[500px] bg-cyan-600/4 blur-[160px] rounded-full -z-10 animate-float animation-delay-400" />
 
       {/* ── Header ── */}
       <header className="border-b border-white/5 bg-[#030712]/60 backdrop-blur-xl sticky top-0 z-50">
@@ -279,12 +279,12 @@ export default function LandingPage() {
       {/* ── Hero ── */}
       <section className="max-w-7xl mx-auto px-6 pt-20 md:pt-32 pb-24 md:pb-40 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
         <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-xs font-bold uppercase tracking-widest shadow-lg shadow-indigo-500/10 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-xs font-bold uppercase tracking-widest shadow-lg shadow-indigo-500/10 animate-fade-in animate-pulse-glow">
             <Sparkles className="w-4 h-4 text-indigo-400" /> A Nova Era da Automação
           </div>
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[1.05] text-white animate-fade-in-up">
             Venda no <br className="hidden lg:block" />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animate-gradient-x">piloto automático.</span>
+            <span className="text-gradient">piloto automático.</span>
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-slate-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium animate-fade-in-up animation-delay-200">
             Chega de perder clientes por demora no atendimento. Nossos Sistemas Premium e Inteligências Artificiais agendam, qualificam e fecham vendas para você <strong className="text-white">24 horas por dia, 7 dias por semana.</strong>
@@ -344,7 +344,7 @@ export default function LandingPage() {
         </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Reveal delay={100} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(79,70,229,0.3)]">
+          <Reveal delay={100} className="group relative rounded-[2rem] overflow-hidden glass-card glass-card-hover block">
             <Link href="/templates/landing-page" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
                 <img src="/images/website_mockup.png" alt="Site Institucional" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
@@ -363,7 +363,7 @@ export default function LandingPage() {
             </Link>
           </Reveal>
           
-          <Reveal delay={200} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(249,115,22,0.3)]">
+          <Reveal delay={200} className="group relative rounded-[2rem] overflow-hidden glass-card glass-card-hover block">
             <Link href="/templates/ecommerce" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
                 <img src="/images/store_mockup.png" alt="Loja Virtual" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
@@ -382,7 +382,7 @@ export default function LandingPage() {
             </Link>
           </Reveal>
           
-          <Reveal delay={300} className="group relative rounded-[2rem] overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all duration-500 block hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(34,197,94,0.3)]">
+          <Reveal delay={300} className="group relative rounded-[2rem] overflow-hidden glass-card glass-card-hover block">
             <Link href="/templates/whatsapp-bot" className="block w-full h-full">
               <div className="aspect-[4/3] w-full relative">
                 <img src="/images/chat_mockup.png" alt="Bot IA" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 mix-blend-screen" />
@@ -473,8 +473,8 @@ export default function LandingPage() {
                     <button key={s.id} onClick={() => toggleSite(s.id)}
                       className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-300 ${
                         isActive
-                          ? `${st.border} bg-white/[0.04] shadow-lg ring-1 ${st.ring}`
-                          : "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]"
+                          ? `${st.border} bg-white/10 shadow-[0_0_30px_rgba(79,70,229,0.15)] ring-1 ${st.ring} transform -translate-y-1`
+                          : "glass-card glass-card-hover border-transparent"
                       }`}
                     >
                       {s.tag && (
@@ -564,8 +564,8 @@ export default function LandingPage() {
                     <button key={b.id} onClick={() => toggleBot(b.id)}
                       className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-300 ${
                         isActive
-                          ? `${st.border} bg-white/[0.04] shadow-lg ring-1 ${st.ring}`
-                          : "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]"
+                          ? `${st.border} bg-white/10 shadow-[0_0_30px_rgba(79,70,229,0.15)] ring-1 ${st.ring} transform -translate-y-1`
+                          : "glass-card glass-card-hover border-transparent"
                       }`}
                     >
                       {b.tag && (
@@ -628,8 +628,8 @@ export default function LandingPage() {
                     <button key={m.id} onClick={() => toggleModule(m.id)}
                       className={`text-center p-4 rounded-2xl border-2 transition-all duration-300 ${
                         isActive
-                          ? `${st.border} bg-white/[0.04] shadow-lg ring-1 ${st.ring}`
-                          : "border-white/10 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]"
+                          ? `${st.border} bg-white/10 shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ${st.ring} transform -translate-y-1`
+                          : "glass-card glass-card-hover border-transparent"
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-xl ${st.iconBg} border flex items-center justify-center mx-auto mb-2`}>
@@ -654,8 +654,8 @@ export default function LandingPage() {
             {/* ── RESUMO / RESULTADO ── */}
             {(selected.site || selected.bot || selected.modules.length > 0) && (
               <Reveal>
-                <div className={`bg-[#0a0f1a]/60 border rounded-3xl p-8 backdrop-blur-sm transition-all duration-500 ${
-                  combo ? "border-amber-500/30 shadow-lg shadow-amber-500/10" : "border-white/5"
+                <div className={`glass-card rounded-3xl p-8 transition-all duration-500 border-2 ${
+                  combo ? "border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.2)]" : "border-white/10"
                 }`}>
                   {/* Combo Badge */}
                   {combo && (
