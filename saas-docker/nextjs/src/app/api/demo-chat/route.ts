@@ -33,11 +33,11 @@ function generateSmartFallback(message: string): string {
 
   // Se o usuário mandou números, como um CEP ou CPF
   if (/\d{5}/.test(lowerMsg)) {
-    return "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu gerar o Pix de ativação rápida!";
+    return "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu te enviar o link do nosso WhatsApp oficial para finalizarmos!";
   }
 
   if (lowerMsg.includes("sim") || (lowerMsg.includes("quero") && !lowerMsg.includes("nao")) || lowerMsg.includes("vamos")) {
-    return "Perfeito! 🚀 O seu pedido foi criado com sucesso.\n\nAqui está o código Pix Copia e Cola para a primeira mensalidade:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nAssim que o pagamento for aprovado, o técnico irá até sua casa amanhã de manhã. Posso confirmar?";
+    return "Perfeito! 🚀 O seu pedido está quase pronto.\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999\n\nNossa equipe já está te aguardando lá!";
   }
 
   if (lowerMsg.includes("plano") || lowerMsg.includes("valor") || lowerMsg.includes("preco") || lowerMsg.includes("mega") || lowerMsg.includes("giga")) {
@@ -78,6 +78,7 @@ export async function POST(req: Request) {
 Aja de forma super breve, extremamente educada, humana e persuasiva. Use emojis e *negrito*.
 Se o cliente negar algo ou quiser outra coisa, mude de abordagem educadamente.
 NÃO mande textos grandes, maximo 3 linhas. Você vende o plano de 500 Mega (R$99,90) e 1 Giga (R$149,90).
+IMPORTANTE: Se o cliente confirmar que quer assinar, NÃO mande Pix. Envie o link do WhatsApp para ele finalizar: https://wa.me/5511999999999
 Mensagem do cliente: "${message}"`;
 
         const result = await model.generateContent(prompt);

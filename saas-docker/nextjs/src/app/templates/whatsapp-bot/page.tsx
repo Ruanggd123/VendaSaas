@@ -10,9 +10,9 @@ const AUTOPLAY_SCRIPT = [
   { sender: 'user', text: "Olá! Gostaria de saber mais sobre os planos da internet.", delay: 1000 },
   { sender: 'bot', text: "Olá! Sou a IA da Nexus Telecom. 👋\n\nTemos planos a partir de 500 Mega por apenas R$ 99,90/mês. Gostaria de verificar a viabilidade para o seu CEP?", delay: 2000 },
   { sender: 'user', text: "62130000", delay: 2500 },
-  { sender: 'bot', text: "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu gerar o Pix de ativação rápida!", delay: 2000 },
+  { sender: 'bot', text: "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu te enviar o link do nosso WhatsApp oficial!", delay: 2000 },
   { sender: 'user', text: "sim", delay: 2500 },
-  { sender: 'bot', text: "Perfeito! 🚀 O seu pedido foi criado com sucesso.\n\nAqui está o código Pix Copia e Cola para a primeira mensalidade:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nAssim que o pagamento for aprovado, o técnico irá até sua casa amanhã de manhã. Posso confirmar?", delay: 2000 }
+  { sender: 'bot', text: "Perfeito! 🚀 O seu pedido está quase pronto.\n\nClique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999", delay: 2000 }
 ];
 
 export default function WhatsappBotDemo() {
@@ -109,9 +109,9 @@ export default function WhatsappBotDemo() {
         if (lower.includes("valor") || lower.includes("preco") || lower.includes("plano") || lower.includes("planos")) {
           botReply = "Temos o Plano Básico (R$ 97/mês) e o Plano Premium (R$ 197/mês).\n\nDigite 1 para Básico.\nDigite 2 para Premium.";
         } else if (lower === "1") {
-          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nAqui está o código Pix Copia e Cola para pagamento:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nEnvie o comprovante aqui assim que pagar!";
+          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999";
         } else if (lower === "2") {
-          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nAqui está o código Pix Copia e Cola para pagamento:\n\n`00020101021226330014br.gov.bcb.pi...`\n\nEnvie o comprovante aqui assim que pagar!";
+          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999";
         } else {
           botReply = "Desculpe, não entendi. Digite 'planos' para ver nossas opções e preços.";
         }
@@ -193,7 +193,7 @@ export default function WhatsappBotDemo() {
             </div>
           </div>
 
-          <div className="w-[340px] sm:w-[380px] h-[700px] bg-zinc-100 rounded-[3rem] p-3 shadow-2xl relative border-8 border-slate-800 shrink-0">
+          <div className="w-full max-w-[380px] h-[700px] sm:h-[700px] bg-zinc-100 rounded-[3rem] p-3 shadow-2xl relative border-8 border-slate-800 shrink-0 mx-auto">
             {/* Phone Notch/Dynamic Island */}
             <div className="absolute top-0 inset-x-0 flex justify-center z-50">
               <div className="w-32 h-6 bg-slate-800 rounded-b-2xl"></div>
@@ -277,24 +277,18 @@ export default function WhatsappBotDemo() {
 
               {/* Input Area */}
               <div className="absolute bottom-0 inset-x-0 bg-transparent p-2 z-20 pb-6">
-                <form onSubmit={handleSend} className="flex items-end gap-2">
-                  <div className="flex-1 bg-white rounded-2xl flex items-end shadow-md overflow-hidden relative">
+                <form onSubmit={handleSend} className="flex items-center gap-2">
+                  <div className="flex-1 bg-white rounded-2xl flex items-center shadow-md overflow-hidden relative">
                     <button type="button" className="p-3 text-slate-400 hover:text-slate-600 transition-colors">
                       <Smile className="w-6 h-6" />
                     </button>
-                    <textarea
+                    <input
+                      type="text"
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onFocus={handleUserInteraction}
                       placeholder={isAutoPlaying ? "Clique aqui para interagir..." : "Mensagem"}
-                      className="flex-1 max-h-24 bg-transparent py-3.5 px-2 outline-none text-[15px] resize-none text-zinc-900 font-medium placeholder-slate-400"
-                      rows={1}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSend();
-                        }
-                      }}
+                      className="flex-1 bg-transparent py-3.5 px-2 outline-none text-[15px] text-zinc-900 font-medium placeholder-slate-400"
                     />
                     <button type="button" className="p-3 text-slate-400 hover:text-slate-600 transition-colors">
                       <Paperclip className="w-5 h-5 -rotate-45" />

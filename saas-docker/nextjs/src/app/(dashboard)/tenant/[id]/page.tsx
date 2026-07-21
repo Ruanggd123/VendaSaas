@@ -60,6 +60,14 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
         </Link>
 
         <Link
+          href={`/tenant/${params.id}/assinatura`}
+          className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
+        >
+          <h2 className="text-xl font-semibold text-gray-700">💳 Meu Plano</h2>
+          <p className="text-gray-500 mt-2">Gerencie sua assinatura e limites</p>
+        </Link>
+
+        <Link
           href={`/tenant/${params.id}/ai-config`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
