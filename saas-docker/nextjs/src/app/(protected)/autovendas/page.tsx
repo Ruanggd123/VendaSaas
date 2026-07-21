@@ -16,6 +16,7 @@ interface Partner {
   email?: string;
   referralCode: string;
   commissionRate: number;
+  type?: string;
   leadsCount: number;
   convertedCount: number;
   created_at: string;
@@ -916,6 +917,9 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState('');
+  const [partnerType, setPartnerType] = useState('vendedor');
+  const [platformTax, setPlatformTax] = useState('10');
+  const [partnerFilter, setPartnerFilter] = useState<'todos' | 'vendedor' | 'dev'>('todos');
 
   const generateCode = (fullName: string): string => {
     const cleaned = fullName.replace(/[^a-zA-ZÀ-ÿ0-9]/g, '').toUpperCase();
@@ -950,7 +954,13 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
       const res = await fetch('/api/autovendas/partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, referralCode })
+        body: JSON.stringify({ 
+          name, 
+          email, 
+          referralCode,
+          type: partnerType,
+          commissionRate: partnerType === 'dev' ? platformTax : undefined
+        })
       });
       if (res.ok) {
         const data = await res.json();
@@ -1018,6 +1028,31 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                   className="w-full bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all"
                   value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Tipo de Parceiro</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setPartnerType('vendedor')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${partnerType === 'vendedor' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400'}`}>
+                    Vendedor
+                  </button>
+                  <button type="button" onClick={() => setPartnerType('dev')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${partnerType === 'dev' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400'}`}>
+                    Desenvolvedor
+                  </button>
+                </div>
+              </div>
+              
+              {partnerType === 'dev' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Taxa da Plataforma (%)</label>
+                  <input type="number" min="0" max="100" required placeholder="10"
+                    className="w-full bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                    value={platformTax} onChange={(e) => setPlatformTax(e.target.value)} />
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
+                    Ex: Se a taxa for 10%, o Desenvolvedor receberá 90% da recorrência dos clientes dele.
+                  </p>
+                </div>
+              )}
 
               {createdPassword ? (
                 <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 space-y-3">
@@ -1049,7 +1084,9 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                   <div className="rounded-xl bg-indigo-500/5 border border-indigo-500/20 p-3 space-y-1">
                     <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Regra de Comissão Automática</p>
                     <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                      1º mês: <span className="font-bold text-emerald-500">50%</span> · Após 30 dias: <span className="font-bold">30%</span>
+                      {partnerType === 'dev' 
+                        ? 'O dev recebe o valor da assinatura descontado da Taxa da Plataforma configurada acima.'
+                        : '1º mês: <span className="font-bold text-emerald-500">50%</span> · Após 30 dias: <span className="font-bold">30%</span>'}
                     </p>
                     <p className="text-[10px] text-slate-400 dark:text-zinc-500">Aplicado automaticamente. Parceiro acessa <span className="font-mono text-indigo-500">/painel-parceiro</span></p>
                   </div>
@@ -1093,10 +1130,29 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
         <MetricCard title="Comissões Pagas" value={`R$ ${partners.reduce((s, p) => s + p.paidCommissions, 0).toFixed(2)}`} icon={<DollarSign className="w-4 h-4" />} color="green" />
       </div>
 
+      <div className="flex gap-2 px-1">
+        {(['todos', 'vendedor', 'dev'] as const).map(f => (
+          <button key={f} onClick={() => setPartnerFilter(f)}
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
+              partnerFilter === f
+                ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-sm'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-white border border-transparent'
+            }`}>
+            {f === 'todos' ? 'Todos' : f === 'vendedor' ? 'Vendedores' : 'Desenvolvedores'}
+            <span className="ml-1.5 opacity-60">({f === 'todos' ? partners.length : partners.filter(p => p.type === f).length})</span>
+          </button>
+        ))}
+      </div>
+
         <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Parceiros Cadastrados</h3>
-          <span className="text-[10px] text-slate-400 dark:text-zinc-500"><span className="text-emerald-500 font-bold">50%</span> 1º mês · <span className="font-bold">30%</span> após</span>
+          <h3 className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+            {partnerFilter === 'todos' ? 'Parceiros Cadastrados' : partnerFilter === 'vendedor' ? 'Vendedores' : 'Desenvolvedores'}
+          </h3>
+          <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+            {partnerFilter !== 'dev' && <><span className="text-emerald-500 font-bold">50%</span> 1º mês · </>}
+            <span className="font-bold">{partnerFilter === 'dev' ? 'Repasse' : '30%'} após</span>
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -1105,15 +1161,15 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                 <th className="px-4 py-3">Parceiro</th>
                 <th className="px-4 py-3">Acesso</th>
                 <th className="px-4 py-3">Link / Código</th>
-                <th className="px-4 py-3 text-right">Comissão</th>
-                <th className="px-4 py-3 text-right">Leads</th>
-                <th className="px-4 py-3 text-right">Conv.</th>
-                <th className="px-4 py-3 text-right">Ganhos</th>
+                <th className="px-4 py-3 text-right">{partnerFilter === 'dev' ? 'Repasse' : 'Comissão'}</th>
+                <th className="px-4 py-3 text-right">{partnerFilter === 'dev' ? 'Projetos' : 'Leads'}</th>
+                <th className="px-4 py-3 text-right">{partnerFilter === 'dev' ? 'Entregues' : 'Conv.'}</th>
+                <th className="px-4 py-3 text-right">{partnerFilter === 'dev' ? 'Faturamento' : 'Ganhos'}</th>
                 <th className="px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="text-xs text-slate-600 dark:text-zinc-300 divide-y divide-slate-100 dark:divide-white/5">
-              {partners.length > 0 ? partners.map(p => {
+              {partners.length > 0 ? partners.filter(p => partnerFilter === 'todos' || p.type === partnerFilter).map(p => {
                 const effRate = getEffectiveRate(p);
                 const isFirstMonth = effRate === 50;
                 const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -1121,10 +1177,17 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                 return (
                 <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-900 dark:text-white">{p.name}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">{p.name}</h4>
+                      {p.type === 'dev' ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">DEV</span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">VENDEDOR</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
                       {new Date(p.created_at).toLocaleDateString('pt-BR')}
-                      {isFirstMonth && <span className="ml-1.5 text-emerald-500 font-bold">· 1º mês</span>}
+                      {isFirstMonth && p.type !== 'dev' && <span className="ml-1.5 text-emerald-500 font-bold">· 1º mês</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -1147,15 +1210,15 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                       <button onClick={() => { navigator.clipboard.writeText(referLink); setCopied('link_' + p.id); setTimeout(() => setCopied(null), 2000); }}
                         className="flex items-center gap-1 text-[9px] text-indigo-500 hover:text-indigo-600 transition-colors w-fit">
                         <Link2 className="w-3 h-3" />
-                        {copied === 'link_' + p.id ? 'Link copiado!' : 'Copiar link de indicação'}
+                        {copied === 'link_' + p.id ? 'Link copiado!' : p.type === 'dev' ? 'Copiar link de checkout' : 'Copiar link de indicação'}
                       </button>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span className={`font-bold ${isFirstMonth ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>
-                      {effRate}%
+                    <span className={`font-bold ${isFirstMonth && p.type !== 'dev' ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>
+                      {p.type === 'dev' ? `${p.commissionRate}%` : `${effRate}%`}
                     </span>
-                    {isFirstMonth && <div className="text-[9px] text-emerald-500">(promocional)</div>}
+                    {isFirstMonth && p.type !== 'dev' && <div className="text-[9px] text-emerald-500">(promocional)</div>}
                   </td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{p.leadsCount}</td>
                   <td className="px-4 py-3 text-right">
@@ -1180,7 +1243,11 @@ function PartnerManagerTab({ tenantId, partners, onPartnerCreated }: { tenantId:
                   </td>
                 </tr>
               )}) : (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-slate-400 dark:text-zinc-500">Nenhum parceiro cadastrado.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-slate-400 dark:text-zinc-500">
+                  {partnerFilter === 'todos'
+                    ? 'Nenhum parceiro cadastrado.'
+                    : `Nenhum ${partnerFilter === 'vendedor' ? 'vendedor' : 'desenvolvedor'} cadastrado.`}
+                </td></tr>
               )}
             </tbody>
           </table>

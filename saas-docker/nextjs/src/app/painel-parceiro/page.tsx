@@ -14,6 +14,7 @@ import {
 interface PartnerLead {
   id: string; name: string | null; phone: string; interested_product: string | null;
   value: number | null; status: string; created_at: string;
+  project_status?: string; project_updated_at?: string | null; project_notes?: string | null;
 }
 interface Withdrawal {
   id: string; amount: number; status: string; pixKey: string; pixKeyType: string;
@@ -21,8 +22,13 @@ interface Withdrawal {
 }
 interface PartnerData {
   tenantId: string; name: string; referralCode: string; leads: PartnerLead[];
-  totalLeads: number; convertedLeads: number; pendingCommissions: number;
-  paidCommissions: number; totalCommissions: number; commissionRate: number;
+  paidCommissions: number; totalCommissions: number; commissionRate: number; type?: string;
+}
+interface Project {
+  id: string; title: string; description: string; price: number; status: string; created_at: string; client_name: string;
+}
+interface DevService {
+  id: string; title: string; price: number; is_recurring: boolean;
 }
 
 // ─── Componentes de Design ───
@@ -124,6 +130,58 @@ function StatusBadge({ status }: { status: string }) {
   };
   const x = c[status] || c.NEW;
   return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-full border ${x.cls}`}><span className={`w-1.5 h-1.5 rounded-full ${x.dot}`} />{x.l}</span>;
+}
+
+const PROJECT_FLOW: { key: string; label: string; next: string; color: string }[] = [
+  { key: 'pendente', label: 'Pendente', next: 'em_contato', color: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
+  { key: 'em_contato', label: 'Em Contato', next: 'em_desenvolvimento', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  { key: 'em_desenvolvimento', label: 'Em Dev', next: 'homologacao', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  { key: 'homologacao', label: 'Homologação', next: 'entregue', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+  { key: 'entregue', label: 'Entregue', next: '', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+];
+
+function ProjectStatusBadge({ status, leadId, onUpdate }: { status: string; leadId: string; onUpdate: () => void }) {
+  const [updating, setUpdating] = useState(false);
+  const step = PROJECT_FLOW.find(s => s.key === status) || PROJECT_FLOW[0];
+  const isLast = status === 'entregue';
+  const isCanceled = status === 'cancelado';
+
+  const advance = async () => {
+    if (!step.next || updating) return;
+    setUpdating(true);
+    try {
+      const r = await fetch('/api/partner/project-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, status: step.next }),
+      });
+      const d = await r.json();
+      if (d.success) onUpdate();
+    } catch {}
+    setUpdating(false);
+  };
+
+  if (isCanceled) {
+    return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-full border bg-red-500/10 text-red-400 border-red-500/20"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />Cancelado</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[140px]">
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-full border ${step.color}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${step.color.split(' ')[0].replace('bg-', 'bg-').replace('/10', '')}`} />
+        {step.label}
+      </span>
+      {!isLast && (
+        <button onClick={advance} disabled={updating}
+          className="text-[9px] text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 px-2 py-0.5 rounded-lg transition-all disabled:opacity-50 text-left font-semibold">
+          {updating ? '...' : `Avançar → ${PROJECT_FLOW.find(s => s.key === step.next)?.label || ''}`}
+        </button>
+      )}
+      {isLast && (
+        <span className="text-[9px] text-emerald-500/70 font-semibold">✓ Projeto concluído</span>
+      )}
+    </div>
+  );
 }
 
 function Divider() {
@@ -247,6 +305,11 @@ export default function PainelParceiro() {
   const [access, setAccess] = useState<{ accessExpiresAt: string | null; expired: boolean; remainingMinutes: number; remainingSeconds: number; remainingMs: number } | null>(null);
   const [activating, setActivating] = useState(false); const [activateSuccess, setActivateSuccess] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [openProjects, setOpenProjects] = useState<Project[]>([]);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
+  const [myServices, setMyServices] = useState<DevService[]>([]);
+  const [acceptingProject, setAcceptingProject] = useState<string | null>(null);
 
   useEffect(() => { setOrigin(window.location.origin); }, []);
 
@@ -261,17 +324,38 @@ export default function PainelParceiro() {
       fetch('/api/partner/withdrawals').then(r => r.json()),
       fetch('/api/partner/trial').then(r => r.json()),
       fetch('/api/partner/profile').then(r => r.json()),
-    ]).then(([dash, bal, wd, tr, prof]) => {
+      fetch('/api/projects?type=open').then(r => r.json()),
+      fetch('/api/projects?type=mine').then(r => r.json()),
+      fetch('/api/partner/services').then(r => r.json()),
+    ]).then(([dash, bal, wd, tr, prof, op, mp, ms]) => {
       if (dash.error) { setError(dash.error); return; }
       setData(dash);
       if (!bal.error) setBalance(bal);
       if (!wd.error) setWithdrawals(wd.withdrawals || []);
       if (!tr.error) setAccess(tr);
       if (!prof.error) { setProfile(prof); setProfileName(prof.name || ''); setProfileEmail(prof.email || ''); setProfileWhatsapp(prof.whatsappNumber || ''); }
+      if (Array.isArray(op)) setOpenProjects(op);
+      if (Array.isArray(mp)) setMyProjects(mp);
+      if (Array.isArray(ms)) setMyServices(ms);
     }).catch(() => setError('Erro ao carregar dados')).finally(() => setLoading(false));
     intervalRef.current = setInterval(loadAccess, 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [loadAccess]);
+
+  const handleAcceptProject = async (id: string) => {
+    setAcceptingProject(id);
+    try {
+      const res = await fetch('/api/projects/accept', { method: 'POST', body: JSON.stringify({ project_id: id }) });
+      const d = await res.json();
+      if (d.error) alert(d.error);
+      else {
+        setOpenProjects(prev => prev.filter(p => p.id !== id));
+        setMyProjects(prev => [d.project, ...prev]);
+        alert('Projeto assumido com sucesso!');
+      }
+    } catch { alert('Erro ao aceitar projeto'); }
+    setAcceptingProject(null);
+  };
 
   const handleActivate = async () => {
     setActivating(true); setActivateSuccess(false);
@@ -307,7 +391,7 @@ export default function PainelParceiro() {
             </div>
             <div>
               <p className="text-sm font-bold text-white">{data.name}</p>
-              <div className="flex items-center gap-1.5"><PulseDot /><p className="text-[10px] text-zinc-500">Painel do Parceiro</p></div>
+              <div className="flex items-center gap-1.5"><PulseDot /><p className="text-[10px] text-zinc-500">{data.type === 'dev' ? 'Painel do Desenvolvedor' : 'Painel do Parceiro'}</p></div>
             </div>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-zinc-400 hover:text-red-400 border border-white/10 rounded-xl hover:border-red-500/30 transition-all">Sair</button>
@@ -430,14 +514,14 @@ export default function PainelParceiro() {
           <section className="space-y-6">
             <div className="text-center max-w-xl mx-auto space-y-3">
               <SectionPill text="Suas Métricas" />
-              <h2 className="text-xl md:text-2xl font-extrabold">Como parceiro, <span className="text-indigo-400">você ganha comissão</span> a cada venda convertida</h2>
+              <h2 className="text-xl md:text-2xl font-extrabold">{data.type === 'dev' ? <><span className="text-indigo-400">Você retém {data.commissionRate}%</span> do pagamento de seus clientes</> : <>Como parceiro, <span className="text-indigo-400">você ganha comissão</span> a cada venda convertida</>}</h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               {[
-                { l: 'Meus Leads', v: data.totalLeads, s: `${leadsAtivos} ativos`, ic: Users, g: 'from-indigo-500 to-purple-500' },
-                { l: 'Convertidos', v: data.convertedLeads, s: `${data.totalLeads > 0 ? Math.round(data.convertedLeads / data.totalLeads * 100) : 0}% conversão`, ic: CheckCircle2, g: 'from-emerald-500 to-teal-500', vc: 'text-emerald-400' },
-                { l: 'A Receber', v: `R$ ${data.pendingCommissions.toFixed(2)}`, s: 'Comissões pendentes', ic: Clock, g: 'from-amber-500 to-orange-500', vc: 'text-amber-400', raw: false },
-                { l: 'Já Recebido', v: `R$ ${data.paidCommissions.toFixed(2)}`, s: `Total R$ ${data.totalCommissions.toFixed(2)}`, ic: DollarSign, g: 'from-emerald-500 to-teal-500', vc: 'text-emerald-400', raw: false },
+                { l: data.type === 'dev' ? 'Clientes e Projetos' : 'Meus Leads', v: data.totalLeads, s: `${leadsAtivos} ativos`, ic: Users, g: 'from-indigo-500 to-purple-500' },
+                { l: data.type === 'dev' ? 'Projetos Fechados' : 'Convertidos', v: data.convertedLeads, s: `${data.totalLeads > 0 ? Math.round(data.convertedLeads / data.totalLeads * 100) : 0}% conversão`, ic: CheckCircle2, g: 'from-emerald-500 to-teal-500', vc: 'text-emerald-400' },
+                { l: data.type === 'dev' ? 'Repasse Pendente' : 'A Receber', v: `R$ ${data.pendingCommissions.toFixed(2)}`, s: 'Disponível para saque', ic: Clock, g: 'from-amber-500 to-orange-500', vc: 'text-amber-400', raw: false },
+                { l: data.type === 'dev' ? 'Repasse Realizado' : 'Já Recebido', v: `R$ ${data.paidCommissions.toFixed(2)}`, s: `Total R$ ${data.totalCommissions.toFixed(2)}`, ic: DollarSign, g: 'from-emerald-500 to-teal-500', vc: 'text-emerald-400', raw: false },
               ].map((m, i) => (
                 <GlassCard key={i} hover className="p-4 md:p-5">
                   <div className="flex items-center justify-between mb-3">
@@ -561,7 +645,7 @@ export default function PainelParceiro() {
         {/* ═══════════ SAQUE ═══════════ */}
         <Reveal delay={450}>
           <GlassCard className="p-6 md:p-8">
-            <div className="flex items-center gap-3 mb-5"><GradientIcon icon={Wallet} gradient="from-emerald-500 to-teal-500" /><div><h3 className="text-sm font-bold text-white">Sacar Comissões</h3><p className="text-[10px] text-zinc-500">Disponível: <span className="font-bold text-emerald-400">R$ {balance.available.toFixed(2)}</span></p></div></div>
+            <div className="flex items-center gap-3 mb-5"><GradientIcon icon={Wallet} gradient="from-emerald-500 to-teal-500" /><div><h3 className="text-sm font-bold text-white">{data.type === 'dev' ? 'Sacar Repasses' : 'Sacar Comissões'}</h3><p className="text-[10px] text-zinc-500">Disponível: <span className="font-bold text-emerald-400">R$ {balance.available.toFixed(2)}</span></p></div></div>
             {balance.available > 0 ? (
               <form onSubmit={handleWithdraw} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -578,6 +662,120 @@ export default function PainelParceiro() {
             )}
           </GlassCard>
         </Reveal>
+
+        {/* ═══════════ UBER DE DEVS (OPORTUNIDADES) ═══════════ */}
+        {data.type === 'dev' && (
+          <Reveal delay={600}>
+            <GlassCard className="overflow-hidden border-indigo-500/20">
+              <div className="px-5 py-4 border-b border-indigo-500/10 bg-indigo-500/5">
+                <div className="flex items-center gap-3">
+                  <GradientIcon icon={Rocket} gradient="from-indigo-500 to-purple-500" />
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Pool de Projetos (Oportunidades)</h3>
+                    <p className="text-[10px] text-indigo-300">Aceite novos projetos solicitados por clientes na plataforma central</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-5">
+                {openProjects.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {openProjects.map(p => (
+                      <div key={p.id} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 flex flex-col justify-between hover:bg-white/[0.04] transition-all">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-sm font-bold text-white">{p.title}</h4>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+                              R$ {p.price.toFixed(2)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 line-clamp-2 mb-3">{p.description || 'Sem descrição'}</p>
+                          <p className="text-[10px] text-zinc-500 mb-4">Cliente: <span className="text-zinc-300">{p.client_name || 'Desconhecido'}</span></p>
+                        </div>
+                        <button 
+                          onClick={() => handleAcceptProject(p.id)}
+                          disabled={acceptingProject === p.id}
+                          className="w-full py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-[11px] font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50">
+                          {acceptingProject === p.id ? 'Aceitando...' : 'Assumir Projeto'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Rocket className="w-8 h-8 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-xs text-zinc-500">Nenhum projeto disponível no momento no Pool público.</p>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </Reveal>
+        )}
+
+        {/* ═══════════ PROJETOS DO DEV E SERVIÇOS ═══════════ */}
+        {data.type === 'dev' && (
+          <Reveal delay={650}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <GlassCard className="overflow-hidden">
+                <div className="px-5 py-4 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-3">
+                    <GradientIcon icon={Workflow} gradient="from-blue-500 to-cyan-500" />
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Meus Projetos Ativos</h3>
+                      <p className="text-[10px] text-zinc-500">Projetos em andamento</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-0">
+                  {myProjects.length > 0 ? (
+                    <div className="divide-y divide-white/[0.03]">
+                      {myProjects.map(p => (
+                        <div key={p.id} className="p-4 hover:bg-white/[0.01] transition-all flex items-center justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-white">{p.title}</h4>
+                            <p className="text-[10px] text-zinc-500 mt-1">{p.client_name}</p>
+                          </div>
+                          <StatusBadge status={p.status === 'IN_PROGRESS' ? 'INTERESTED' : 'CONVERTED'} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-6 text-center text-xs text-zinc-600">Nenhum projeto ativo.</p>
+                  )}
+                </div>
+              </GlassCard>
+
+              <GlassCard className="overflow-hidden border-purple-500/10">
+                <div className="px-5 py-4 border-b border-purple-500/10 bg-purple-500/5">
+                  <div className="flex items-center gap-3">
+                    <GradientIcon icon={ShoppingCart} gradient="from-purple-500 to-pink-500" />
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Meus Serviços Extras</h3>
+                      <p className="text-[10px] text-purple-300">Venda SEO, Anúncios e customizações</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 space-y-4">
+                  {myServices.length > 0 ? (
+                    myServices.map(s => (
+                      <div key={s.id} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-3 flex justify-between items-center">
+                        <div>
+                          <h4 className="text-xs font-bold text-white">{s.title}</h4>
+                          <p className="text-[10px] text-emerald-400 mt-0.5 font-bold">R$ {s.price.toFixed(2)} {s.is_recurring ? '/mês' : ''}</p>
+                        </div>
+                        <CopyButton text={`${origin}/checkout/service/${s.id}`} />
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-xs text-zinc-600 py-4">Você ainda não criou nenhum serviço extra.</p>
+                  )}
+                  <button className="w-full py-2.5 border border-dashed border-purple-500/30 hover:bg-purple-500/10 text-purple-400 text-xs font-bold rounded-xl transition-all">
+                    + Criar Novo Serviço
+                  </button>
+                </div>
+              </GlassCard>
+            </div>
+          </Reveal>
+        )}
 
         {/* ═══════════ HISTÓRICO DE SAQUES ═══════════ */}
         {withdrawals.length > 0 && (
@@ -610,20 +808,49 @@ export default function PainelParceiro() {
         {/* ═══════════ MEUS LEADS ═══════════ */}
         <Reveal delay={550}>
           <GlassCard className="overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.04]"><div className="flex items-center gap-3"><GradientIcon icon={Users} gradient="from-indigo-500 to-purple-500" /><div><h3 className="text-sm font-bold text-white">Meus Leads</h3><p className="text-[10px] text-zinc-500">Todos os leads que você indicou</p></div></div></div>
+            <div className="px-5 py-4 border-b border-white/[0.04]"><div className="flex items-center gap-3"><GradientIcon icon={Users} gradient="from-indigo-500 to-purple-500" /><div><h3 className="text-sm font-bold text-white">{data.type === 'dev' ? 'Meus Clientes e Projetos' : 'Meus Leads'}</h3><p className="text-[10px] text-zinc-500">{data.type === 'dev' ? 'Todos os projetos hospedados' : 'Todos os leads que você indicou'}</p></div></div></div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead><tr className="border-b border-white/[0.04] text-[10px] text-zinc-500 uppercase tracking-wider font-bold"><th className="px-5 py-3">Lead</th><th className="px-5 py-3">Produto</th><th className="px-5 py-3">Valor</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Data</th></tr></thead>
+                <thead><tr className="border-b border-white/[0.04] text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                  <th className="px-5 py-3">{data.type === 'dev' ? 'Cliente' : 'Lead'}</th>
+                  <th className="px-5 py-3">Produto</th>
+                  <th className="px-5 py-3">Valor</th>
+                  {data.type === 'dev' && <th className="px-5 py-3">Progresso</th>}
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Data</th>
+                </tr></thead>
                 <tbody className="text-xs divide-y divide-white/[0.03]">
-                  {data.leads.length > 0 ? data.leads.map(l => (
+                  {data.leads.length > 0 ? data.leads.map(l => {
+                    const ps = l.project_status || 'pendente';
+                    const isDev = data.type === 'dev';
+                    return (
                     <tr key={l.id} className="hover:bg-white/[0.01] transition-colors">
-                      <td className="px-5 py-3"><div className="font-semibold text-white">{l.name || 'Sem nome'}</div><div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5"><Phone className="w-3 h-3" />{l.phone}</div></td>
+                      <td className="px-5 py-3">
+                        <div className="font-semibold text-white">{l.name || 'Sem nome'}</div>
+                        <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                          <Phone className="w-3 h-3" />
+                          {l.phone}
+                          {l.phone && (
+                            <a href={`https://wa.me/${l.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 ml-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                              title="Falar no WhatsApp">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                              Chamar
+                            </a>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-5 py-3">{l.interested_product ? <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">{l.interested_product}</span> : '—'}</td>
                       <td className="px-5 py-3 font-bold text-white">{l.value ? `R$ ${l.value.toFixed(2)}` : '—'}</td>
+                      {isDev && (
+                        <td className="px-5 py-3">
+                          <ProjectStatusBadge status={ps} leadId={l.id} onUpdate={() => window.location.reload()} />
+                        </td>
+                      )}
                       <td className="px-5 py-3"><StatusBadge status={l.status} /></td>
                       <td className="px-5 py-3 text-zinc-500">{new Date(l.created_at).toLocaleDateString('pt-BR')}</td>
                     </tr>
-                  )) : <tr><td colSpan={5} className="px-5 py-12 text-center text-xs text-zinc-600">Nenhum lead ainda. Compartilhe seu link e comece a indicar!</td></tr>}
+                  )}) : <tr><td colSpan={isDev ? 6 : 5} className="px-5 py-12 text-center text-xs text-zinc-600">Nenhum lead ainda. Compartilhe seu link e comece a indicar!</td></tr>}
                 </tbody>
               </table>
             </div>

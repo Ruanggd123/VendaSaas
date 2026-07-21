@@ -93,10 +93,13 @@ export async function POST(req: Request) {
               commissionAmount = product.commission_fixed;
               commissionType = "fixed";
             } else if (productName.includes("site") || productName.includes("setup")) {
-              commissionAmount = 200.00;
-              commissionType = "fixed";
+              commissionAmount = productName.includes("avulso") ? (sale.amount * partner.commissionRate) / 100 : 200.00;
+              commissionType = partner.type === 'dev' ? `repasse (${partner.commissionRate}%)` : "fixed";
             } else {
-              if (isFirstPayment) {
+              if (partner.type === 'dev') {
+                commissionAmount = (sale.amount * partner.commissionRate) / 100;
+                commissionType = `repasse (${partner.commissionRate}%)`;
+              } else if (isFirstPayment) {
                 commissionAmount = (sale.amount * 50) / 100;
                 commissionType = "activation_bonus (50%)";
               } else {

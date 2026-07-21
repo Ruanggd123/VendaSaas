@@ -57,6 +57,7 @@ export async function GET(req: Request) {
         name: p.name,
         referralCode: p.referralCode,
         commissionRate: p.commissionRate,
+        type: p.type || 'vendedor',
         leadsCount: p._count.leads,
         convertedCount: convertedMap.get(p.id) || 0,
         created_at: p.created_at,
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
     }
 
     const tenantId = session.tenantId;
-    const { name, referralCode, email } = await req.json();
+    const { name, referralCode, email, type, commissionRate } = await req.json();
 
     if (!name || !referralCode) {
       return NextResponse.json({ error: 'Nome e Código de Indicação são obrigatórios' }, { status: 400 });
@@ -108,14 +109,27 @@ export async function POST(req: Request) {
     const rawPassword = Math.random().toString(36).slice(-8);
     const password_hash = await bcrypt.hash(rawPassword, 10);
 
+    // Calculate commission logic based on type
+    let finalCommissionRate = 30; // default for vendedor
+    if (type === 'dev') {
+      // If dev, they input the platform tax (e.g. 10%). The dev's share is 100 - tax (90%).
+      const tax = parseFloat(commissionRate) || 10;
+      finalCommissionRate = 100 - tax;
+    } else {
+      if (commissionRate !== undefined) {
+        finalCommissionRate = parseFloat(commissionRate);
+      }
+    }
+
     const partner = await prisma.partner.create({
       data: {
         tenant_id: tenantId,
         name,
         email,
         password_hash,
+        type: type || 'vendedor',
         referralCode: referralCode.toUpperCase(),
-        commissionRate: 30,
+        commissionRate: finalCommissionRate,
         trial_ends_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hora de trial
       }
     });

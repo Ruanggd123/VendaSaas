@@ -12,7 +12,7 @@ const AUTOPLAY_SCRIPT = [
   { sender: 'user', text: "62130000", delay: 2500 },
   { sender: 'bot', text: "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu te enviar o link do nosso WhatsApp oficial!", delay: 2000 },
   { sender: 'user', text: "sim", delay: 2500 },
-  { sender: 'bot', text: "Perfeito! 🚀 O seu pedido está quase pronto.\n\nClique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999", delay: 2000 }
+  { sender: 'bot', text: "Perfeito! 🚀 O seu pedido está quase pronto.\n\nClique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499", delay: 2000 }
 ];
 
 export default function WhatsappBotDemo() {
@@ -109,9 +109,9 @@ export default function WhatsappBotDemo() {
         if (lower.includes("valor") || lower.includes("preco") || lower.includes("plano") || lower.includes("planos")) {
           botReply = "Temos o Plano Básico (R$ 97/mês) e o Plano Premium (R$ 197/mês).\n\nDigite 1 para Básico.\nDigite 2 para Premium.";
         } else if (lower === "1") {
-          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999";
+          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499";
         } else if (lower === "2") {
-          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999";
+          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499";
         } else {
           botReply = "Desculpe, não entendi. Digite 'planos' para ver nossas opções e preços.";
         }

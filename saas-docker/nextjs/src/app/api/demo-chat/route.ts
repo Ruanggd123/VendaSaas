@@ -37,7 +37,7 @@ function generateSmartFallback(message: string): string {
   }
 
   if (lowerMsg.includes("sim") || (lowerMsg.includes("quero") && !lowerMsg.includes("nao")) || lowerMsg.includes("vamos")) {
-    return "Perfeito! 🚀 O seu pedido está quase pronto.\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5511999999999\n\nNossa equipe já está te aguardando lá!";
+    return "Perfeito! 🚀 O seu pedido está quase pronto.\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499\n\nNossa equipe já está te aguardando lá!";
   }
 
   if (lowerMsg.includes("plano") || lowerMsg.includes("valor") || lowerMsg.includes("preco") || lowerMsg.includes("mega") || lowerMsg.includes("giga")) {
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 Aja de forma super breve, extremamente educada, humana e persuasiva. Use emojis e *negrito*.
 Se o cliente negar algo ou quiser outra coisa, mude de abordagem educadamente.
 NÃO mande textos grandes, maximo 3 linhas. Você vende o plano de 500 Mega (R$99,90) e 1 Giga (R$149,90).
-IMPORTANTE: Se o cliente confirmar que quer assinar, NÃO mande Pix. Envie o link do WhatsApp para ele finalizar: https://wa.me/5511999999999
+IMPORTANTE: Se o cliente confirmar que quer assinar, NÃO mande Pix. Envie o link do WhatsApp para ele finalizar: https://wa.me/5588981885499
 Mensagem do cliente: "${message}"`;
 
         const result = await model.generateContent(prompt);
