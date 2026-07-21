@@ -35,6 +35,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: { path?: str
   const headers = new Headers();
   headers.set('apikey', EVOLUTION_KEY);
   headers.set('Content-Type', req.headers.get('content-type') || 'application/json');
+  headers.set('ngrok-skip-browser-warning', 'true');
 
   const method = req.method;
   let body = undefined;

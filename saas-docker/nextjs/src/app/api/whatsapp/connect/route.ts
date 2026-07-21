@@ -26,7 +26,8 @@ export async function POST(request: Request) {
 
     const headers = {
       'apikey': evolutionKey,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true'
     };
 
     let dbInstance;

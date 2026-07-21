@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       method: "DELETE",
       headers: {
         'apikey': evolutionKey,
+        'ngrok-skip-browser-warning': 'true'
       }
     }).catch(err => console.error("Erro ao deletar na Evolution API:", err));
 

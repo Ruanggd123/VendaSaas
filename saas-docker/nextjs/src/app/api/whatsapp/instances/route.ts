@@ -32,7 +32,10 @@ export async function GET(request: Request) {
 
     // Buscar status em tempo real na Evolution API
     const res = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
-      headers: { 'apikey': evolutionKey || '' },
+      headers: { 
+        'apikey': evolutionKey || '',
+        'ngrok-skip-browser-warning': 'true'
+      },
       cache: 'no-store'
     });
 

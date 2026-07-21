@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'B6D711FCDE4D4FD5936544120E713976';
-const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
+const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
 
 // GET: busca configuração atual do webhook ou status/qrcode/config
 export async function GET(req: NextRequest) {
