@@ -167,20 +167,44 @@ export default function LandingPage() {
     modules: p.modules.includes(id) ? p.modules.filter((m) => m !== id) : [...p.modules, id],
   }));
 
-  const siteData: Record<string, { name: string; desc: string; setup: string; monthly: number }> = {
-    site_basic: { name: "Site Avulso", desc: "Landing page avulsa", setup: "R$ 497", monthly: 0 },
-    site_pro: { name: "Plataforma Completa", desc: "Sistema web avançado avulso", setup: "R$ 997", monthly: 0 },
-    site_ent: { name: "E-commerce Avulso", desc: "Loja virtual completa avulsa", setup: "R$ 1.997", monthly: 0 },
+  const siteData: Record<string, { name: string; desc: string; setup: string; setupValue: number; monthly: number }> = {
+    site_basic: { name: "Site Avulso", desc: "Landing page avulsa", setup: "R$ 497", setupValue: 497, monthly: 0 },
+    site_pro: { name: "Plataforma Completa", desc: "Sistema web avançado avulso", setup: "R$ 997", setupValue: 997, monthly: 0 },
+    site_ent: { name: "E-commerce Avulso", desc: "Loja virtual completa avulsa", setup: "R$ 1.997", setupValue: 1997, monthly: 0 },
   };
-  const botData: Record<string, { name: string; desc: string; monthly: number }> = {
-    bot_starter: { name: "Plano Start", desc: "O básico que funciona", monthly: 67 },
-    bot_pro: { name: "Plano Growth", desc: "Para quem quer crescer", monthly: 147 },
-    bot_equipe: { name: "Plano Scale", desc: "Para operações robustas", monthly: 497 },
+  const botData: Record<string, { name: string; desc: string; monthly: number; discountValue: number }> = {
+    bot_starter: { name: "Plano Start", desc: "O básico que funciona", monthly: 67, discountValue: 497 },
+    bot_pro: { name: "Plano Growth", desc: "Para quem quer crescer", monthly: 147, discountValue: 997 },
+    bot_equipe: { name: "Plano Scale", desc: "Para operações robustas", monthly: 497, discountValue: 1997 },
   };
 
   const getSiteData = (id: string) => siteData[id] || null;
   const getBotData = (id: string) => botData[id] || null;
   const getSiteSetup = (id: string) => siteData[id]?.setup || "";
+  const getSiteSetupValue = (id: string) => siteData[id]?.setupValue || 0;
+  const getBotDiscountValue = (id: string) => botData[id]?.discountValue || 0;
+  
+  const getFinalSetupValue = () => {
+    if (!selected.site) return 0;
+    const setup = getSiteSetupValue(selected.site);
+    if (!combo) return setup;
+    const discount = getBotDiscountValue(selected.bot);
+    return Math.max(0, setup - discount);
+  };
+
+  const getSavingsValue = () => {
+    if (!combo || !selected.site) return 0;
+    const setup = getSiteSetupValue(selected.site);
+    const discount = getBotDiscountValue(selected.bot);
+    return Math.min(setup, discount);
+  };
+
+  const getSavings = () => {
+    const savings = getSavingsValue();
+    if (savings === 0) return "";
+    return `R$ ${savings.toLocaleString('pt-BR')}`;
+  };
+
   const getModuleName = (id: string) => {
     const map: Record<string, string> = { mod_odonto: "Odonto", mod_varejo: "Varejo", mod_assistencia: "Assistência", mod_contabilidade: "Contabilidade" };
     return map[id] || id;
@@ -189,16 +213,11 @@ export default function LandingPage() {
   const getBotMonthly = () => selected.bot ? (botData[selected.bot]?.monthly || 0) : 0;
   const getSiteMonthly = () => selected.site ? (siteData[selected.site]?.monthly || 0) : 0;
   const getModulesMonthly = () => 0;
-  const getOriginalMonthly = () => `R$ ${getSiteMonthly() + getBotMonthly() + getModulesMonthly()}`;
   const getTotalMonthly = () => {
     const siteM = getSiteMonthly();
     const botM = getBotMonthly();
     const modM = getModulesMonthly();
     return `R$ ${siteM + botM + modM}`;
-  };
-  const getSavings = () => {
-    if (!combo || !selected.site) return "";
-    return `${getSiteSetup(selected.site)} de Setup`;
   };
   const getModulesPrice = () => `R$ ${getBotMonthly()}`;
 
@@ -763,10 +782,14 @@ export default function LandingPage() {
                           <div className="mb-3">
                             <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">Setup (Criação do site)</span>
                             <div className="flex items-baseline gap-2 mt-1">
-                              {combo ? (
+                              {combo && getSavingsValue() > 0 ? (
                                 <>
                                   <span className="text-lg font-black text-slate-500 line-through">{getSiteSetup(selected.site)}</span>
-                                  <span className="text-xl font-black text-green-400">ISENTO NO COMBO</span>
+                                  {getFinalSetupValue() === 0 ? (
+                                    <span className="text-xl font-black text-green-400">ISENTO NO COMBO</span>
+                                  ) : (
+                                    <span className="text-xl font-black text-amber-400">R$ {getFinalSetupValue().toLocaleString('pt-BR')} (Desconto)</span>
+                                  )}
                                 </>
                               ) : (
                                 <span className="text-2xl font-black text-white">{getSiteSetup(selected.site)}</span>
