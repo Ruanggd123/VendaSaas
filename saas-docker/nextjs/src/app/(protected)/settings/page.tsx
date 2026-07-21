@@ -345,7 +345,7 @@ function AITab() {
   const addProduct = () =>
     update("products", [...settings.products, { name: "", price: "", description: "", duration_min: 60, requires_payment: false, image_url: "" }]);
 
-  const updateProduct = (i: number, field: keyof Product, value: string) => {
+  const updateProduct = (i: number, field: keyof Product, value: any) => {
     const products = [...settings.products];
     products[i] = { ...products[i], [field]: value };
     update("products", products);
@@ -869,7 +869,7 @@ function AITab() {
                             </label>
                             <div className="flex items-center gap-2 bg-black/20 px-2 py-1.5 rounded-lg border border-white/5">
                               <span className="text-[10px] text-zinc-400 font-medium">Estoque Único</span>
-                              <Toggle enabled={product.is_unique_keys || false} onChange={(v) => updateProduct(i, "is_unique_keys", v.toString())} />
+                              <Toggle enabled={product.is_unique_keys || false} onChange={(v) => updateProduct(i, "is_unique_keys", v)} />
                             </div>
                           </div>
                           
@@ -934,7 +934,7 @@ function AITab() {
 
                       <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl flex items-start gap-3">
                         <div className="pt-1">
-                          <Toggle enabled={product.requires_payment || false} onChange={(v) => updateProduct(i, "requires_payment", v.toString())} />
+                          <Toggle enabled={product.requires_payment || false} onChange={(v) => updateProduct(i, "requires_payment", v)} />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-purple-100">Exigir Pagamento Obrigatório</p>
@@ -1293,7 +1293,7 @@ export default function SettingsPage() {
           {activeTab === "modules" && <ModulesTab />}
           {activeTab === "knowledge" && <KnowledgeBaseTab />}
           {activeTab === "payment" && <PaymentTab />}
-          {activeTab === "blacklist" && <BlacklistPanel />}
+          {activeTab === "blacklist" && <BlacklistPanel isOpen={true} onClose={() => setActiveTab("ai")} />}
           {activeTab === "security" && <SecurityTab />}
         </div>
       </div>
