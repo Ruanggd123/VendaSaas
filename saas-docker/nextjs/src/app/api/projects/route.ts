@@ -11,11 +11,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
-    if (!session || session.role !== 'partner') {
+    const isPartner = session.role === 'partner';
+    const isAdmin = session.role === 'superadmin' || session.role === 'manager';
+
+    if (!session || (!isPartner && !isAdmin)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 401 });
     }
 
-    if (type === 'open') {
+    if (type === 'all' && isAdmin) {
+      // Retornar todos os projetos para o painel admin
+      const projects = await prisma.project.findMany({
+        orderBy: { created_at: 'desc' },
+        include: { timelines: true }
+      });
+      return NextResponse.json(projects);
+    } else if (type === 'open') {
       // Retornar projetos não assinados por ninguém
       const projects = await prisma.project.findMany({
         where: { status: 'OPEN', partner_id: null },
@@ -39,7 +49,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { client_name, client_phone, title, description, price, partner_id } = body;
+    const { client_name, client_phone, title, description, briefing, price, partner_id } = body;
 
     // Se partner_id for passado, já assina direto (venda pelo link do Dev).
     // Senão, cai no pool público
@@ -49,6 +59,7 @@ export async function POST(request: Request) {
         client_phone,
         title,
         description,
+        briefing,
         price: parseFloat(price || '0'),
         partner_id: partner_id || null,
         status: partner_id ? 'IN_PROGRESS' : 'OPEN'

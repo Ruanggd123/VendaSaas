@@ -225,6 +225,7 @@ model Project {
   partner_id        String?
   title             String   @default("Projeto Web")
   description       String?  @db.Text
+  briefing          String?  @db.Text
   price             Float    @default(0)
   status            String   @default("OPEN") // OPEN, IN_PROGRESS, REVIEW, COMPLETED
   prazo_entrega     DateTime?

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bot,
@@ -156,6 +157,7 @@ function AnimatedHologram() {
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selected, setSelected] = useState({ site: "" as string, bot: "" as string, modules: [] as string[] });
   const combo = !!selected.site && !!selected.bot;
@@ -237,6 +239,22 @@ export default function LandingPage() {
   const openWhatsApp = (plan: string) => {
     const text = encodeURIComponent(`Olá! Vim pelo site e quero contratar o plano: ${plan}`);
     window.open(`https://wa.me/${PHONE}?text=${text}`, "_blank");
+  };
+
+  const goToCheckout = () => {
+    const params = new URLSearchParams();
+    if (selected.site) params.set("site", selected.site);
+    if (selected.bot) params.set("bot", selected.bot);
+    if (selected.modules.length > 0) params.set("modules", selected.modules.join(","));
+    params.set("title", getSummaryText());
+    
+    // Calcula price
+    const siteSetup = getFinalSetupValue();
+    const monthly = getSiteMonthly() + getBotMonthly() + getModulesMonthly();
+    params.set("setup", siteSetup.toString());
+    params.set("monthly", monthly.toString());
+
+    router.push(`/checkout?${params.toString()}`);
   };
 
   return (
@@ -822,7 +840,7 @@ export default function LandingPage() {
                       </div>
 
                       <button
-                        onClick={() => openWhatsApp(getSummaryText())}
+                        onClick={goToCheckout}
                         className="mt-4 group/btn w-full py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl text-sm font-bold transition-all shadow-lg shadow-green-600/20 hover:shadow-xl hover:shadow-green-500/30 flex items-center justify-center gap-2"
                       >
                         <MessageSquare className="w-4 h-4" /> {combo ? "Comprar Combo Agora" : "Contratar Agora"}
