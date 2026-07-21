@@ -62,6 +62,24 @@ export async function POST(request: Request) {
             qrcode: true
           })
         });
+
+        // Garantir que o webhook seja configurado
+        try {
+          await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              webhook: {
+                enabled: true,
+                url: \`http://nextjs:3000/api/webhooks/evolution\`,
+                webhookByEvents: false,
+                events: ["MESSAGES_UPSERT"]
+              }
+            })
+          });
+        } catch (e) {
+          console.error("Erro ao configurar webhook na recriação", e);
+        }
       }
 
       if (!connectRes.ok) {
