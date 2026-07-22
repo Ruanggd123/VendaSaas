@@ -87,12 +87,21 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const [done, setDone] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(true);
-  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('09:00');
+  const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
+
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     billingType: 'PIX' as 'PIX' | 'BOLETO' | 'CREDIT_CARD',
     scheduled_at: '',
   });
+
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      setForm(f => ({ ...f, scheduled_at: `${selectedDate}T${selectedTime}` }));
+    }
+  }, [selectedDate, selectedTime]);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -554,21 +563,59 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all" />
                   </div>
 
-                  {/* Se for serviço com agendamento, mostra seletor explicativo de data/hora */}
+                  {/* Se for serviço com agendamento: Seletor de Data PT-BR + Grade de Horários 24h */}
                   {selected && products.find(p => p.name === selected)?.delivery_type === 'service' && (
-                    <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2.5">
+                    <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-4">
                       <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
                         <Clock className="w-4 h-4 text-indigo-400" />
-                        Agendamento do Atendimento
+                        Agendamento do Atendimento (Padrão Brasília)
                       </div>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">
-                        Escolha a data e o horário comercial em que você deseja realizar o seu atendimento ou reunião (Horário Brasília):
-                      </p>
-                      <input type="datetime-local" required
-                        value={form.scheduled_at}
-                        onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))}
-                        min={new Date(Date.now() + 300000).toISOString().slice(0, 16)}
-                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all [color-scheme:dark]" />
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                          1. Escolha o dia do atendimento:
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={selectedDate}
+                          onChange={e => setSelectedDate(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all [color-scheme:dark]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                          2. Escolha o horário comercial disponível (24h):
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {TIME_SLOTS.map(t => (
+                            <button
+                              type="button"
+                              key={t}
+                              onClick={() => setSelectedTime(t)}
+                              className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                                selectedTime === t
+                                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-indigo-500 shadow-md shadow-indigo-500/25 scale-105'
+                                  : 'bg-zinc-950/80 text-zinc-300 border-zinc-800 hover:border-indigo-500/40 hover:text-white'
+                              }`}
+                            >
+                              {t} hs
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {selectedDate && (
+                        <div className="p-3 rounded-xl bg-zinc-950/60 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between">
+                          <span className="text-[11px]">
+                            📅 <span className="font-bold text-white">{selectedDate.split('-').reverse().join('/')}</span> às <span className="font-bold text-white">{selectedTime} hs</span>
+                          </span>
+                          <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Horário Selecionado</span>
+                        </div>
+                      )}
+
                       <p className="text-[10px] text-zinc-400 flex items-center gap-1.5 pt-1">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         Após o pagamento, o seu horário será reservado automaticamente na nossa agenda!
