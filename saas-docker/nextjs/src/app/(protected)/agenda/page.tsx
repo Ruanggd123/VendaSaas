@@ -54,13 +54,14 @@ function timeAgo(iso: string) {
 
 // ─── MODAL ───────────────────────────────────────────────────────────────────
 function NewAppointmentModal({
-  isOpen, onClose, onCreated, defaultDate, services,
+  isOpen, onClose, onCreated, defaultDate, services, appointments
 }: {
   isOpen: boolean;
   onClose: () => void;
   onCreated: () => void;
   defaultDate?: Date;
   services: AISettings["products"];
+  appointments: Appointment[];
 }) {
   const [form, setForm] = useState({
     service_name: "",
@@ -197,12 +198,37 @@ function NewAppointmentModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">Horário</label>
-              <input
-                type="time"
+              <select
                 value={form.time}
                 onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.03] px-4 py-2.5 text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none transition-all text-sm"
-              />
+              >
+                <option value="">Selecione...</option>
+                {Array.from({ length: 28 }).map((_, i) => {
+                  const h = Math.floor(i / 2) + 8; // Começa às 08:00, termina às 21:30
+                  const m = i % 2 === 0 ? "00" : "30";
+                  const timeStr = `${padZero(h)}:${m}`;
+                  
+                  // Verificar conflito apenas se houver uma data selecionada
+                  let isAvailable = true;
+                  if (form.date && appointments) {
+                    const startSlot = new Date(`${form.date}T${timeStr}:00`).getTime();
+                    const endSlot = startSlot + (form.duration_min * 60000);
+                    
+                    isAvailable = !appointments.some(app => {
+                      const appStart = new Date(app.scheduled_at).getTime();
+                      const appEnd = appStart + (app.duration_min * 60000);
+                      // Só considera conflitos de agendamentos que não foram cancelados
+                      if (app.status === 'cancelled') return false;
+                      return startSlot < appEnd && endSlot > appStart;
+                    });
+                  }
+
+                  return isAvailable ? (
+                    <option key={timeStr} value={timeStr}>{timeStr}</option>
+                  ) : null;
+                })}
+              </select>
             </div>
           </div>
 
@@ -650,6 +676,7 @@ export default function AgendaPage() {
         onCreated={fetchAppointments}
         defaultDate={selectedDay || today}
         services={aiSettings.products}
+        appointments={appointments}
       />
     </div>
   );
