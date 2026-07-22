@@ -380,9 +380,12 @@ export async function POST(req: Request) {
               // Save keysWarning to pass down to provider message
               (sale as any).keysWarning = keysWarning;
             } else if (clientPhone && providerInstance && !isBot) {
-              // Envio de mensagem padrão caso não seja serviço, não seja bot e não seja digital imediato
-              await sendWhatsAppMessage(providerInstance.name, clientPhone,
-                `🎉 *Pagamento Aprovado!*\n\nOlá ${clientName}, recebemos a confirmação do seu pagamento para *${sale.product_name}* no valor de R$ ${sale.amount.toFixed(2)}.\n\nSeu pedido já está sendo encaminhado para separação/entrega! 🚀`);
+              // Envio de mensagem personalizada para Sites/Plataformas ou produtos físicos/digitais
+              const msgClient = isSite
+                ? `🎉 *Pagamento Aprovado com Sucesso!*\n\nOlá ${clientName}, recebemos a confirmação do seu pagamento para *${sale.product_name}* (R$ ${sale.amount.toFixed(2)}).\n\n🚀 *Próximos Passos:*\n• Seu projeto foi registrado e ativado em nosso sistema!\n• Sua Reunião de Alinhamento & Briefing já foi pré-agendada na nossa agenda.\n\nEm breve nossa equipe entrará em contato para iniciar o desenvolvimento do seu site! 🤝`
+                : `🎉 *Pagamento Aprovado!*\n\nOlá ${clientName}, recebemos a confirmação do seu pagamento para *${sale.product_name}* no valor de R$ ${sale.amount.toFixed(2)}.\n\nSeu pedido já está sendo encaminhado para separação/entrega! 🚀`;
+
+              await sendWhatsAppMessage(providerInstance.name, clientPhone, msgClient);
             }
 
             // ── NOTIFICAR O PROVEDOR (dono da loja) com detalhes da venda + credenciais ──
@@ -391,6 +394,8 @@ export async function POST(req: Request) {
                 let msgNotificacao = `🛒 *Nova Venda Confirmada!*\n\n👤 ${clientName}\n📱 ${clientPhone || "(sem telefone)"}\n📦 ${sale.product_name}\n💰 R$ ${sale.amount?.toFixed(2)}\n`;
                 if (isBot && clientEmail) {
                   msgNotificacao += `\n📋 *Credenciais enviadas ao comprador:*\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n🔑 ${password}\n\n✅ Já pode acessar!`;
+                } else if (isSite) {
+                  msgNotificacao += `\n📌 *Projeto aberto em /projetos e Reunião agendada em /agenda.*`;
                 } else {
                   msgNotificacao += `\n📌 Lembrete: Providenciar a entrega do produto.`;
                 }
