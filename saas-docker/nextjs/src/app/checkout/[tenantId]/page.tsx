@@ -568,12 +568,15 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                     <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-4">
                       <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
                         <Clock className="w-4 h-4 text-indigo-400" />
-                        Agendamento do Atendimento (Padrão Brasília)
+                        Reunião de Alinhamento & Briefing do Site (Horário Brasília)
                       </div>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                        Escolha a data e o horário em que faremos a nossa reunião para ouvir suas ideias, demandas e requisitos do seu site:
+                      </p>
 
                       <div>
                         <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
-                          1. Escolha o dia do atendimento:
+                          1. Escolha o dia da reunião:
                         </label>
                         <input
                           type="date"
