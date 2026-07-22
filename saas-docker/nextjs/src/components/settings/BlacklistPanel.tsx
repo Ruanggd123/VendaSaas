@@ -78,9 +78,8 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900/95 border border-slate-200 dark:border-white/[0.06] rounded-3xl w-full max-w-lg p-6 space-y-6 shadow-2xl relative backdrop-blur-xl">
-
+    <div className="space-y-6">
+      <div className="bg-zinc-900 border border-white/5 rounded-2xl w-full p-6 space-y-6 shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
