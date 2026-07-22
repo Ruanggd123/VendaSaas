@@ -21,6 +21,7 @@ import {
   ChevronRight,
   UserCircle,
   ExternalLink,
+  Users,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import PartnerAccessTimer from "@/components/PartnerAccessTimer";
@@ -46,6 +47,7 @@ const navItems = [
     managerOnly: true,
     items: [
       { href: "/whatsapp", label: "WhatsApp", icon: Smartphone },
+      { href: "/equipe", label: "Equipe", icon: Users },
       { href: "/settings", label: "Configurações", icon: Settings },
       { href: "/workflow", label: "Workflow", icon: Workflow },
       { href: "/admin", label: "Super Admin", icon: Shield, superAdminOnly: true },
@@ -94,9 +96,9 @@ export default function DashboardLayout({
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
-  const isManager = role === "superadmin" || role === "manager";
+  const isManager = role === "superadmin" || role === "manager" || role === "admin";
   const isPartner = role === "partner";
-  const roleLabel = isPartner ? "Parceiro" : isManager ? "Gerente" : "Atendente";
+  const roleLabel = isPartner ? "Parceiro" : isManager ? "Admin" : "Atendente";
   const showInfraestrutura = isManager || isPartner;
   const initials = userName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
 

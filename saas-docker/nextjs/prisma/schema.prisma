@@ -70,6 +70,7 @@ model User {
   created_at    DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 
   @@map("users")
 }
@@ -84,9 +85,11 @@ model Conversation {
   status          String    @default("active")
   ai_paused       Boolean   @default(false)
   last_message_at DateTime?
+  assigned_to     String?
   created_at      DateTime  @default(now())
 
   tenant   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignee User?     @relation(fields: [assigned_to], references: [id], onDelete: SetNull)
   messages Message[]
   leads    Lead[]
 

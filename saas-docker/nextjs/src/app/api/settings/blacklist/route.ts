@@ -26,12 +26,26 @@ export async function GET() {
     const ignored = settings.ignored_numbers || "";
     const numbers = ignored ? ignored.split(",").map((n: string) => n.trim()).filter(Boolean) : [];
 
-    // Busca nomes dos contatos nas conversas
-    const conversations = await prisma.conversation.findMany({
-      where: { tenant_id: session.tenant_id, contact_number: { in: numbers } },
-      select: { contact_number: true, contact_name: true },
+    // Busca nomes dos contatos nas conversas (busca parcial caso tenha '+' ou formatação)
+    const orConditions = numbers.length > 0 ? numbers.map((n: string) => ({ contact_number: { contains: n } })) : [];
+    
+    let conversations: any[] = [];
+    if (orConditions.length > 0) {
+      conversations = await prisma.conversation.findMany({
+        where: { tenant_id: session.tenant_id, OR: orConditions },
+        select: { contact_number: true, contact_name: true },
+      });
+    }
+
+    const nameMap = new Map();
+    conversations.forEach((c) => {
+       const cleanContact = c.contact_number.replace(/\D/g, "");
+       numbers.forEach((n: string) => {
+         if (cleanContact.includes(n)) {
+            nameMap.set(n, c.contact_name);
+         }
+       });
     });
-    const nameMap = new Map(conversations.map((c) => [c.contact_number.replace(/\D/g, ""), c.contact_name]));
 
     const list = numbers.map((num: string) => ({
       number: num,

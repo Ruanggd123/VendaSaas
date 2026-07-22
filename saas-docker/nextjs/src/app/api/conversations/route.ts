@@ -54,10 +54,20 @@ export async function GET(req: Request) {
 
     // Determina a instância ativa (não força a primeira se vier vazio, para permitir "Todas as instâncias")
     const activeInstanceName = instance_name && instance_name !== "all" ? instance_name : undefined;
+    const assigned_to = searchParams.get("assigned_to");
 
     const whereClause: any = { tenant_id: session.tenant_id };
     if (activeInstanceName) {
       whereClause.instance_name = activeInstanceName;
+    }
+
+    if (session.role === 'agent') {
+      whereClause.OR = [
+        { assigned_to: session.id },
+        { assigned_to: null }
+      ];
+    } else if (assigned_to && assigned_to !== "all") {
+      whereClause.assigned_to = assigned_to === "unassigned" ? null : assigned_to;
     }
 
     // Parceiro vê só conversas dos próprios leads
@@ -76,6 +86,7 @@ export async function GET(req: Request) {
       orderBy: { last_message_at: "desc" },
       include: {
         leads: { select: { id: true, name: true, status: true } },
+        assignee: { select: { id: true, name: true, email: true } },
         _count: { select: { messages: true } },
       },
     });
@@ -93,9 +104,9 @@ export async function PATCH(req: Request) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json();
-    const { id, ai_paused } = body;
+    const { id, ai_paused, assigned_to } = body;
 
-    if (!id || typeof ai_paused !== "boolean") {
+    if (!id || (typeof ai_paused !== "boolean" && assigned_to === undefined)) {
       return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
     }
 
@@ -113,12 +124,18 @@ export async function PATCH(req: Request) {
       if (!lead) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
     }
 
+    const dataToUpdate: any = {};
+    if (typeof ai_paused === "boolean") dataToUpdate.ai_paused = ai_paused;
+    if (assigned_to !== undefined) dataToUpdate.assigned_to = assigned_to;
+
     const updated = await prisma.conversation.update({
       where: { id },
-      data: { ai_paused }
+      data: dataToUpdate,
+      include: { assignee: { select: { id: true, name: true } } }
     });
 
-    // Atualiza a lista negra (blacklist) no Tenant
+    // Atualiza a lista negra (blacklist) no Tenant se o ai_paused foi alterado
+    if (typeof ai_paused === "boolean") {
     const tenant = await prisma.tenant.findUnique({ where: { id: session.tenant_id } });
     if (tenant) {
       let settings: any = {};
@@ -146,6 +163,7 @@ export async function PATCH(req: Request) {
             data: { settings: JSON.stringify(settings) },
           });
           console.log(`[Blacklist] Contato ${conversation.contact_number} removido da blacklist (IA reativada).`);
+        }
         }
       }
     }

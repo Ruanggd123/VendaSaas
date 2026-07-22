@@ -107,6 +107,7 @@ export default function WorkflowPage() {
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
 
   // IA Chatbot local state
   const [chatMessages, setChatMessages] = useState<any[]>([
@@ -138,6 +139,8 @@ export default function WorkflowPage() {
       }
     } catch (e) {
       console.error("Erro ao buscar configurações:", e);
+    } finally {
+      setIsLoaded(true);
     }
   };
 
@@ -417,11 +420,15 @@ export default function WorkflowPage() {
           </div>
 
           <div className="flex-1 w-full h-full">
-            <WorkflowCanvas 
-              settings={settings} 
-              updateField={updateField} 
-              setSelectedNodeId={setSelectedNodeId} 
-            />
+            {isLoaded && (
+              <WorkflowCanvas 
+                settings={settings} 
+                setSettings={setSettings} 
+                selectedNodeId={selectedNodeId}
+                setSelectedNodeId={setSelectedNodeId}
+                saveConfig={saveConfig}
+              />
+            )}
           </div>
         </main>
 
@@ -559,7 +566,7 @@ export default function WorkflowPage() {
 
                 <button
                   onClick={() => {
-                    const newNodes = settings.custom_rules_nodes.filter((n:any)=>n.id!==selectedNodeId && n.parentId!==selectedNodeId);
+                    const newNodes = (settings.custom_rules_nodes || []).filter((n:any)=>n.id!==selectedNodeId && n.parentId!==selectedNodeId);
                     updateField("custom_rules_nodes", newNodes);
                     setSelectedNodeId(null);
                   }}

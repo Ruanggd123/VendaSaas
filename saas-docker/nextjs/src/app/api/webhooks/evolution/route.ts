@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getProfilePicture } from "@/lib/evolution";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -82,9 +83,23 @@ export async function POST(req: Request) {
         }
 
         // Extrai texto da mensagem (pode ser text, extendedTextMessage, etc)
-        const msgContent = messageData.message?.conversation 
+        let msgContent = messageData.message?.conversation 
           || messageData.message?.extendedTextMessage?.text
-          || "[Mensagem de Mídia/Outros]";
+          || "";
+
+        let mediaType = null;
+        let mediaBase64 = messageData.base64 || "";
+
+        if (messageData.message?.imageMessage) mediaType = "image";
+        else if (messageData.message?.audioMessage) mediaType = "audio";
+        else if (messageData.message?.videoMessage) mediaType = "video";
+        else if (messageData.message?.documentMessage || messageData.message?.documentWithCaptionMessage) mediaType = "document";
+
+        if (mediaType && !msgContent) {
+           msgContent = messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption || messageData.message?.documentWithCaptionMessage?.message?.documentMessage?.caption || `[Mídia: ${mediaType}]`;
+        }
+
+        if (!msgContent && !mediaType) msgContent = "[Outros]";
 
         // 1. Busca ou cria a conversa atomicamente (sem race condition)
         let conversation = await prisma.conversation.upsert({
@@ -178,6 +193,52 @@ export async function POST(req: Request) {
 
         const botNumber = (body.sender || "").replace("@s.whatsapp.net", "");
         
+        // --- Processamento de Mídia ---
+        let finalMetadata = null;
+        if (mediaType && mediaBase64) {
+           try {
+             const bufferData = Buffer.from(mediaBase64, 'base64');
+             const ext = mediaType === "image" ? "jpeg" : mediaType === "audio" ? "ogg" : mediaType === "video" ? "mp4" : "pdf";
+             const filename = `${tenantId}_${Date.now()}_webhook.${ext}`;
+             
+             const accountId = process.env.R2_ACCOUNT_ID;
+             const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+             const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+             const bucketName = process.env.R2_BUCKET_NAME;
+             const publicUrl = process.env.R2_PUBLIC_URL;
+             
+             let uploadedUrl = "";
+             
+             if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+                // Fallback local
+                const { writeFile, mkdir } = require('fs/promises');
+                const { join } = require('path');
+                const uploadsDir = join(process.cwd(), 'public', 'uploads');
+                await mkdir(uploadsDir, { recursive: true });
+                await writeFile(join(uploadsDir, filename), bufferData);
+                uploadedUrl = `/uploads/${filename}`;
+             } else {
+                // R2
+                const s3Client = new S3Client({
+                  region: "auto",
+                  endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+                  credentials: { accessKeyId, secretAccessKey },
+                });
+                await s3Client.send(new PutObjectCommand({
+                  Bucket: bucketName,
+                  Key: filename,
+                  Body: bufferData,
+                  ContentType: mediaType === "image" ? "image/jpeg" : mediaType === "audio" ? "audio/ogg" : "application/octet-stream",
+                }));
+                uploadedUrl = publicUrl ? `${publicUrl.replace(/\/$/, '')}/${filename}` : `https://${bucketName}.${accountId}.r2.cloudflarestorage.com/${filename}`;
+             }
+             
+             finalMetadata = JSON.stringify({ type: mediaType, url: uploadedUrl });
+           } catch (err) {
+             console.error("[Webhook] Erro ao salvar mídia", err);
+           }
+        }
+        
         let isOwner = false;
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { phone: true } });
         if (tenant && tenant.phone) {
@@ -200,6 +261,7 @@ export async function POST(req: Request) {
             direction: (fromMe && !isMessageToMyself) ? "outbound" : "inbound",
             content: msgContent,
             ai_generated: false, // Se chegou até aqui, assumimos que foi o Humano via WhatsApp Web
+            metadata: finalMetadata
           }
         });
 
