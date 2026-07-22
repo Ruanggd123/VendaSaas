@@ -194,7 +194,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
           externalReference: `${tenantId}_${sale.id}`,
         }, asaasKey, asaasUrl);
         if (firstPay.id) {
-          paymentLink = firstPay.bankSlipUrl || firstPay.pixQrCodeUrl || firstPay.invoiceUrl || '';
+          paymentLink = firstPay.invoiceUrl || firstPay.bankSlipUrl || firstPay.pixQrCodeUrl || '';
           paymentId = firstPay.id;
         }
 
@@ -241,7 +241,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
           const paymentsRes = await getSubscriptionPayments(sub.id, asaasKey, asaasUrl);
           if (paymentsRes?.data?.length > 0) {
             const fp = paymentsRes.data[0];
-            paymentLink = fp.bankSlipUrl || fp.pixQrCodeUrl || fp.invoiceUrl || '';
+            paymentLink = fp.invoiceUrl || fp.bankSlipUrl || fp.pixQrCodeUrl || '';
             paymentId = fp.id;
           }
           await prisma.sale.update({
@@ -264,7 +264,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       }, asaasKey, asaasUrl);
 
       if (pay.id) {
-        paymentLink = pay.bankSlipUrl || pay.pixQrCodeUrl || pay.invoiceUrl || '';
+        paymentLink = pay.invoiceUrl || pay.bankSlipUrl || pay.pixQrCodeUrl || '';
         paymentId = pay.id;
       } else {
         const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao gerar pagamento';
