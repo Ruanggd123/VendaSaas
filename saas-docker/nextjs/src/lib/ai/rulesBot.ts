@@ -238,6 +238,42 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
     const optionIdx = parseInt(cleanText, 10) - 1;
+
+    // Check if catalog used product nodes from workflow
+    const productNodeIds = state.data._productNodes as string[] | undefined;
+    if (productNodeIds && productNodeIds.length > 0) {
+      // Redirect to the selected product node
+      if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= productNodeIds.length) {
+        return "❌ Opção inválida. Digite o número correspondente ao produto desejado, ou *0* para voltar ao menu.";
+      }
+      const selectedProductNodeId = productNodeIds[optionIdx];
+      const selectedProductNode = customNodes.find((n: any) => n.id === selectedProductNodeId);
+      if (!selectedProductNode) {
+        return "❌ Erro: produto não encontrado no fluxo.";
+      }
+      // Transition to product node's submenu
+      const hasChildren = customNodes.some((n: any) => n.parentId === selectedProductNode.id);
+      state.step = hasChildren ? `submenu:${selectedProductNode.id}` : "main_menu";
+      state.data = {};
+      await saveState(state);
+
+      // Show product info
+      const prod = (settings.products || []).find((p: any) => p.name === selectedProductNode.productId);
+      let msg = `Você selecionou: *${selectedProductNode.title}*\n\n`;
+      if (prod) {
+        if (prod.description) msg += `${prod.description}\n\n`;
+        msg += `Valor: R$ ${prod.price}\n\n`;
+        if (prod.image_url) msg += `${prod.image_url}\n\n`;
+      }
+      if (hasChildren) {
+        msg += getSubmenuMessage(selectedProductNode, customNodes);
+      } else {
+        msg += "✅ Opção registrada.";
+      }
+      return msg;
+    }
+
+    // Fallback: original hardcoded product flow
     const productsList = settings.products || [];
     if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= productsList.length) {
       return "❌ Opção inválida. Digite o número correspondente ao produto/serviço que deseja contratar/comprar, ou *0* para voltar ao menu.";
@@ -514,20 +550,42 @@ export async function processMessageWithRules(
       let response = "";
 
       if (matchedNode.actionType === "catalog") {
-        const productsList = settings.products || [];
-        if (productsList.length === 0) {
-          response = "📋 No momento não temos serviços cadastrados no catálogo.";
-        } else {
+        // Check if catalog node has child product nodes
+        const productNodes = customNodes.filter((n: any) => n.parentId === matchedNode.id && n.actionType === 'product');
+        
+        if (productNodes.length > 0) {
           response = "📋 *Nossos Serviços e Preços:*\n\n";
-          productsList.forEach((p: any, idx: number) => {
-            const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-            response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
-            if (p.description) response += `   _${p.description}_\n\n`;
-            else response += `\n`;
+          productNodes.forEach((pn: any, idx: number) => {
+            const prod = (settings.products || []).find((p: any) => p.name === pn.productId);
+            if (prod) {
+              const displayPrice = prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+              response += `${idx + 1}️⃣ *${prod.name}* - R$ ${displayPrice}\n`;
+              if (prod.description) response += `   _${prod.description}_\n\n`;
+            } else {
+              response += `${idx + 1}️⃣ *${pn.title}*\n\n`;
+            }
           });
           response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
           state.step = "catalog_select_product";
+          state.data._productNodes = productNodes.map((n: any) => n.id);
           await saveState(state);
+        } else {
+          // Fallback: show all products from settings (original behavior)
+          const productsList = settings.products || [];
+          if (productsList.length === 0) {
+            response = "📋 No momento não temos serviços cadastrados no catálogo.";
+          } else {
+            response = "📋 *Nossos Serviços e Preços:*\n\n";
+            productsList.forEach((p: any, idx: number) => {
+              const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+              response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
+              if (p.description) response += `   _${p.description}_\n\n`;
+              else response += `\n`;
+            });
+            response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
+            state.step = "catalog_select_product";
+            await saveState(state);
+          }
         }
       }
       else if (matchedNode.actionType === "scheduling") {
@@ -568,6 +626,26 @@ export async function processMessageWithRules(
         state.data.collect_variable = matchedNode.variableName || "dado_coletado";
         await saveState(state);
         return matchedNode.textContent || "Por favor, digite a informação solicitada:";
+      }
+      else if (matchedNode.actionType === "product") {
+        const prod = (settings.products || []).find((p: any) => p.name === matchedNode.productId);
+        if (!prod) {
+          response = `📦 *${matchedNode.title}*`;
+        } else {
+          const displayPrice = prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+          response = `📦 *${prod.name}* - R$ ${displayPrice}\n\n`;
+          if (prod.description) response += `${prod.description}\n\n`;
+          if (prod.image_url) response += `${prod.image_url}\n\n`;
+        }
+        // Product node with children transitions to submenu (children define the flow)
+        if (hasChildren) {
+          state.step = `submenu:${matchedNode.id}`;
+          await saveState(state);
+          if (response) response += "\n\n";
+          response += getSubmenuMessage(matchedNode, customNodes);
+          return response;
+        }
+        // No children: just show product info
       }
       else if (matchedNode.actionType === "checkout") {
         const productsList = settings.products || [];

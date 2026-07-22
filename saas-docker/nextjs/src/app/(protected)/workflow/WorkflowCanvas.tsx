@@ -121,7 +121,8 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         title: node.data.title || 'Nova Opção',
         actionType: node.data.actionType || 'text',
         textContent: node.data.textContent || '',
-        variableName: node.data.variableName || ''
+        variableName: node.data.variableName || '',
+        productId: node.data.productId || ''
       });
     });
     updateField("custom_rules_nodes", custom_rules_nodes);
@@ -167,6 +168,7 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
             if (node.type === 'startNode') return '#7c3aed';
             const action = node.data?.actionType;
             if (action === 'catalog') return '#0ea5e9';
+            if (action === 'product') return '#06b6d4';
             if (action === 'scheduling') return '#10b981';
             if (action === 'human') return '#f59e0b';
             return '#6366f1';

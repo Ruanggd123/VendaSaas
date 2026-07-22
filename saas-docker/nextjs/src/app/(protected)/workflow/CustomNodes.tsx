@@ -1,8 +1,9 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart } from 'lucide-react';
+import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart, Package } from 'lucide-react';
 const actionConfig: Record<string, { color: string; bg: string; border: string }> = {
   catalog: { color: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/20' },
+  product: { color: 'text-cyan-300', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
   scheduling: { color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   human: { color: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
   text: { color: 'text-indigo-300', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
@@ -47,6 +48,9 @@ export const MenuNode = ({ data, selected }: any) => {
   if (data.actionType === "catalog") {
     Icon = BookOpen;
     label = "Catálogo de Produtos";
+  } else if (data.actionType === "product") {
+    Icon = Package;
+    label = "Produto";
   } else if (data.actionType === "scheduling") {
     Icon = Calendar;
     label = "Agendamento";
