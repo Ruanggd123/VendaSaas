@@ -1,27 +1,18 @@
+"use client";
 import WorkflowCanvas from './WorkflowCanvas';
-﻿﻿"use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { 
-  Play, 
   Settings, 
-  GitBranch, 
-  BookOpen, 
-  Clock, 
-  Calendar, 
-  UserCheck, 
   FileCode, 
   Sparkles, 
   ArrowRight, 
-  Check, 
-  Copy, 
-  Download, 
-  Upload, 
-  HelpCircle,
-  MessageSquare,
-  ChevronRight,
   RefreshCw,
-  Plus
+  Plus,
+  Download,
+  Upload,
+  X,
+  Package
 } from "lucide-react";
 
 interface AISettings {
@@ -43,6 +34,7 @@ interface AISettings {
   ia_model?: string;
   welcome_message?: string;
   enableScheduling?: boolean;
+  hide_auto_catalog?: boolean;
 }
 
 const DEFAULT_SCHEDULE_PER_DAY = {
@@ -110,9 +102,11 @@ export default function WorkflowPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('start');
   const [jsonText, setJsonText] = useState<string>("");
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
+  const [showProductsModal, setShowProductsModal] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [showAIPrompt, setShowAIPrompt] = useState(false);
 
   // IA Chatbot local state
   const [chatMessages, setChatMessages] = useState<any[]>([
@@ -353,27 +347,47 @@ export default function WorkflowPage() {
         {/* NEW CANVAS */}
         <main className="flex-1 relative flex flex-col">
           {alert && (
-            <div className={`absolute top-4 left-[50%] translate-x-[-50%] px-4 py-2.5 rounded-xl text-xs font-semibold z-50 flex items-center gap-2 border shadow-lg ${
+            <div className={`absolute bottom-6 left-[50%] translate-x-[-50%] px-4 py-3 rounded-xl text-xs font-semibold z-50 flex items-center gap-2 border shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300 ${
               alert.type === "success" 
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
                 : "bg-red-500/10 border-red-500/20 text-red-300"
             }`}>
               <span>{alert.msg}</span>
-              <button onClick={() => setAlert(null)} className="ml-2 hover:text-white">✕</button>
+              <button onClick={() => setAlert(null)} className="ml-2 hover:text-white transition-colors">✕</button>
             </div>
           )}
 
-          <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
+          <div className="absolute top-4 left-4 right-4 flex items-start sm:items-center justify-between pointer-events-none z-10 gap-4 flex-col sm:flex-row">
             <div className="bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-xl px-4 py-2 flex items-center gap-3 pointer-events-auto shadow-xl">
               <span className="text-xs font-bold text-zinc-400">Status:</span>
               <span className="flex h-2.5 w-2.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-semibold text-white">Editor Visual Ativo</span>
+              <span className="text-xs font-semibold text-white whitespace-nowrap">Editor Visual Ativo</span>
             </div>
 
-            <div className="flex gap-2 pointer-events-auto">
+            <div className="flex flex-wrap gap-2 pointer-events-auto justify-end">
+              <button
+                onClick={() => setShowAIPrompt(!showAIPrompt)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl ${
+                  showAIPrompt
+                    ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
+                }`}
+                title="Mostrar/esconder o prompt de IA do bot"
+              >
+                <FileCode className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap hidden lg:inline">Prompt IA</span>
+              </button>
+              <button
+                onClick={() => setShowJsonModal(true)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl"
+                title="Importar ou exportar configurações como JSON"
+              >
+                <Download className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                <span className="whitespace-nowrap hidden lg:inline">JSON</span>
+              </button>
               <button
                 onClick={() => {
                   const newNodes = [...(settings.custom_rules_nodes || [])];
@@ -395,7 +409,7 @@ export default function WorkflowPage() {
               <button
                 onClick={() => saveConfig()}
                 disabled={saving}
-                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl"
+                className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl shadow-purple-500/10"
               >
                 <span>{saving ? "Salvando..." : "Salvar fluxo"}</span>
               </button>
@@ -411,42 +425,68 @@ export default function WorkflowPage() {
           </div>
         </main>
 
-        {/* PAINEL LATERAL DIREITO: CONFIGURAÇÃO DO NÓ SELECIONADO */}
+        {/* PAINEL LATERAL DIREITO: CONFIGURAÇÃO DO NÓ SELECIONADO / PROMPT DE IA */}
         <aside className="w-80 border-l border-zinc-800 bg-[#0c0c0e] flex flex-col flex-shrink-0 z-10">
           <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-purple-400" />
-            <h3 className="font-bold text-sm text-white">Propriedades do Nó</h3>
+            {showAIPrompt ? (
+              <FileCode className="w-5 h-5 text-purple-400" />
+            ) : (
+              <Settings className="w-5 h-5 text-purple-400" />
+            )}
+            <h3 className="font-bold text-sm text-white">
+              {showAIPrompt ? 'Prompt de IA' : 'Propriedades do Nó'}
+            </h3>
           </div>
 
           <div className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800">
-            {!selectedNodeId && (
-              <div className="text-center text-xs text-zinc-500 mt-10">
-                Selecione um nó no canvas para editar suas propriedades.
+            {!selectedNodeId && !showAIPrompt && (
+              <div className="text-center text-xs text-zinc-500 mt-10 space-y-2">
+                <div className="text-3xl opacity-20">☰</div>
+                <p>Selecione um nó no canvas</p>
+                <p className="text-[10px] text-zinc-600">ou clique em &quot;Prompt de IA&quot; para configurar</p>
               </div>
             )}
 
-            {selectedNodeId === 'start' && (
+            {selectedNodeId === 'start' && !showAIPrompt && (
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-purple-600/5 border border-purple-500/10">
+                <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-600/10 to-purple-500/5 border border-purple-500/10">
                   <h4 className="text-xs font-bold text-white mb-1">Boas-vindas</h4>
                   <p className="text-[10px] text-zinc-400">
-                    A primeira mensagem que o bot envia.
+                    A primeira mensagem que o bot envia quando inicia a conversa.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Mensagem</label>
+                  <label className="block text-xs font-semibold text-zinc-300">Mensagem de Boas-vindas</label>
                   <textarea
                     value={settings.welcome_message || ""}
                     onChange={(e) => updateField("welcome_message", e.target.value)}
                     rows={6}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"
                   />
+                </div>
+                <div className="flex items-center gap-2 mt-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/50">
+                  <input
+                    type="checkbox"
+                    id="hide_auto_catalog"
+                    checked={settings.hide_auto_catalog || false}
+                    onChange={(e) => updateField("hide_auto_catalog", e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-purple-600 focus:ring-purple-500 focus:ring-offset-zinc-950"
+                  />
+                  <label htmlFor="hide_auto_catalog" className="text-xs text-zinc-300 cursor-pointer select-none">
+                    Ocultar lista automática de produtos
+                  </label>
                 </div>
               </div>
             )}
 
-            {selectedNodeId && selectedNodeId !== 'start' && (
+            {selectedNodeId && selectedNodeId !== 'start' && !showAIPrompt && (
               <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-zinc-800/30 border border-zinc-700/30">
+                  <h4 className="text-xs font-bold text-white mb-1">{settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.title || 'Nó selecionado'}</h4>
+                  <p className="text-[10px] text-zinc-400">
+                    Configure a resposta e o comportamento deste nó.
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-zinc-300">Dígito / Palavra-chave</label>
                   <input
@@ -500,24 +540,227 @@ export default function WorkflowPage() {
                       if(idx>-1) { newNodes[idx].textContent = e.target.value; updateField("custom_rules_nodes", newNodes); }
                     }}
                     rows={4}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"
                   />
                 </div>
-                
+
+                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'catalog' && (
+                  <div className="mt-4 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex flex-col gap-3">
+                    <p className="text-[10px] text-purple-300">Este nó exibe os seus produtos automaticamente. Você tem {settings.products?.length || 0} produtos cadastrados.</p>
+                    <button
+                      onClick={() => setShowProductsModal(true)}
+                      className="w-full bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+                    >
+                      <Package className="w-4 h-4" />
+                      <span>Gerenciar Produtos</span>
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     const newNodes = settings.custom_rules_nodes.filter((n:any)=>n.id!==selectedNodeId && n.parentId!==selectedNodeId);
                     updateField("custom_rules_nodes", newNodes);
                     setSelectedNodeId(null);
                   }}
-                  className="w-full mt-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl px-4 py-2 text-xs font-bold transition-all"
+                  className="w-full mt-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
                 >
                   Excluir Nó
                 </button>
               </div>
             )}
+
+            {/* Configuração do Prompt de IA (colapsável) */}
+            {showAIPrompt && (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-600/10 to-indigo-500/5 border border-purple-500/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileCode className="w-4 h-4 text-purple-400" />
+                    <h4 className="text-xs font-bold text-white">Prompt de IA do Bot</h4>
+                  </div>
+                  <p className="text-[10px] text-zinc-400">
+                    Instruções de personalidade e comportamento que a IA deve seguir.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-zinc-300">Nome do Atendente</label>
+                  <input
+                    type="text"
+                    value={settings.ai_name || ''}
+                    onChange={(e) => updateField("ai_name", e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    placeholder="Ex: Atendente Nexus"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-zinc-300">Personalidade</label>
+                  <select
+                    value={settings.ai_personality || 'profissional'}
+                    onChange={(e) => updateField("ai_personality", e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="profissional">Profissional</option>
+                    <option value="casual">Casual e Amigável</option>
+                    <option value="tecnico">Técnico</option>
+                    <option value="persuasivo">Persuasivo / Vendas</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-zinc-300">Prompt do Sistema</label>
+                    <button
+                      onClick={() => setShowAIPrompt(false)}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      Esconder ✕
+                    </button>
+                  </div>
+                  <textarea
+                    value={settings.ai_prompt || ''}
+                    onChange={(e) => updateField("ai_prompt", e.target.value)}
+                    rows={16}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none font-mono leading-relaxed"
+                    placeholder="Digite as instruções do sistema para a IA..."
+                  />
+                </div>
+                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                  <p className="text-[10px] text-amber-400/80 leading-relaxed">
+                    O prompt define como a IA se comporta. Seja específico sobre regras, tom de voz, 
+                    informações do negócio e limites de atuação.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </aside>
+
+        {/* Modal Produtos */}
+        {showProductsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-purple-400" />
+                  <h3 className="font-bold text-sm text-white">Gerenciar Produtos do Catálogo</h3>
+                </div>
+                <button
+                  onClick={() => setShowProductsModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto flex-1 bg-zinc-900/50">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {(settings.products || []).map((p: any, idx: number) => (
+                    <div key={idx} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-3 relative group">
+                      <button onClick={() => {
+                        const newP = [...(settings.products || [])];
+                        newP.splice(idx, 1);
+                        updateField('products', newP);
+                      }} className="absolute top-2 right-2 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir Produto">
+                         <X className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="space-y-1 pr-6">
+                        <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Nome do Produto</label>
+                        <input type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none transition-colors font-semibold" value={p.name || ''} onChange={e => {
+                          const newP = [...(settings.products || [])];
+                          newP[idx].name = e.target.value;
+                          updateField('products', newP);
+                        }} placeholder="Ex: 🌐 Site Avulso" />
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <div className="flex-1 space-y-1">
+                          <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Preço (R$)</label>
+                          <input type="number" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-emerald-400 font-mono focus:border-purple-500 focus:outline-none transition-colors" value={p.price} onChange={e => {
+                            const newP = [...(settings.products || [])];
+                            newP[idx].price = Number(e.target.value);
+                            updateField('products', newP);
+                          }} placeholder="0" />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Mensalidade (R$)</label>
+                          <input type="number" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-purple-400 font-mono focus:border-purple-500 focus:outline-none transition-colors" value={p.monthly || 0} onChange={e => {
+                            const newP = [...(settings.products || [])];
+                            newP[idx].monthly = Number(e.target.value);
+                            updateField('products', newP);
+                          }} placeholder="0" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Descrição P/ Cliente</label>
+                        <textarea className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 h-20 resize-none focus:border-purple-500 focus:outline-none transition-colors leading-relaxed" value={p.description || ''} onChange={e => {
+                          const newP = [...(settings.products || [])];
+                          newP[idx].description = e.target.value;
+                          updateField('products', newP);
+                        }} placeholder="Explique os benefícios deste produto..." />
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => {
+                    const newP = [...(settings.products || [])];
+                    newP.push({ name: 'Novo Produto', price: 0, description: '' });
+                    updateField('products', newP);
+                  }} className="bg-zinc-900 border border-dashed border-zinc-700 hover:border-purple-500 hover:bg-purple-500/5 text-zinc-400 hover:text-purple-400 p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all min-h-[250px] group">
+                    <div className="p-3 bg-zinc-800 rounded-full group-hover:bg-purple-500/20 transition-colors">
+                      <Plus className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold">Adicionar Produto</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal JSON */}
+        {showJsonModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <FileCode className="w-5 h-5 text-purple-400" />
+                  <h3 className="font-bold text-sm text-white">Importar / Exportar JSON</h3>
+                </div>
+                <button
+                  onClick={() => setShowJsonModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4">
+                <textarea
+                  value={jsonText}
+                  onChange={(e) => setJsonText(e.target.value)}
+                  rows={20}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none font-mono leading-relaxed"
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-800">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(jsonText);
+                    setAlert({ type: "success", msg: "JSON copiado para a área de transferência!" });
+                  }}
+                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl px-4 py-2 text-xs font-semibold transition-all active:scale-95"
+                >
+                  Copiar
+                </button>
+                <button
+                  onClick={handleImportJson}
+                  className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
+                >
+                  Importar JSON
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

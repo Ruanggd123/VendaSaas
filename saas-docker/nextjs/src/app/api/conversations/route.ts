@@ -52,8 +52,8 @@ export async function GET(req: Request) {
       select: { name: true, connectionName: true, status: true }
     });
 
-    // Determina a instância ativa
-    const activeInstanceName = instance_name || (instances.length > 0 ? instances[0].name : undefined);
+    // Determina a instância ativa (não força a primeira se vier vazio, para permitir "Todas as instâncias")
+    const activeInstanceName = instance_name && instance_name !== "all" ? instance_name : undefined;
 
     const whereClause: any = { tenant_id: session.tenant_id };
     if (activeInstanceName) {
@@ -118,15 +118,16 @@ export async function PATCH(req: Request) {
       data: { ai_paused }
     });
 
-    // Se a IA foi pausada, adiciona o contato à blacklist
-    if (ai_paused) {
-      const tenant = await prisma.tenant.findUnique({ where: { id: session.tenant_id } });
-      if (tenant) {
-        let settings: any = {};
-        try { settings = JSON.parse((tenant.settings as string) || "{}"); } catch {}
-        const currentIgnored = settings.ignored_numbers || "";
-        const list = currentIgnored ? currentIgnored.split(",").map((n: string) => n.trim()).filter(Boolean) : [];
-        const cleanNumber = conversation.contact_number.replace(/\D/g, "");
+    // Atualiza a lista negra (blacklist) no Tenant
+    const tenant = await prisma.tenant.findUnique({ where: { id: session.tenant_id } });
+    if (tenant) {
+      let settings: any = {};
+      try { settings = JSON.parse((tenant.settings as string) || "{}"); } catch {}
+      const currentIgnored = settings.ignored_numbers || "";
+      let list = currentIgnored ? currentIgnored.split(",").map((n: string) => n.trim()).filter(Boolean) : [];
+      const cleanNumber = conversation.contact_number.replace(/\D/g, "");
+
+      if (ai_paused) {
         if (!list.includes(cleanNumber)) {
           list.push(cleanNumber);
           settings.ignored_numbers = list.join(",");
@@ -135,6 +136,16 @@ export async function PATCH(req: Request) {
             data: { settings: JSON.stringify(settings) },
           });
           console.log(`[Blacklist] Contato ${conversation.contact_number} adicionado à blacklist (IA pausada).`);
+        }
+      } else {
+        if (list.includes(cleanNumber)) {
+          list = list.filter((n: string) => n !== cleanNumber);
+          settings.ignored_numbers = list.join(",");
+          await prisma.tenant.update({
+            where: { id: session.tenant_id },
+            data: { settings: JSON.stringify(settings) },
+          });
+          console.log(`[Blacklist] Contato ${conversation.contact_number} removido da blacklist (IA reativada).`);
         }
       }
     }

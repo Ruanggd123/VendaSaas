@@ -71,9 +71,9 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               webhook: {
                 enabled: true,
-                url: \`http://nextjs:3000/api/webhooks/evolution\`,
+                url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://nextjs:3000'}/api/webhooks/evolution`,
                 webhookByEvents: false,
-                events: ["MESSAGES_UPSERT"]
+                events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
               }
             })
           });
@@ -161,9 +161,9 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             webhook: {
               enabled: true,
-              url: `http://nextjs:3000/api/webhooks/evolution`,
+              url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://nextjs:3000'}/api/webhooks/evolution`,
               webhookByOccurrences: false,
-              events: ["MESSAGES_UPSERT"]
+              events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
             }
           })
         });

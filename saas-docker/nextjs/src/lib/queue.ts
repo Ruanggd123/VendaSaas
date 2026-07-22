@@ -99,7 +99,7 @@ export const messageWorker = process.env.IS_WORKER === 'true' ? new Worker('mess
 export const sendWorker = process.env.IS_WORKER === 'true' ? new Worker('send-queue', async (job) => {
   const { tenantId, instanceName, to, answer } = job.data;
 
-  console.log(`[Queue] Enviando mensagem IA para ${to} via ${instanceName}`);
+  console.log(`[Queue] Enviando mensagem IA para ${to} via ${instanceName}. Resposta: "${answer}"`);
 
   const { sendWhatsAppMessage, sendWhatsAppMedia } = await import('./evolution');
   

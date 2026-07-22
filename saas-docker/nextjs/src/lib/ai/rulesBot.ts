@@ -446,9 +446,10 @@ export async function processMessageWithRules(
         } else {
           response = "📋 *Nossos Serviços e Preços:*\n\n";
           productsList.forEach((p: any, idx: number) => {
-            response += `${idx + 1}️⃣ *${p.name}* - R$ ${p.price}\n`;
-            if (p.description) response += `   _${p.description}_\n`;
-            response += "\n";
+            const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+            response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
+            if (p.description) response += `   _${p.description}_\n\n`;
+            else response += `\n`;
           });
           response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
           state.step = "catalog_select_product";
@@ -583,21 +584,21 @@ function getMainMenuMessage(settings: any): string {
   } else {
     // Auto-gera menu a partir dos produtos cadastrados
     const products = settings.products || [];
-    if (products.length > 0) {
-      msg += "Confira nossos produtos e serviços:\n";
+    if (products.length > 0 && settings.hide_auto_catalog !== true) {
+      msg += "\nConfira nossos produtos e serviços:\n";
       products.forEach((p: any, i: number) => {
         const idx = i + 1;
+        const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+        
         if (p.delivery_type === 'service') {
-          msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${p.price} · ${p.duration_min || 60}min`;
+          msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
         } else if (p.stock !== undefined && p.stock !== null) {
-          msg += `\n*${idx}* - ${p.name}\n   R$ ${p.price} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
+          msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
         } else {
-          msg += `\n*${idx}* - ${p.name}\n   R$ ${p.price}`;
+          msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
         }
       });
-      msg += "\n\nDigite o *número* do produto para mais detalhes.";
-    } else {
-      msg += "Nenhum produto disponível no momento.";
+      msg += "\n\nDigite o *número* da opção para mais detalhes.";
     }
   }
   

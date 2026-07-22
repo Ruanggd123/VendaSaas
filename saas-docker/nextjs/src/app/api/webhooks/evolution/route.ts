@@ -265,6 +265,36 @@ export async function POST(req: Request) {
       }
     }
 
+    if (event === "connection.update" && instanceName) {
+      if (body.data?.state === "open" && body.sender) {
+        const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
+        const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'B6D711FCDE4D4FD5936544120E713976';
+        const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
+
+        try {
+          const res = await fetch(`${EVOLUTION_URL}/instance/fetchInstances`, { headers });
+          const allInstances = await res.json();
+          if (Array.isArray(allInstances)) {
+            const duplicates = allInstances.filter((inst: any) => 
+              inst.ownerJid === body.sender && 
+              inst.name !== instanceName
+            );
+
+            for (const dup of duplicates) {
+              const dupName = dup.name;
+              if (dupName) {
+                console.log(`[Webhook Evolution] Removendo instância duplicada detectada: ${dupName}`);
+                await fetch(`${EVOLUTION_URL}/instance/delete/${dupName}`, { method: 'DELETE', headers });
+                await prisma.whatsappInstance.deleteMany({ where: { name: dupName } });
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[Webhook Evolution] Erro ao remover instâncias duplicadas:", e);
+        }
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("❌ [Webhook Evolution] Erro:", err);
