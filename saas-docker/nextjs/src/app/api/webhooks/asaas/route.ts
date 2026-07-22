@@ -188,7 +188,7 @@ export async function POST(req: Request) {
               }
             }
 
-            // ── SE FOR SITE OU PLATAFORMA: Criar projeto em /projetos ──
+            // ── SE FOR SITE OU PLATAFORMA: Criar projeto em /projetos e agendamento em /agenda ──
             const isSite = productName.includes('site') || productName.includes('plataforma') || productName.includes('e-commerce') || productName.includes('loja') || productName.includes('presença') || productName.includes('digital') || productName.includes('avulso');
 
             if (isSite) {
@@ -205,6 +205,23 @@ export async function POST(req: Request) {
                   prazo_entrega: new Date(Date.now() + 15 * 86400000),
                 }
               }).catch((projErr) => console.error("❌ Erro ao criar projeto no webhook:", projErr));
+
+              // Garante agendamento na Agenda (/agenda)
+              let notesParsed: any = {};
+              try { notesParsed = JSON.parse(sale.notes || '{}'); } catch {}
+              const scheduledAt = notesParsed.scheduled_at ? new Date(notesParsed.scheduled_at) : new Date(Date.now() + 86400000);
+
+              await prisma.appointment.create({
+                data: {
+                  tenant_id: tenantId,
+                  lead_id: sale.lead_id,
+                  service_name: `Reunião de Briefing: ${sale.product_name}`,
+                  duration_min: 60,
+                  scheduled_at: scheduledAt,
+                  status: 'scheduled',
+                  notes: `Reunião de alinhamento agendada para ${clientName} (${clientPhone})`,
+                }
+              }).catch((appErr) => console.error("❌ Erro ao criar agendamento na agenda:", appErr));
             }
 
             // ── CONTROLE DE ESTOQUE ──
