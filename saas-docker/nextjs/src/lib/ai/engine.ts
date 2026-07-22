@@ -122,45 +122,8 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
     }
 
     if (conversation?.ai_paused && !isMessageToMyself) {
-      // --- MODO HÍBRIDO AUTO-REATIVAÇÃO ---
-      // Buscar a última mensagem enviada pelo atendente humano (outbound e ai_generated = false)
-      const lastHumanOutbound = conversation.messages
-        .filter(m => m.direction === "outbound" && !m.ai_generated)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-         
-      if (lastHumanOutbound) {
-        const timeDiffMinutes = (Date.now() - new Date(lastHumanOutbound.created_at).getTime()) / (1000 * 60);
-        // Se faz mais de 15 minutos que o atendente humano falou por último, reativa a IA!
-        if (timeDiffMinutes > 15) {
-          await prisma.conversation.update({
-            where: { id: conversation.id },
-            data: { ai_paused: false }
-          });
-          console.log(`[Modo Híbrido] Reativando IA para ${contactNumber} após ${Math.round(timeDiffMinutes)} minutos de inatividade humana.`);
-        } else {
-          console.log(`Conversa com ${contactNumber} está com o atendimento automático (IA/Bot) pausado.`);
-          return null;
-        }
-      } else {
-        // Se não houver mensagem humana outbound registrada, mas está pausado, reativa após 15 minutos de inatividade total
-        const lastMsg = conversation.messages[conversation.messages.length - 1];
-        if (lastMsg) {
-          const timeDiffMinutes = (Date.now() - new Date(lastMsg.created_at).getTime()) / (1000 * 60);
-          if (timeDiffMinutes > 15) {
-            await prisma.conversation.update({
-              where: { id: conversation.id },
-              data: { ai_paused: false }
-            });
-            console.log(`[Modo Híbrido] Reativando IA para ${contactNumber} por inatividade total de ${Math.round(timeDiffMinutes)} minutos.`);
-          } else {
-            console.log(`Conversa com ${contactNumber} pausada.`);
-            return null;
-          }
-        } else {
-          console.log(`Conversa com ${contactNumber} pausada.`);
-          return null;
-        }
-      }
+      console.log(`[IA Pausada] Atendimento automático desativado para ${contactNumber}. Respeitando pausa do usuário.`);
+      return null;
     }
 
     if (!isDemoIA && settings.bot_type === "regras") {
