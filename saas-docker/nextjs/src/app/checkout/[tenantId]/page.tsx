@@ -705,7 +705,8 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
 
               <div>
                 <h4 className="font-bold text-sm text-white mb-1">1. Objeto do Contrato</h4>
-                <p>O presente contrato regula a prestação de serviços de desenvolvimento de software, websites, plataformas de e-commerce e automação de atendimento via WhatsApp e Inteligência Artificial prestados pela contratada ao cliente.</p>
+                <p>1.1. O presente contrato regula a prestação de serviços de desenvolvimento de software, websites, plataformas de e-commerce e automação de atendimento via WhatsApp e Inteligência Artificial prestados pela contratada ao cliente.</p>
+                <p>1.2. Nos planos que contemplam hospedagem e manutenção contínua de website/landing page, a permanência do site online e ativo nos servidores está estritamente condicionada ao pagamento em dia da mensalidade correspondente.</p>
               </div>
 
               <div>
@@ -714,11 +715,12 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
               </div>
 
               <div>
-                <h4 className="font-bold text-sm text-white mb-1">3. Assinatura, Período Inicial e Cancelamento</h4>
+                <h4 className="font-bold text-sm text-white mb-1">3. Assinatura, Hospedagem e Suspensão por Inadimplência</h4>
                 <p>3.1. Para produtos sob modelo de assinatura mensal, a renovação é automática a cada 30 dias na forma de pagamento selecionada.</p>
-                <p>3.2. Para cobrir os custos operacionais de implantação, infraestrutura e configuração inicial do sistema, vigora um período de adaptação e permanência inicial de 3 (três) meses.</p>
-                <p>3.3. Em caso de solicitação de cancelamento dentro dos 3 (três) primeiros meses, incidirá uma taxa administrativa de rescisão proporcional de 15% sobre o valor restante das faturas desse período inicial.</p>
-                <p className="font-semibold text-purple-300">3.4. Transcorrido o período inicial dos 3 (três) primeiros meses, o CONTRATANTE fica 100% ISENTO de qualquer taxa, multa ou prejuízo, podendo solicitar o cancelamento a qualquer momento sem qualquer custo adicional.</p>
+                <p>3.2. Em caso de não pagamento ou atraso da mensalidade (status em aberto/vencido no Asaas), os serviços de hospedagem do site e automação de Inteligência Artificial serão **suspensos temporariamente**, exibindo página de manutenção até a regularização do Pix/Boleto.</p>
+                <p>3.3. Para cobrir os custos operacionais de implantação, infraestrutura e configuração inicial do sistema, vigora um período de adaptação e permanência inicial de 3 (três) meses.</p>
+                <p>3.4. Em caso de solicitação de cancelamento dentro dos 3 (três) primeiros meses, incidirá uma taxa administrativa de rescisão proporcional de 15% sobre o valor restante das faturas desse período inicial.</p>
+                <p className="font-semibold text-purple-300">3.5. Transcorrido o período inicial dos 3 (três) primeiros meses, o CONTRATANTE fica 100% ISENTO de qualquer taxa ou multa, podendo cancelar a assinatura a qualquer tempo sem qualquer custo adicional.</p>
               </div>
 
               <div>
