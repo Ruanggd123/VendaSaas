@@ -1,7 +1,7 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart } from 'lucide-react';
-
+const actionConfig: Record<string, { color: string; bg: string; border: string }> = {
   catalog: { color: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/20' },
   scheduling: { color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   human: { color: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
