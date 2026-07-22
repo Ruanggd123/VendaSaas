@@ -150,7 +150,7 @@ export async function processMessageWithRules(
       where: { tenant_id: tenantId, contact_number: contactNumber },
       data: { ai_paused: true }
     });
-    return "";
+    return "Aguarde um momento, estou transferindo você para um de nossos especialistas. Logo você será atendido! 🧑‍💻";
   }
 
   // Handle viewing appointments natively
