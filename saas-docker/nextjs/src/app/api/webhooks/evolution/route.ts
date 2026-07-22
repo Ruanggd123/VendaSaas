@@ -64,9 +64,14 @@ export async function POST(req: Request) {
         if (webhookTenant && webhookTenant.settings) {
           const settings = typeof webhookTenant.settings === "string" ? JSON.parse(webhookTenant.settings) : webhookTenant.settings;
           if (settings?.ignored_numbers) {
-            const ignoredList = settings.ignored_numbers.split(",").map((n: string) => n.trim().replace(/\D/g, ""));
+            let ignoredList: string[] = [];
+            if (Array.isArray(settings.ignored_numbers)) {
+              ignoredList = settings.ignored_numbers.map((i: any) => typeof i === "string" ? i : (i?.number || "")).map((n: string) => n.trim().replace(/\D/g, ""));
+            } else if (typeof settings.ignored_numbers === "string") {
+              ignoredList = settings.ignored_numbers.split(",").map((n: string) => n.trim().replace(/\D/g, ""));
+            }
             const cleanContact = contactNumber.replace(/\D/g, "");
-            if (ignoredList.includes(cleanContact)) {
+            if (cleanContact && ignoredList.includes(cleanContact)) {
               console.log(`[Webhook] Contato ${contactNumber} está na lista de ignorados (Blacklist). Ignorando mensagem.`);
               return NextResponse.json({ success: true, ignored: "Blacklist" });
             }
