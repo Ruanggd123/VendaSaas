@@ -342,7 +342,7 @@ export async function POST(req: Request) {
     if (event === "connection.update" && instanceName) {
       if (body.data?.state === "open" && body.sender) {
         const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
-        const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'B6D711FCDE4D4FD5936544120E713976';
+        const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
         const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
         try {

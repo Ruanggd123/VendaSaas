@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
-const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'B6D711FCDE4D4FD5936544120E713976';
+const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
 
 // This acts as a reverse proxy between the Official Evolution Manager and the Evolution API.
 // It intercepts requests to inject the Global API Key and isolate tenant instances.
