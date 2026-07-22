@@ -185,6 +185,10 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
     setSubmitting(true);
 
     const sel = products.find(p => p.name === selected);
+    if (sel?.delivery_type === 'service') {
+      if (!form.scheduled_at) { setError('Selecione uma data e horário válidos para o agendamento.'); return; }
+      if (new Date(form.scheduled_at).getTime() < Date.now()) { setError('A data e horário do agendamento devem ser futuros.'); return; }
+    }
     const productNames = `${sel?.name}${sel?.included_bot ? ` + ${sel.included_bot}` : ''}`;
 
     try {
@@ -550,16 +554,25 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all" />
                   </div>
 
-                  {/* Se for serviço, mostra seletor de data/hora */}
+                  {/* Se for serviço com agendamento, mostra seletor explicativo de data/hora */}
                   {selected && products.find(p => p.name === selected)?.delivery_type === 'service' && (
-                    <div>
-                      <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Escolha a Data e Horário</label>
+                    <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2.5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
+                        <Clock className="w-4 h-4 text-indigo-400" />
+                        Agendamento do Atendimento
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                        Escolha a data e o horário comercial em que você deseja realizar o seu atendimento ou reunião (Horário Brasília):
+                      </p>
                       <input type="datetime-local" required
                         value={form.scheduled_at}
                         onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))}
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all [color-scheme:dark]" />
-                      <p className="text-[9px] text-zinc-600 mt-1">Escolha um horário disponível</p>
+                        min={new Date(Date.now() + 300000).toISOString().slice(0, 16)}
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all [color-scheme:dark]" />
+                      <p className="text-[10px] text-zinc-400 flex items-center gap-1.5 pt-1">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        Após o pagamento, o seu horário será reservado automaticamente na nossa agenda!
+                      </p>
                     </div>
                   )}
 
