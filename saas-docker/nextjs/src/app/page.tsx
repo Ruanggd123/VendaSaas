@@ -656,57 +656,26 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* ── STEP 3: Módulos (BÔNUS) ── */}
-            <div>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                  <span className="text-xs font-black text-emerald-400">3</span>
+            {/* ── MÓDULOS ESPECIALIZADOS: BÔNUS AUTOMÁTICO INCLUSO EM TODOS OS PLANOS DE IA ── */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 border border-emerald-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Módulos Especializados <span className="text-emerald-400 font-bold">(bônus grátis)</span></h3>
-                  <p className="text-[11px] text-slate-500">Transforme sua IA em especialista do seu ramo — sem custo</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-white">Módulos Especializados da IA</h4>
+                    <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-300 uppercase tracking-wider">
+                      🎁 Bônus Automaticamente Incluso
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    Sua IA já vem equipada de fábrica com prompts e inteligência treinada para qualquer segmento: <strong className="text-slate-200">Odontologia, Varejo, Assistência Técnica, Contabilidade, Estética, Imobiliária e Serviços</strong>. Sem nenhuma taxa de ativação!
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { id: "mod_odonto", icon: Heart, name: "Odontologia", desc: "Recepção IA para clínicas", color: "rose" },
-                  { id: "mod_varejo", icon: ShoppingBag, name: "Varejo", desc: "IA vendedora virtual", color: "amber" },
-                  { id: "mod_assistencia", icon: Wrench, name: "Assistência Técnica", desc: "Pré-diagnóstico automático", color: "cyan" },
-                  { id: "mod_contabilidade", icon: Calculator, name: "Contabilidade", desc: "Assistente fiscal", color: "teal" },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const isActive = selected.modules.includes(m.id);
-                  const cMap: Record<string, { border: string; ring: string; icon: string; iconBg: string }> = {
-                    rose: { border: "border-rose-500/30", ring: "ring-rose-500/30", icon: "text-rose-400", iconBg: "bg-rose-500/10 border-rose-500/20" },
-                    amber: { border: "border-amber-500/30", ring: "ring-amber-500/30", icon: "text-amber-400", iconBg: "bg-amber-500/10 border-amber-500/20" },
-                    cyan: { border: "border-cyan-500/30", ring: "ring-cyan-500/30", icon: "text-cyan-400", iconBg: "bg-cyan-500/10 border-cyan-500/20" },
-                    teal: { border: "border-teal-500/30", ring: "ring-teal-500/30", icon: "text-teal-400", iconBg: "bg-teal-500/10 border-teal-500/20" },
-                  };
-                  const st = cMap[m.color];
-                  return (
-                    <button key={m.id} onClick={() => toggleModule(m.id)}
-                      className={`text-center p-4 rounded-2xl border-2 transition-all duration-300 ${
-                        isActive
-                          ? `${st.border} bg-white/10 shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ${st.ring} transform -translate-y-1`
-                          : "glass-card glass-card-hover border-transparent"
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-xl ${st.iconBg} border flex items-center justify-center mx-auto mb-2`}>
-                        <Icon className={`w-5 h-5 ${st.icon}`} />
-                      </div>
-                      <h4 className="text-xs font-bold text-white">{m.name}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{m.desc}</p>
-                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                        <span className="text-[10px] font-bold text-emerald-400">Grátis</span>
-                      </div>
-                      <div className={`mt-2 w-full py-1.5 rounded-lg text-[10px] font-bold text-center border transition-all ${
-                        isActive ? `${st.border} bg-white/5 text-white` : "border-white/10 text-slate-600"
-                      }`}>
-                        {isActive ? "Selecionado" : "+ Ativar"}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs font-bold text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Todos os Módulos Liberados
               </div>
             </div>
 
@@ -752,24 +721,15 @@ export default function LandingPage() {
                         </div>
                       )}
 
-                      {/* Modules selected */}
-                      {selected.modules.length > 0 && (
+                      {/* All AI modules automatically included */}
+                      {selected.bot && (
                         <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-1">
                             <Sparkles className="w-4 h-4 text-emerald-400" />
-                            <span className="text-xs font-bold text-white">Módulos Bônus</span>
-                            <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-bold text-emerald-400">GRÁTIS</span>
+                            <span className="text-xs font-bold text-white">Todos os Módulos Especializados da IA</span>
+                            <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-bold text-emerald-400">INCLUSO GRÁTIS</span>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {selected.modules.map((modId) => {
-                              const modName = getModuleName(modId);
-                              return (
-                                <span key={modId} className="px-2 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-emerald-300">
-                                  {modName}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <p className="text-[11px] text-slate-400">Prompts prontos para Odontologia, Varejo, Assistência Técnica, Contabilidade e Serviços inclusos de fábrica.</p>
                         </div>
                       )}
 
