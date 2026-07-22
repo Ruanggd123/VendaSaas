@@ -86,6 +86,8 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const [paymentLink, setPaymentLink] = useState('');
   const [done, setDone] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
     billingType: 'PIX' as 'PIX' | 'BOLETO' | 'CREDIT_CARD',
@@ -101,14 +103,24 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
     if (urlPhone) setForm(f => ({ ...f, phone: decodeURIComponent(urlPhone) }));
 
     fetch(`/api/public/checkout/${tenantId}`)
-      .then(async r => { if (!r.ok) throw new Error('Loja nao encontrada'); return r.json(); })
+      .then(async r => { if (!r.ok) throw new Error('Loja não encontrada'); return r.json(); })
       .then(d => {
         if (d.tenantName) setTenantName(d.tenantName);
         if (d.products?.length) {
           setProducts(d.products);
           if (urlProduct) {
-            const match = d.products.find((prod: any) => prod.name === decodeURIComponent(urlProduct));
-            if (match) setSelected(match.name);
+            const decodedProd = decodeURIComponent(urlProduct).trim();
+            const match = d.products.find((prod: any) => 
+              prod.name.toLowerCase().trim() === decodedProd.toLowerCase() ||
+              prod.name.toLowerCase().includes(decodedProd.toLowerCase()) ||
+              decodedProd.toLowerCase().includes(prod.name.toLowerCase())
+            );
+            if (match) {
+              setSelected(match.name);
+              setTimeout(() => {
+                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 300);
+            }
           }
         }
         else setError('Nenhum produto cadastrado.');
@@ -117,23 +129,14 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
       .finally(() => setLoading(false));
   }, [tenantId]);
 
-  // Plans: products with monthly subscription (sites, secretaria, etc)
-  const plans = products.filter(p =>
-    p.is_checkout_product !== false && hasValue(p.monthly)
-  );
+  // All active products
+  const activeProducts = products.filter(p => p.is_checkout_product !== false);
 
-  // Standalone bots: products without monthly, just subscription price, that can be bought alone
-  const standaloneBots = products.filter(p =>
-    p.is_checkout_product !== false &&
-    !hasValue(p.monthly) &&
-    hasValue(p.price) &&
-    (p.name.startsWith('Bot') || p.name.startsWith('Secretaria') || p.name.startsWith('Assistente'))
-  );
+  // Plans: monthly products
+  const plans = activeProducts.filter(p => hasValue(p.monthly));
 
-  // All selectable products
-  const allProducts = [...plans, ...standaloneBots];
-
-  const getBot = (name: string) => products.find(p => p.name === name);
+  // Standalone products: one-time price products (Sites, Web Apps, E-commerce, etc)
+  const standaloneProducts = activeProducts.filter(p => !hasValue(p.monthly) && hasValue(p.price));
 
   const handleSelect = (name: string) => {
     setSelected(name === selected ? null : name);
@@ -151,13 +154,13 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
 
     const cart: CartItem[] = [];
 
-    // If it's a standalone bot (has price but no monthly), the price IS the monthly subscription
+    // Single one-time purchase product (has price, no monthly)
     if (hasValue(product.price) && !hasValue(product.monthly)) {
-      cart.push({ name: product.name, price: 0, monthly: parseFloat(product.price!), qty: 1, type: 'subscription', isBonus: false });
+      cart.push({ name: product.name, price: parseFloat(product.price!), monthly: 0, qty: 1, type: 'one_time', isBonus: false });
       return cart;
     }
 
-    // If it's a plan with setup + monthly
+    // Plan with setup + monthly
     const setupPrice = hasValue(product.price) ? parseFloat(product.price) : 0;
     if (setupPrice > 0) {
       cart.push({ name: product.name, price: setupPrice, monthly: 0, qty: 1, type: 'one_time', isBonus: false });
@@ -177,7 +180,8 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const handleSubmit = async () => {
     setError('');
     if (!form.name || !form.phone) { setError('Preencha nome e WhatsApp.'); return; }
-    if (!selected) { setError('Selecione um plano.'); return; }
+    if (!selected) { setError('Selecione um plano ou produto.'); return; }
+    if (!termsAccepted) { setError('Você precisa aceitar o Contrato de Prestação de Serviços e Termos de Uso para prosseguir.'); return; }
     setSubmitting(true);
 
     const sel = products.find(p => p.name === selected);
@@ -441,70 +445,68 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
           </div>
         )}
 
-        {/* Standalone Bots Section */}
-        {standaloneBots.length > 0 && (
+        {/* Standalone Products Section (Sites, Web Apps, E-commerce, Bots) */}
+        {standaloneProducts.length > 0 && (
           <div className="mb-10">
-            <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-5 px-1">Secretaria Automatica / Bots</h2>
-            <p className="text-[11px] text-zinc-600 mb-5 px-1">Compre apenas o bot de atendimento automatico. Funciona via WhatsApp com Inteligencia Artificial.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {standaloneBots.map((p) => {
+            <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-5 px-1">Produtos & Serviços Avulsos</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {standaloneProducts.map((p) => {
                 const isSelected = selected === p.name;
-                const Icon = ICONS[p.name] || Bot;
-                const colors = COLORS[p.name] || 'from-purple-500 to-violet-600';
+                const Icon = ICONS[p.name] || Package;
+                const colors = COLORS[p.name] || 'from-indigo-500 to-purple-600';
                 const featuresList = parseFeatures(p.features);
 
                 return (
                   <button
                     key={p.name}
                     onClick={() => handleSelect(p.name)}
-                    className={`relative text-left rounded-3xl border-2 p-6 md:p-8 transition-all duration-300 ${
+                    className={`relative text-left rounded-3xl border-2 p-6 transition-all duration-300 ${
                       isSelected
-                        ? 'border-purple-500 bg-purple-500/[0.04] shadow-2xl shadow-purple-500/20 scale-[1.02]'
+                        ? 'border-indigo-500 bg-indigo-500/[0.04] shadow-2xl shadow-indigo-500/20 scale-[1.02]'
                         : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] hover:scale-[1.01]'
                     }`}
                   >
-                    <div className="flex items-start gap-5 mb-5">
-                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${colors} flex items-center justify-center shrink-0 shadow-lg ${isSelected ? 'scale-110' : ''} transition-transform`}>
-                        <Icon className="w-7 h-7 text-white" />
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${colors} flex items-center justify-center shrink-0 shadow-lg ${isSelected ? 'scale-110' : ''} transition-transform`}>
+                        <Icon className="w-6 h-6 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-bold text-white">{p.name}</h3>
-                        {p.description && <p className="text-xs text-zinc-500 mt-1">{p.description}</p>}
+                        <h3 className="text-lg font-bold text-white leading-snug">{p.name}</h3>
+                        {p.description && <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{p.description}</p>}
                       </div>
-                      <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                        isSelected ? 'border-purple-500 bg-purple-500' : 'border-zinc-600'
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                        isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-zinc-600'
                       }`}>
-                        {isSelected && <Check className="w-4 h-4 text-white" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
                       </div>
                     </div>
 
                     {/* Pricing */}
-                    <div className="flex items-baseline gap-3 mb-5">
-                      <div className="text-3xl font-extrabold text-white">
-                        R$ {formatPrice(p.price)}<span className="text-base font-normal text-zinc-500">/mes</span>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <div className="text-2xl font-extrabold text-white">
+                        R$ {formatPrice(p.price)}
                       </div>
+                      <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Pagamento Único</span>
                     </div>
 
                     {/* Features */}
                     {featuresList.length > 0 && (
-                      <div className="space-y-2.5 mb-5">
+                      <div className="space-y-2 mb-4">
                         {featuresList.map((f, fi) => (
-                          <div key={fi} className="flex items-center gap-3 text-sm">
-                            <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                              <Check className="w-3 h-3 text-emerald-500" />
-                            </div>
+                          <div key={fi} className="flex items-center gap-2.5 text-xs">
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             <span className="text-zinc-300">{f}</span>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    <div className={`mt-5 w-full py-3 rounded-2xl font-bold text-sm text-center transition-all ${
+                    <div className={`mt-4 w-full py-2.5 rounded-xl font-bold text-xs text-center transition-all ${
                       isSelected
-                        ? 'bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-lg shadow-purple-500/25'
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
                         : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'
                     }`}>
-                      {isSelected ? 'Selecionado' : 'Assinar Agora'}
+                      {isSelected ? 'Selecionado' : 'Comprar Agora'}
                     </div>
                   </button>
                 );
@@ -626,6 +628,20 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                 </div>
               </div>
 
+              {/* Legal Checkbox */}
+              <div className="mt-6 flex items-start gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 text-xs text-zinc-300">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-zinc-950 accent-indigo-500"
+                />
+                <label htmlFor="terms" className="cursor-pointer leading-relaxed select-none text-[11px]">
+                  Li e concordo com o <button type="button" onClick={() => setShowTermsModal(true)} className="text-purple-400 font-bold underline hover:text-purple-300">Contrato de Prestação de Serviços, Garantia Incondicional de 7 Dias e Termos de Uso</button>.
+                </label>
+              </div>
+
               {error && (
                 <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-xs text-red-400 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -633,7 +649,7 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                 </div>
               )}
 
-              <button onClick={handleSubmit} disabled={submitting}
+              <button onClick={handleSubmit} disabled={submitting || !termsAccepted}
                 className="mt-6 w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl px-6 py-4 transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/25 text-base">
                 {submitting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -644,8 +660,9 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-zinc-600">
-                <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-emerald-500/60" /> Pagamento seguro</span>
-                <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 text-indigo-500/60" /> {hasSubscription ? 'Assinatura mensal' : 'Compra unica'}</span>
+                <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-emerald-500/60" /> Garantia de 7 Dias</span>
+                <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-indigo-500/60" /> Entrega Garantida</span>
+                <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 text-purple-500/60" /> {hasSubscription ? 'Assinatura mensal' : 'Compra única'}</span>
               </div>
             </div>
 
@@ -659,6 +676,67 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
           </div>
         )}
       </main>
+
+      {/* Modal Legal de Contrato e Termos de Serviço */}
+      {showTermsModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-950">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-purple-400" />
+                <h3 className="text-base font-bold text-white">Contrato de Adesão & Termos de Uso</h3>
+              </div>
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-zinc-300 leading-relaxed">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 text-purple-300 flex items-start gap-3">
+                <Shield className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm text-white mb-1">Garantia Incondicional de 7 Dias (CDC Art. 49)</h4>
+                  <p className="text-[11px]">Você tem 7 dias corridos após a contratação para testar a ferramenta. Se não ficar 100% satisfeito, garantimos o reembolso integral de 100% do seu dinheiro sem burocracia.</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm text-white mb-1">1. Objeto do Contrato</h4>
+                <p>O presente contrato regula a prestação de serviços de desenvolvimento de software, websites, plataformas de e-commerce e automação de atendimento via WhatsApp e Inteligência Artificial prestados pela contratada ao cliente.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm text-white mb-1">2. Garantia de Entrega e Suporte</h4>
+                <p>A contratada garante a entrega e liberação das licenças do software/website dentro dos prazos acordados no catálogo oficial. Caso ocorra descumprimento injustificado na entrega, o cliente terá direito à devolução total do valor pago.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm text-white mb-1">3. Assinatura, Cobrança e Cancelamento</h4>
+                <p>3.1. Para produtos sob modelo de assinatura mensal, a renovação é automática a cada 30 dias na forma de pagamento selecionada.</p>
+                <p>3.2. O cancelamento da assinatura pode ser solicitado a qualquer momento sem incidência de multa após o primeiro mês de vigência, bastando solicitar com antecedência mínima de 5 (cinco) dias da próxima fatura.</p>
+                <p>3.3. Para contratos anuais com desconto promocional, o cancelamento antecipado antes do término do período mínimo implicará na perda do desconto concedido com taxa administrativa proporcional de 15% sobre os meses restantes.</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-sm text-white mb-1">4. Proteção de Dados e Privacidade (LGPD)</h4>
+                <p>Em estrita conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), todos os dados do cliente e histórico de conversas são armazenados sob criptografia de ponta a ponta e nunca serão compartilhados com terceiros sem autorização.</p>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950 flex justify-end">
+              <button
+                onClick={() => { setTermsAccepted(true); setShowTermsModal(false); }}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-6 py-3 rounded-xl transition-all"
+              >
+                Li e Concordo com o Contrato
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
