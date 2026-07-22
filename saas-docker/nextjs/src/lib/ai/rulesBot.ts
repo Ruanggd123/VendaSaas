@@ -1056,12 +1056,13 @@ async function processarFinalizacaoPedidoRulesBot(
 
     if (requiresPayment) {
       const productName = encodeURIComponent(chosenService.name);
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      const { getAppBaseUrl } = await import("@/lib/auth");
+      const baseUrl = getAppBaseUrl();
       const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}`;
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-      return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n🔗 *Clique no link abaixo para finalizar a compra:*\n${checkoutUrl}\n\nApós o pagamento, enviaremos a confirmação aqui! 🚀`;
+      return `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n🔗 *Acesse o link para concluir a compra:* ${checkoutUrl}\n\nApós a aprovação, o pedido será liberado automaticamente! 🚀`;
 
     } else {
       await prisma.sale.create({

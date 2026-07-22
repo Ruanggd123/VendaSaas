@@ -313,8 +313,9 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
   if (toolCall.function.name === "gerar_link_pagamento") {
     try {
       const productName = encodeURIComponent(args.descricao);
-      const checkoutUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/checkout/${tenantId}?product=${productName}`;
-      return `🛒 *Confirme seus dados para finalizar a compra de ${args.descricao} (R$ ${args.valor})*\n\n🔗 Clique no link abaixo e preencha seu nome e telefone para gerar o pagamento:\n\n${checkoutUrl}\n\nApós o pagamento, enviaremos a confirmação aqui no WhatsApp! 🚀`;
+      const { getAppBaseUrl } = await import("@/lib/auth");
+      const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${productName}`;
+      return `Perfeito! Criei o seu link de pagamento para o *${args.descricao}* (R$ ${args.valor}).\n\n🔗 *Clique aqui para concluir:* ${checkoutUrl}\n\nAssim que o pagamento for confirmado, seu pedido será liberado automaticamente! 🚀`;
     } catch (e: any) {
       return `Erro ao gerar link: ${e.message}`;
     }

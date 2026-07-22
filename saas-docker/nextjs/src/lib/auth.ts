@@ -44,3 +44,14 @@ export async function getSession() {
   if (!session) return null;
   return await decrypt(session);
 }
+
+export function getAppBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl && envUrl.startsWith("http") && !envUrl.includes("NEXT_PUBLIC_APP_URL")) {
+    return envUrl.replace(/\/$/, "");
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/$/, "");
+  }
+  return "https://nexus-six-olive.vercel.app";
+}

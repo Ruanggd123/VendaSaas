@@ -38,8 +38,8 @@ export async function POST(req: Request) {
     const balanceData = await balanceRes.json();
     console.log("[Asaas Setup] Saldo atual:", balanceData.balance);
 
-    // 2. Configurar o Webhook Automaticamente
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nexus-six-olive.vercel.app";
+    const { getAppBaseUrl } = await import("@/lib/auth");
+    const baseUrl = getAppBaseUrl();
     const webhookUrl = `${baseUrl}/api/asaas/webhook`;
 
     const webhookRes = await fetch(`${asaasUrl}/webhooks`, {
