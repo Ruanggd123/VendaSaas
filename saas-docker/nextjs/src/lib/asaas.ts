@@ -43,7 +43,26 @@ export const createCustomer = async (customer: Customer, apiKey?: string, apiUrl
     body: JSON.stringify(customer)
   });
 
-  return response.json();
+  const resJson = await response.json();
+  if (resJson.id) return resJson;
+
+  // Fallback: Se já existir cliente cadastrado com esse telefone/mobile no Asaas
+  try {
+    const cleanPhone = (customer.phone || "").replace(/\D/g, "");
+    if (cleanPhone) {
+      const searchRes = await fetch(`${getApiUrl(apiUrl)}/customers?phone=${cleanPhone}`, {
+        headers: getHeaders(apiKey)
+      });
+      const searchData = await searchRes.json();
+      if (searchData.data && searchData.data.length > 0) {
+        return searchData.data[0];
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao buscar cliente existente no Asaas:", e);
+  }
+
+  return resJson;
 };
 
 export const createPayment = async (data: PaymentData, apiKey?: string, apiUrl?: string) => {
