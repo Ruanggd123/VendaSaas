@@ -87,6 +87,7 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const [done, setDone] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('09:00');
   const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
