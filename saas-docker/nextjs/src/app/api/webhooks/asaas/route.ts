@@ -371,6 +371,42 @@ export async function POST(req: Request) {
           console.log(`✅ [Webhook Asaas] Venda ${saleId} totalmente processada!`);
         }
       }
+    } else if (body.event === "PAYMENT_OVERDUE") {
+      // Pagamento Vencido (Cliente não pagou o Pix/Boleto no prazo)
+      const externalRef = body.payment?.externalReference;
+      if (externalRef) {
+        const [tenantId, saleId] = externalRef.split("_");
+        if (saleId) {
+          console.log(`⚠️ [Webhook Asaas] Pagamento VENCIDO para a venda ${saleId}`);
+          await prisma.sale.update({
+            where: { id: saleId },
+            data: { status: "overdue" }
+          }).catch(() => {});
+        }
+      }
+    } else if (body.event === "PAYMENT_REFUNDED" || body.event === "PAYMENT_CHARGEBACK_REQUESTED") {
+      // Reembolso / Estorno efetuado
+      const externalRef = body.payment?.externalReference;
+      if (externalRef) {
+        const [tenantId, saleId] = externalRef.split("_");
+        if (saleId) {
+          console.log(`↺ [Webhook Asaas] Pagamento REEMBOLSADO para a venda ${saleId}`);
+          await prisma.sale.update({
+            where: { id: saleId },
+            data: { status: "refunded" }
+          }).catch(() => {});
+        }
+      }
+    } else if (body.event === "SUBSCRIPTION_INACTIVE" || body.event === "SUBSCRIPTION_DELETED") {
+      // Assinatura Cancelada / Inativa
+      const subId = body.subscription?.id;
+      if (subId) {
+        console.log(`❌ [Webhook Asaas] Assinatura CANCELADA: ${subId}`);
+        await prisma.sale.updateMany({
+          where: { subscription_id: subId },
+          data: { status: "canceled" }
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({ success: true, received: true });
