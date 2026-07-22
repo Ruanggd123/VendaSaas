@@ -47,25 +47,28 @@ export const MenuNode = ({ data, selected }: any) => {
 
   if (data.actionType === "catalog") {
     Icon = BookOpen;
-    label = "Catálogo de Produtos";
+    label = "📋 Catálogo de Produtos";
   } else if (data.actionType === "product") {
     Icon = Package;
-    label = "Produto";
+    label = data.productPrice ? `📦 R$ ${data.productPrice}` : "📦 Produto";
   } else if (data.actionType === "scheduling") {
     Icon = Calendar;
-    label = "Agendamento";
+    label = "📅 Agendamento";
   } else if (data.actionType === "human") {
     Icon = UserCheck;
-    label = "Humano";
+    label = "👤 Transferir p/ Humano";
   } else if (data.actionType === "text" && data.childrenCount > 0) {
     Icon = GitBranch;
-    label = "Menu de Opções";
+    label = "💬 Menu de Opções";
   } else if (data.actionType === "collect_data") {
     Icon = MessageSquare;
-    label = "Coletar Dados";
+    label = "📝 Coletar Dados";
   } else if (data.actionType === "checkout") {
     Icon = ShoppingCart;
-    label = "Gerar Checkout";
+    label = "🛒 Gerar Checkout / Finalizar";
+  } else if (data.actionType === "text") {
+    Icon = MessageSquare;
+    label = "💬 Exibir Texto";
   }
 
   const cfg = actionConfig[data.actionType] || actionConfig.text;
@@ -86,10 +89,25 @@ export const MenuNode = ({ data, selected }: any) => {
           <div className="flex-1 font-bold text-xs text-white truncate">{data.title || 'Nova Opção'}</div>
         </div>
 
-        <div className={`flex items-center gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-lg px-2 py-1.5`}>
-          <Icon className="w-3 h-3" />
-          <span>{label}</span>
-        </div>
+        {data.actionType === "product" && data.productPrice ? (
+          <div className={`flex items-center justify-between gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-lg px-2 py-1.5`}>
+            <div className="flex items-center gap-1.5">
+              <Icon className="w-3 h-3" />
+              <span className="font-medium">{data.productName || data.title}</span>
+            </div>
+            <span className="font-bold text-white bg-zinc-900/50 px-1.5 py-0.5 rounded-md">R$ {data.productPrice}</span>
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-lg px-2 py-1.5`}>
+            <Icon className="w-3 h-3" />
+            <span>{label}</span>
+          </div>
+        )}
+        {data.actionType === "product" && data.productDescription && (
+          <p className="text-[9px] text-zinc-500 leading-relaxed line-clamp-2 border-t border-zinc-800/50 pt-1.5 mt-0.5">
+            {data.productDescription}
+          </p>
+        )}
       </div>
 
       <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-purple-500 border-2 border-zinc-950" />

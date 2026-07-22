@@ -735,215 +735,206 @@ function AITab() {
             </div>
           </div>
           <button onClick={addProduct}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-xl text-sm font-medium border border-purple-500/20 transition-all">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white rounded-xl text-sm font-bold border border-purple-400/20 transition-all active:scale-95 shadow-lg shadow-purple-500/20">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Adicionar
+            Adicionar Produto
           </button>
         </div>
 
         {settings.products.length === 0 ? (
-          <div className="text-center py-8 text-zinc-600 text-sm">
-            Nenhum produto/serviço cadastrado. Adicione os seus!
+          <div className="text-center py-12 text-zinc-600 text-sm border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+            <span className="text-4xl block mb-3">📦</span>
+            Nenhum produto/serviço cadastrado. Clique em <strong className="text-purple-400">Adicionar</strong> para começar!
           </div>
         ) : (
           <div className="space-y-4">
             {settings.products.map((product, i) => {
               const uploadState = productUploadState[i];
+              const deliveryLabels: Record<string, { icon: string; label: string }> = {
+                service: { icon: '🗓️', label: 'Serviço (Agendamento)' },
+                physical: { icon: '📦', label: 'Físico (Delivery/Retirada)' },
+                virtual_instant: { icon: '⚡', label: 'Digital Imediato' },
+                virtual_deadline: { icon: '⏳', label: 'Digital com Prazo' },
+                both: { icon: '📦⚡', label: 'Digital + Físico' },
+              };
+              const dl = deliveryLabels[product.delivery_type || 'service'] || { icon: '🗓️', label: product.delivery_type };
+
               return (
-              <div key={i} className="p-5 bg-[#0a0a0c] rounded-2xl border border-white/10 shadow-lg space-y-6 relative overflow-hidden">
-                {/* Botão Remover Produto */}
-                <button onClick={() => removeProduct(i)}
-                  className="absolute top-4 right-4 p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-all"
-                  title="Remover Produto">
-                  ✕ Remover
-                </button>
+              <div key={i} className="p-5 bg-gradient-to-br from-[#0a0a0c] to-[#0d0d10] rounded-2xl border border-white/10 shadow-lg space-y-6 relative overflow-hidden group hover:border-purple-500/20 transition-all">
+                {/* Header badge */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
 
-                {/* Bloco 1: Informações Básicas */}
-                <div>
-                  <h4 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
-                    <span className="p-1.5 bg-purple-500/10 rounded-md">📝</span> Informações Básicas
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1.5">Nome do Produto/Serviço</label>
-                      <input value={product.name} onChange={(e) => updateProduct(i, "name", e.target.value)}
-                        placeholder="Ex: Consultoria, E-book, Tênis..."
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:border-purple-500 focus:bg-white/10 transition-all outline-none" />
+                {/* Header Row */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/10 flex items-center justify-center shrink-0">
+                      <span className="text-lg">{dl.icon}</span>
                     </div>
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1.5">Preço</label>
-                      <input value={product.price} onChange={(e) => updateProduct(i, "price", e.target.value)}
-                        placeholder="Ex: R$ 150,00"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:border-purple-500 focus:bg-white/10 transition-all outline-none" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs text-zinc-400 mb-1.5">Descrição Curta</label>
-                      <input value={product.description} onChange={(e) => updateProduct(i, "description", e.target.value)}
-                        placeholder="Resumo que a IA usará para vender o produto"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:border-purple-500 focus:bg-white/10 transition-all outline-none" />
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="border-white/5" />
-
-                {/* Bloco 2: Mídia / Vitrine */}
-                <div>
-                  <h4 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
-                    <span className="p-1.5 bg-purple-500/10 rounded-md">🖼️</span> Imagem da Vitrine (WhatsApp)
-                  </h4>
-                  <p className="text-xs text-zinc-500 mb-3">Esta foto será enviada no WhatsApp quando o cliente pedir para ver o produto.</p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Preview Quadrado */}
-                    <div className="w-32 h-32 shrink-0">
-                      {product.image_url ? (
-                        <div className="relative group w-full h-full">
-                          <img src={product.image_url} alt="Vitrine" className="rounded-xl object-cover w-full h-full border border-white/10 shadow-md" />
-                          <div className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                            <button onClick={() => fileInputRefs.current[i]?.click()} className="text-xs text-white bg-white/20 px-2 py-1 rounded">Trocar</button>
-                            <button onClick={() => updateProduct(i, "image_url", "")} className="text-xs text-red-300 bg-red-500/20 px-2 py-1 rounded">Apagar</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button onClick={() => fileInputRefs.current[i]?.click()} disabled={uploadState?.uploading}
-                          className="w-full h-full rounded-xl border-2 border-dashed border-white/20 bg-white/[0.02] hover:bg-white/[0.05] hover:border-purple-500/40 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50">
-                          {uploadState?.uploading ? (
-                            <span className="text-xs text-zinc-400">Enviando...</span>
-                          ) : (
-                            <>
-                              <svg className="w-6 h-6 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                              <span className="text-[10px] text-zinc-500 text-center px-2">Adicionar<br/>Foto</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    {/* Campo de URL Manual */}
-                    <div className="flex-1 flex flex-col justify-center">
-                      <label className="block text-xs text-zinc-400 mb-1.5">Ou cole o link da imagem diretamente</label>
-                      <input value={product.image_url || ""} onChange={(e) => updateProduct(i, "image_url", e.target.value)}
-                        placeholder="https://sua-imagem.com/foto.jpg"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white placeholder-zinc-600 text-sm focus:border-purple-500 transition-all outline-none mb-2" />
-                      {uploadState?.error && <p className="text-xs text-red-400">⚠️ {uploadState.error}</p>}
-                    </div>
-                    {/* Input Oculto */}
-                    <input ref={(el) => { fileInputRefs.current[i] = el; }} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden"
-                      onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(i, file); e.target.value = ""; }} />
-                  </div>
-                </div>
-
-                <hr className="border-white/5" />
-
-                {/* Bloco 3: Configurações de Venda e Entrega */}
-                <div>
-                  <h4 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
-                    <span className="p-1.5 bg-purple-500/10 rounded-md">⚙️</span> Regras de Venda e Entrega
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Coluna Esquerda: Entrega */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1.5">Como o cliente recebe este produto?</label>
-                        <select value={product.delivery_type || "service"}
-                          onChange={(e) => {
-                            const products = [...settings.products];
-                            products[i] = { ...products[i], delivery_type: e.target.value as any };
-                            update("products", products);
-                          }}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-zinc-300 outline-none focus:border-purple-500 transition-all">
-                          <option value="service" className="bg-zinc-900">🗓️ Serviço (Agendamento no calendário)</option>
-                          <option value="physical" className="bg-zinc-900">📦 Físico (Delivery / Retirada)</option>
-                          <option value="virtual_instant" className="bg-zinc-900">⚡ Digital Imediato (E-book, PDF, Código)</option>
-                        </select>
+                    <div className="min-w-0 flex-1">
+                      <input value={product.name}
+                        onChange={(e) => updateProduct(i, "name", e.target.value)}
+                        placeholder="Nome do Produto/Serviço"
+                        className="w-full bg-transparent text-base font-bold text-white placeholder-zinc-600 focus:outline-none border-b border-transparent focus:border-purple-500/50 pb-0.5 transition-all" />
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-sm font-semibold text-emerald-400">
+                          R$ {product.price || '0,00'}
+                        </span>
+                        <span className="text-[10px] text-zinc-600 bg-white/5 px-2 py-0.5 rounded-full">
+                          {dl.icon} {dl.label}
+                        </span>
+                        {product.requires_payment && (
+                          <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            💳 Pagamento obrigatório
+                          </span>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                  <button onClick={() => removeProduct(i)}
+                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                    title="Remover Produto">
+                    ✕
+                  </button>
+                </div>
 
-                      {product.delivery_type === "virtual_instant" && (
-                        <div className={`p-4 rounded-xl border transition-all ${product.is_unique_keys ? 'bg-indigo-900/10 border-indigo-500/20 shadow-inner' : 'bg-blue-500/5 border-blue-500/10'}`}>
-                          <div className="flex items-center justify-between mb-3">
-                            <label className={`block text-xs font-semibold uppercase tracking-wider ${product.is_unique_keys ? 'text-indigo-400' : 'text-blue-400'}`}>
-                              {product.is_unique_keys ? '🔑 Cofre de Chaves / Contas' : 'Conteúdo para Entrega'}
-                            </label>
-                            <div className="flex items-center gap-2 bg-black/20 px-2 py-1.5 rounded-lg border border-white/5">
-                              <span className="text-[10px] text-zinc-400 font-medium">Estoque Único</span>
-                              <Toggle enabled={product.is_unique_keys || false} onChange={(v) => updateProduct(i, "is_unique_keys", v)} />
+                {/* Divider */}
+                <div className="border-t border-white/5"></div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1.5 font-medium">Descrição</label>
+                  <input value={product.description}
+                    onChange={(e) => updateProduct(i, "description", e.target.value)}
+                    placeholder="Descreva brevemente o produto para a IA apresentar aos clientes"
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2.5 text-sm text-zinc-300 placeholder-zinc-600 focus:border-purple-500/50 focus:bg-white/5 transition-all outline-none" />
+                </div>
+
+                {/* Grid: Image + Config */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left: Image */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
+                      <span>🖼️</span> Imagem de Vitrine (WhatsApp)
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 shrink-0">
+                        {product.image_url ? (
+                          <div className="relative group w-full h-full">
+                            <img src={product.image_url} alt="" className="rounded-xl object-cover w-full h-full border border-white/10" />
+                            <div className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                              <button onClick={() => fileInputRefs.current[i]?.click()} className="text-[10px] text-white bg-white/20 px-1.5 py-0.5 rounded">Trocar</button>
+                              <button onClick={() => updateProduct(i, "image_url", "")} className="text-[10px] text-red-300 bg-red-500/20 px-1.5 py-0.5 rounded">X</button>
                             </div>
                           </div>
-                          
-                          {product.is_unique_keys ? (
-                            <>
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[10px] text-zinc-400 leading-tight">
-                                  Cole as contas/chaves abaixo <b>(uma por linha)</b>. O bot entrega a primeira da fila e apaga em seguida.
-                                </p>
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 whitespace-nowrap ml-2">
-                                  📦 {product.digital_content ? product.digital_content.split('\n').filter(Boolean).length : 0} em estoque
-                                </span>
-                              </div>
-                              <textarea value={product.digital_content || ""}
-                                onChange={(e) => updateProduct(i, "digital_content", e.target.value)}
-                                placeholder="joao@email.com,senha123&#10;maria@email.com,senha456&#10;ABCD-1234-EFGH-5678"
-                                className="w-full h-32 bg-[#09090b] border border-indigo-500/30 rounded-lg p-3 text-xs text-indigo-100 font-mono focus:border-indigo-500/70 focus:ring-1 focus:ring-indigo-500/50 resize-none custom-scrollbar shadow-inner" />
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-[10px] text-zinc-500 mb-2">
-                                O mesmo texto ou arquivo será entregue para <b>todos os clientes</b> que comprarem.
-                              </p>
-                              <div className="flex flex-col gap-2">
-                                <textarea value={product.digital_content || ""}
-                                  onChange={(e) => updateProduct(i, "digital_content", e.target.value)}
-                                  placeholder="Seu código de acesso comum é XYZ... ou o link de download"
-                                  className="w-full h-16 bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 resize-none" />
-                                
-                                <button type="button" onClick={() => digitalFileInputRefs.current[i]?.click()} disabled={digitalUploadState[i]?.uploading}
-                                  className="w-full py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center">
-                                  {digitalUploadState[i]?.uploading ? "Enviando arquivo..." : "📁 Fazer Upload de PDF / Arquivo Seguro"}
-                                </button>
-                                {digitalUploadState[i]?.error && <p className="text-[10px] text-red-400">⚠️ {digitalUploadState[i]?.error}</p>}
-                              </div>
-                              <input ref={(el) => { digitalFileInputRefs.current[i] = el; }} type="file" className="hidden"
-                                onChange={(e) => { const file = e.target.files?.[0]; if (file) handleDigitalUpload(i, file); e.target.value = ""; }} />
-                            </>
-                          )}
-                        </div>
-                      )}
+                        ) : (
+                          <button onClick={() => fileInputRefs.current[i]?.click()} disabled={uploadState?.uploading}
+                            className="w-full h-full rounded-xl border-2 border-dashed border-white/20 bg-white/[0.02] hover:bg-white/[0.05] hover:border-purple-500/40 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50">
+                            {uploadState?.uploading ? (
+                              <span className="text-[10px] text-zinc-500">Enviando...</span>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                                <span className="text-[9px] text-zinc-600">Adicionar Foto</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      <input value={product.image_url || ""}
+                        onChange={(e) => updateProduct(i, "image_url", e.target.value)}
+                        placeholder="ou cole URL da imagem..."
+                        className="flex-1 bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500/50 transition-all outline-none" />
+                    </div>
+                    <input ref={(el) => { fileInputRefs.current[i] = el; }} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden"
+                      onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(i, file); e.target.value = ""; }} />
+                    {uploadState?.error && <p className="text-xs text-red-400">⚠️ {uploadState.error}</p>}
+                  </div>
+
+                  {/* Right: Delivery & Payment */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-1.5 font-medium">Tipo de Entrega</label>
+                      <select value={product.delivery_type || "service"}
+                        onChange={(e) => {
+                          const products = [...settings.products];
+                          products[i] = { ...products[i], delivery_type: e.target.value as any };
+                          update("products", products);
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-sm text-zinc-300 outline-none focus:border-purple-500 transition-all">
+                        <option value="service" className="bg-zinc-900">🗓️ Serviço (Agendamento)</option>
+                        <option value="physical" className="bg-zinc-900">📦 Físico (Delivery / Retirada)</option>
+                        <option value="virtual_instant" className="bg-zinc-900">⚡ Digital Imediato</option>
+                        <option value="virtual_deadline" className="bg-zinc-900">⏳ Digital com Prazo</option>
+                        <option value="both" className="bg-zinc-900">📦⚡ Digital + Físico</option>
+                      </select>
                     </div>
 
-                    {/* Coluna Direita: Agendamento e Pagamento */}
-                    <div className="space-y-4">
-                      {product.delivery_type === "service" && (
-                        <div>
-                          <label className="block text-xs text-zinc-400 mb-1.5">Duração do Atendimento</label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {[15, 30, 45, 60, 90, 120].map((min) => (
-                              <button key={min} onClick={() => updateProduct(i, "duration_min", min.toString())}
-                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                  (product.duration_min || 60) === min
-                                    ? "bg-purple-600 text-white" : "bg-white/5 text-zinc-400 border border-white/10 hover:border-white/20"
-                                }`}>
-                                {min < 60 ? `${min}min` : `${Math.floor(min / 60)}h${min % 60 ? min % 60 : ""}`}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl flex items-start gap-3">
-                        <div className="pt-1">
-                          <Toggle enabled={product.requires_payment || false} onChange={(v) => updateProduct(i, "requires_payment", v)} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-purple-100">Exigir Pagamento Obrigatório</p>
-                          <p className="text-[11px] text-zinc-500 leading-snug mt-1">
-                            Se ativado, a IA não finalizará o pedido nem confirmará a vaga na agenda até que o cliente pague o PIX gerado.
-                          </p>
+                    {product.delivery_type === "service" && (
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1.5 font-medium">Duração do Atendimento</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[15, 30, 45, 60, 90, 120].map((min) => (
+                            <button key={min} onClick={() => updateProduct(i, "duration_min", min)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                (product.duration_min || 60) === min
+                                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20" : "bg-white/5 text-zinc-400 border border-white/10 hover:border-white/20"
+                              }`}>
+                              {min < 60 ? `${min}min` : `${Math.floor(min / 60)}h${min % 60 ? '' : ''}`}
+                            </button>
+                          ))}
                         </div>
                       </div>
+                    )}
+
+                    <div className="flex items-center gap-3 p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl">
+                      <Toggle enabled={product.requires_payment || false} onChange={(v) => updateProduct(i, "requires_payment", v)} />
+                      <div>
+                        <p className="text-xs font-semibold text-purple-100">Exigir Pagamento</p>
+                        <p className="text-[10px] text-zinc-500">Cliente precisa pagar antes de confirmar</p>
+                      </div>
                     </div>
+
+                    {product.delivery_type === "virtual_instant" && (
+                      <div className={`p-3 rounded-xl border transition-all ${product.is_unique_keys ? 'bg-indigo-900/10 border-indigo-500/20' : 'bg-blue-500/5 border-blue-500/10'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${product.is_unique_keys ? 'text-indigo-400' : 'text-blue-400'}`}>
+                            {product.is_unique_keys ? '🔑 Estoque Único (chaves/contas)' : '📄 Conteúdo Digital'}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-zinc-500">Estoque único</span>
+                            <Toggle enabled={product.is_unique_keys || false} onChange={(v) => updateProduct(i, "is_unique_keys", v)} />
+                          </div>
+                        </div>
+                        {product.is_unique_keys ? (
+                          <>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] text-zinc-500">Uma chave por linha (entregue e removida)</span>
+                              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded">📦 {product.digital_content ? product.digital_content.split('\n').filter(Boolean).length : 0} em estoque</span>
+                            </div>
+                            <textarea value={product.digital_content || ""}
+                              onChange={(e) => updateProduct(i, "digital_content", e.target.value)}
+                              placeholder="joao@email.com,senha123&#10;maria@email.com,senha456&#10;ABCD-1234"
+                              className="w-full h-20 bg-[#09090b] border border-indigo-500/30 rounded-lg p-2 text-[11px] text-indigo-100 font-mono focus:border-indigo-500/70 resize-none" />
+                          </>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <textarea value={product.digital_content || ""}
+                              onChange={(e) => updateProduct(i, "digital_content", e.target.value)}
+                              placeholder="Link de download ou texto que será enviado a todos os compradores"
+                              className="w-full h-14 bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-zinc-300 outline-none focus:border-blue-500/50 resize-none" />
+                            <button type="button" onClick={() => digitalFileInputRefs.current[i]?.click()} disabled={digitalUploadState[i]?.uploading}
+                              className="w-full py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 rounded-lg text-[10px] font-medium transition-all flex items-center justify-center">
+                              {digitalUploadState[i]?.uploading ? "Enviando..." : "📁 Upload de PDF / Arquivo"}
+                            </button>
+                            <input ref={(el) => { digitalFileInputRefs.current[i] = el; }} type="file" className="hidden"
+                              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleDigitalUpload(i, file); e.target.value = ""; }} />
+                          </div>
+                        )}
+                        {digitalUploadState[i]?.error && <p className="text-[10px] text-red-400 mt-1">⚠️ {digitalUploadState[i]?.error}</p>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -357,10 +357,9 @@ export default function WorkflowPage() {
             {isLoaded && (
               <WorkflowCanvas 
                 settings={settings} 
-                setSettings={setSettings} 
+                updateField={updateField}
                 selectedNodeId={selectedNodeId}
                 setSelectedNodeId={setSelectedNodeId}
-                saveConfig={saveConfig}
               />
             )}
           </div>
@@ -461,18 +460,43 @@ export default function WorkflowPage() {
                     onChange={(e) => {
                       const newNodes = [...(settings.custom_rules_nodes || [])];
                       const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                      if(idx>-1) { newNodes[idx].actionType = e.target.value; updateField("custom_rules_nodes", newNodes); }
+                      if(idx>-1) {
+                        const newType = e.target.value;
+                        newNodes[idx].actionType = newType;
+                        // Clear type-specific fields when switching
+                        if (newType !== 'collect_data') newNodes[idx].variableName = '';
+                        if (newType !== 'checkout' && newType !== 'product') newNodes[idx].productId = '';
+                        updateField("custom_rules_nodes", newNodes);
+                      }
                     }}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
                   >
-                    <option value="text">Texto Simples / Submenu</option>
-                    <option value="catalog">Mostrar Catálogo de Produtos</option>
-                    <option value="product">Produto Individual (do Catálogo)</option>
-                    <option value="scheduling">Fluxo de Agendamento</option>
-                    <option value="human">Transferir para Humano</option>
-                    <option value="collect_data">Coletar Dados / Texto Aberto</option>
-                    <option value="checkout">Gerar Link de Pagamento (Checkout)</option>
+                    <option value="text">💬 Texto / Submenu</option>
+                    <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                    <option value="product">📦 Mostrar Produto Individual</option>
+                    <option value="scheduling">📅 Iniciar Fluxo de Agendamento</option>
+                    <option value="human">👤 Transferir para Humano</option>
+                    <option value="collect_data">📝 Coletar Dados do Cliente</option>
+                    <option value="checkout">🛒 Gerar Checkout / Finalizar Pedido</option>
                   </select>
+                  {/* Helper text showing what each action does */}
+                  {(() => {
+                    const actionType = settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType;
+                    const helpTexts: Record<string, string> = {
+                      text: 'Exibe um texto de resposta. Se houver filhos, vira um submenu de opções.',
+                      catalog: 'Lista todos os produtos cadastrados para o cliente escolher. Os filhos product definem o comportamento de cada produto.',
+                      product: 'Exibe informações de um produto específico. Adicione filhos para definir ações após mostrar o produto.',
+                      scheduling: 'Inicia o fluxo de agendamento: seleção de serviço, data e horário.',
+                      human: 'Pausa a IA e transfere a conversa para um atendente humano.',
+                      collect_data: 'Solicita um texto livre do cliente e salva em uma variável para uso posterior.',
+                      checkout: 'Gera um link de pagamento e finaliza o pedido com base no produto vinculado.',
+                    };
+                    return (
+                      <p className="text-[10px] text-zinc-500 leading-relaxed mt-1.5 px-1">
+                        {helpTexts[actionType] || ''}
+                      </p>
+                    );
+                  })()}
                 </div>
                 {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'collect_data' && (
                   <div className="space-y-2">
@@ -524,15 +548,165 @@ export default function WorkflowPage() {
                 </div>
 
                 {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'catalog' && (
-                  <div className="mt-4 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex flex-col gap-3">
-                    <p className="text-[10px] text-purple-300">Este nó exibe os seus produtos automaticamente. Você tem {settings.products?.length || 0} produtos cadastrados.</p>
-                    <button
-                      onClick={() => setShowProductsModal(true)}
-                      className="w-full bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
-                    >
-                      <Package className="w-4 h-4" />
-                      <span>Gerenciar Produtos</span>
-                    </button>
+                  <div className="mt-4 space-y-3">
+                    <div className="p-3.5 rounded-xl bg-gradient-to-br from-sky-600/10 to-cyan-500/5 border border-sky-500/10">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="text-xs font-bold text-white">Produtos no Catálogo</h4>
+                        <span className="text-[10px] bg-sky-500/15 text-sky-300 px-2 py-0.5 rounded-full font-medium border border-sky-500/20">
+                          {settings.products?.length || 0} cadastrados
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-400">
+                        Conecte cada produto a um nó no fluxo para definir o que acontece quando o cliente escolher ele.
+                      </p>
+                    </div>
+
+                    {(settings.products || []).length > 0 && (
+                      <div className="space-y-1.5 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 pr-1">
+                        {(settings.products || []).map((prod: any, i: number) => {
+                          const existingNode = (settings.custom_rules_nodes || []).find(
+                            (n: any) => n.parentId === selectedNodeId && n.actionType === 'product' && n.productId === prod.name
+                          );
+                          const hasNode = !!existingNode;
+
+                          // Find children of the product node to show what happens next
+                          const childrenOfProduct = existingNode
+                            ? (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === existingNode.id)
+                            : [];
+
+                          const actionLabels: Record<string, { label: string; icon: string; color: string }> = {
+                            text: { label: 'Exibir texto / Submenu', icon: '💬', color: 'text-indigo-400' },
+                            catalog: { label: 'Mostrar catálogo', icon: '📋', color: 'text-sky-400' },
+                            product: { label: 'Mostrar produto', icon: '📦', color: 'text-cyan-400' },
+                            scheduling: { label: 'Iniciar agendamento', icon: '📅', color: 'text-emerald-400' },
+                            human: { label: 'Transferir p/ humano', icon: '👤', color: 'text-amber-400' },
+                            collect_data: { label: 'Coletar dados', icon: '📝', color: 'text-pink-400' },
+                            checkout: { label: 'Gerar checkout / Finalizar', icon: '🛒', color: 'text-fuchsia-400' },
+                          };
+
+                          return (
+                            <div key={i} className={`p-3 rounded-xl border transition-all ${
+                              hasNode
+                                ? 'bg-gradient-to-r from-emerald-500/5 to-emerald-500/0 border-emerald-500/20'
+                                : 'bg-zinc-900/50 border-zinc-800/50 hover:border-zinc-700'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  hasNode ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]' : 'bg-zinc-600'
+                                }`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-semibold text-white truncate">{prod.name}</p>
+                                  <p className="text-[10px] text-zinc-500">R$ {prod.price}</p>
+                                </div>
+                                {hasNode ? (
+                                  <button
+                                    onClick={() => setSelectedNodeId(existingNode?.id || null)}
+                                    className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-lg px-2 py-1 font-medium hover:bg-emerald-500/20 transition-all active:scale-95 flex-shrink-0"
+                                  >
+                                    Editar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      const newNodes = [...(settings.custom_rules_nodes || [])];
+                                      const newId = 'node_' + Math.random().toString(36).substr(2, 9);
+                                      newNodes.push({
+                                        id: newId,
+                                        parentId: selectedNodeId,
+                                        keyword: String(i + 1),
+                                        title: prod.name,
+                                        actionType: 'product',
+                                        textContent: '',
+                                        productId: prod.name,
+                                        productPrice: prod.price || '',
+                                        productDescription: prod.description || ''
+                                      });
+                                      updateField('custom_rules_nodes', newNodes);
+                                    }}
+                                    className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 rounded-lg px-2 py-1 font-medium hover:bg-sky-500/20 transition-all active:scale-95 flex-shrink-0"
+                                  >
+                                    + Conectar
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Behavior preview when connected */}
+                              {hasNode && existingNode && (
+                                <div className="mt-2 ml-4 space-y-1 border-l-2 border-emerald-500/20 pl-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] text-emerald-400/70">➤</span>
+                                    <span className={`text-[10px] font-medium ${actionLabels[existingNode.actionType]?.color || 'text-zinc-400'}`}>
+                                      {actionLabels[existingNode.actionType]?.icon}{' '}
+                                      {actionLabels[existingNode.actionType]?.label || existingNode.actionType}
+                                    </span>
+                                  </div>
+
+                                  {childrenOfProduct.length > 0 && (
+                                    <div className="space-y-0.5 mt-1">
+                                      <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold">DEPOIS DISSO:</p>
+                                      {childrenOfProduct.map((child: any) => (
+                                        <div key={child.id} className="flex items-center gap-1.5">
+                                          <span className="text-[9px] text-zinc-600">↳</span>
+                                          <span className={`text-[9px] ${actionLabels[child.actionType]?.color || 'text-zinc-500'}`}>
+                                            {actionLabels[child.actionType]?.icon} {child.title}: {actionLabels[child.actionType]?.label || child.actionType}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {childrenOfProduct.length === 0 && existingNode.actionType !== 'product' && (
+                                    <p className="text-[9px] text-zinc-600 italic">Sem ação adicional configurada</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowProductsModal(true)}
+                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl px-3 py-2 text-[11px] font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 border border-zinc-700/50"
+                      >
+                        <Package className="w-3.5 h-3.5" />
+                        <span>Gerenciar Produtos</span>
+                      </button>
+                      {(settings.products || []).length > 0 && (
+                        <button
+                          onClick={() => {
+                            const existing = settings.custom_rules_nodes || [];
+                            const newNodes = [...existing];
+                            let added = 0;
+                            (settings.products || []).forEach((prod: any) => {
+                              const already = existing.some(
+                                (n: any) => n.parentId === selectedNodeId && n.actionType === 'product' && n.productId === prod.name
+                              );
+                              if (!already) {
+                                newNodes.push({
+                                  id: 'node_' + Math.random().toString(36).substr(2, 9),
+                                  parentId: selectedNodeId,
+                                  keyword: String((settings.products || []).indexOf(prod) + 1),
+                                  title: prod.name,
+                                  actionType: 'product',
+                                  textContent: '',
+                                  productId: prod.name,
+                                  productPrice: prod.price || '',
+                                  productDescription: prod.description || ''
+                                });
+                                added++;
+                              }
+                            });
+                            if (added > 0) updateField('custom_rules_nodes', newNodes);
+                          }}
+                          className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/20 rounded-xl px-3 py-2 text-[11px] font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                        >
+                          <span>Gerar Todos</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
