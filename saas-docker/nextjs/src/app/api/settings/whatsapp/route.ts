@@ -62,6 +62,7 @@ export async function PUT(req: Request) {
       let currentSettings = {};
       try { currentSettings = JSON.parse(partner?.settings as string ?? "{}"); } catch {}
 
+      delete body.ignored_numbers; // Protege a blacklist contra sobrescrita acidental
       const newSettings = { ...currentSettings, ...body };
 
       await prisma.partner.update({
@@ -83,6 +84,7 @@ export async function PUT(req: Request) {
       currentSettings = JSON.parse(tenant?.settings as string ?? "{}");
     } catch {}
 
+    delete body.ignored_numbers; // Protege a blacklist contra sobrescrita acidental
     const newSettings = { ...currentSettings, ...body };
 
     await prisma.tenant.update({
