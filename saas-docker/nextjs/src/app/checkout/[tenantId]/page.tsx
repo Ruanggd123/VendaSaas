@@ -214,11 +214,11 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
       if (data.paymentLink) {
         setPaymentLink(data.paymentLink);
         setDone(true);
-        window.open(data.paymentLink, '_blank');
+        window.location.href = data.paymentLink;
       } else {
         setError(data.error || 'Erro ao gerar pagamento');
       }
-    } catch { setError('Erro de conexao'); }
+    } catch { setError('Erro de conexão com o servidor. Tente novamente em instantes.'); }
     setSubmitting(false);
   };
 
@@ -714,10 +714,11 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
               </div>
 
               <div>
-                <h4 className="font-bold text-sm text-white mb-1">3. Assinatura, Cobrança e Cancelamento</h4>
+                <h4 className="font-bold text-sm text-white mb-1">3. Assinatura, Período Inicial e Cancelamento</h4>
                 <p>3.1. Para produtos sob modelo de assinatura mensal, a renovação é automática a cada 30 dias na forma de pagamento selecionada.</p>
-                <p>3.2. O cancelamento da assinatura pode ser solicitado a qualquer momento sem incidência de multa após o primeiro mês de vigência, bastando solicitar com antecedência mínima de 5 (cinco) dias da próxima fatura.</p>
-                <p>3.3. Para contratos anuais com desconto promocional, o cancelamento antecipado antes do término do período mínimo implicará na perda do desconto concedido com taxa administrativa proporcional de 15% sobre os meses restantes.</p>
+                <p>3.2. Para cobrir os custos operacionais de implantação, infraestrutura e configuração inicial do sistema, vigora um período de adaptação e permanência inicial de 3 (três) meses.</p>
+                <p>3.3. Em caso de solicitação de cancelamento dentro dos 3 (três) primeiros meses, incidirá uma taxa administrativa de rescisão proporcional de 15% sobre o valor restante das faturas desse período inicial.</p>
+                <p className="font-semibold text-purple-300">3.4. Transcorrido o período inicial dos 3 (três) primeiros meses, o CONTRATANTE fica 100% ISENTO de qualquer taxa, multa ou prejuízo, podendo solicitar o cancelamento a qualquer momento sem qualquer custo adicional.</p>
               </div>
 
               <div>

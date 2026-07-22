@@ -145,18 +145,20 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       });
     }
 
-    // Asaas gateway — each tenant has their own key in settings
-    const asaasMode = settings.asaas_mode || 'test';
-    const asaasKey = asaasMode === 'production' ? settings.asaas_api_key : settings.asaas_test_api_key;
-    const asaasUrl = asaasMode === 'production'
-      ? 'https://asaas.com/api/v3'
-      : 'https://sandbox.asaas.com/api/v3';
-
+    // Asaas gateway resolution
+    let asaasKey = settings.asaas_api_key || settings.asaas_test_api_key;
     if (!asaasKey) {
-      const msg = mpToken && isSubscription
-        ? 'Assinaturas não são suportadas pelo Mercado Pago. Configure o Asaas para processar pagamentos recorrentes.'
-        : 'Nenhum gateway de pagamento configurado. Configure o Mercado Pago ou Asaas.';
-      return NextResponse.json({ error: msg }, { status: 502 });
+      const sysConfig = await prisma.systemConfig.findUnique({ where: { key: "asaas_api_key" } });
+      if (sysConfig?.value) asaasKey = sysConfig.value;
+    }
+
+    const isProdKey = asaasKey ? (asaasKey.startsWith("$") || asaasKey.startsWith("ak_") || settings.asaas_mode === 'production') : false;
+    const asaasUrl = isProdKey ? 'https://asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
+
+    if (!asaasKey && !mpToken) {
+      return NextResponse.json({ 
+        error: 'As portas de pagamento estão em manutenção. Entre em contato com o suporte para concluir a contratação.' 
+      }, { status: 400 });
     }
 
     const customerData = {
