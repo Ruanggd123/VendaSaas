@@ -108,6 +108,33 @@ export async function processMessageWithRules(
     }
   }
 
+  if (state.step.startsWith("collect_data:")) {
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+
+    const varName = state.data.collect_variable || "dado_coletado";
+    // Initialize or get collected data array/object
+    state.data.collected = state.data.collected || {};
+    state.data.collected[varName] = userMessage.trim();
+
+    const nodeId = state.step.replace("collect_data:", "");
+    const hasChildren = customNodes.some((n: any) => n.parentId === nodeId);
+    
+    if (hasChildren) {
+      state.step = `submenu:${nodeId}`;
+      await saveState(state);
+      const currentNode = customNodes.find((n: any) => n.id === nodeId);
+      return `✅ Registrado!\n\n${getSubmenuMessage(currentNode, customNodes)}`;
+    } else {
+      state.step = "main_menu";
+      await saveState(state);
+      return `✅ Registrado!\n\n${getMainMenuMessage(settings)}`;
+    }
+  }
+
   // Handle "voltar" navigation
   if (["0", "voltar", "menu", "inicio", "olá", "ola", "oi", "bom dia", "boa tarde", "boa noite"].includes(cleanText)) {
     if (state.step === "main_menu") {
@@ -237,11 +264,11 @@ export async function processMessageWithRules(
     if (deliveryType === "virtual_instant") {
       const addr = "Envio Digital Imediato";
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey);
+      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else if (deliveryType === "virtual_deadline") {
       const addr = `Envio Digital (Prazo: ${deadline})`;
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey);
+      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
       await saveState(state);
@@ -271,7 +298,7 @@ export async function processMessageWithRules(
     if (cleanText === "1") {
       const addr = `Envio Digital (Prazo: ${deadline})`;
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey);
+      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else {
       state.step = "catalog_input_address";
       await saveState(state);
@@ -296,7 +323,7 @@ export async function processMessageWithRules(
       return "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):";
     } else {
       state.data.address = "Retirada na Loja";
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, "Retirada na Loja", settings, stateKey);
+      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, "Retirada na Loja", settings, stateKey, state.data.collected);
     }
   }
 
@@ -307,7 +334,7 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
     const address = userMessage.trim();
-    return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, address, settings, stateKey);
+    return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, address, settings, stateKey, state.data.collected);
   }
 
   // Handle Scheduling steps
@@ -442,6 +469,12 @@ export async function processMessageWithRules(
     if (cleanText === "1" || cleanText.includes("confirm") || cleanText.includes("sim")) {
       const parsedDate = parseDateAndTime(state.data.date, state.data.time);
       const startDateTime = parsedDate || new Date();
+      
+      let extraNotes = "";
+      if (state.data.collected && Object.keys(state.data.collected).length > 0) {
+        extraNotes = " | Dados Coletados: " + Object.entries(state.data.collected).map(([k, v]) => `${k}=${v}`).join(", ");
+      }
+
       await prisma.appointment.create({
         data: {
           tenant_id: tenantId,
@@ -449,7 +482,7 @@ export async function processMessageWithRules(
           duration_min: state.data.duration || 60,
           scheduled_at: startDateTime,
           status: "scheduled",
-          notes: `customer_phone:${contactNumber} | RulesBot Booking`
+          notes: `customer_phone:${contactNumber} | RulesBot Booking${extraNotes}`
         }
       });
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
@@ -530,6 +563,12 @@ export async function processMessageWithRules(
         }
         return matchedNode.textContent || "";
       }
+      else if (matchedNode.actionType === "collect_data") {
+        state.step = `collect_data:${matchedNode.id}`;
+        state.data.collect_variable = matchedNode.variableName || "dado_coletado";
+        await saveState(state);
+        return matchedNode.textContent || "Por favor, digite a informação solicitada:";
+      }
       else {
         // default text / submenu Presentation text
         response = matchedNode.textContent || "";
@@ -585,11 +624,11 @@ export async function processMessageWithRules(
       if (deliveryType === "virtual_instant") {
         const addr = "Envio Digital Imediato";
         state.data.address = addr;
-        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey);
+        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
       } else if (deliveryType === "virtual_deadline") {
         const addr = `Envio Digital (Prazo: ${deadline})`;
         state.data.address = addr;
-        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey);
+        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
         await saveState(state);
@@ -851,9 +890,15 @@ async function processarFinalizacaoPedidoRulesBot(
   chosenService: any,
   address: string,
   settings: any,
-  stateKey: string
+  stateKey: string,
+  collectedData: any = null
 ): Promise<string> {
   try {
+    let extraNotes = "";
+    if (collectedData && Object.keys(collectedData).length > 0) {
+      extraNotes = " | Dados Coletados: " + Object.entries(collectedData).map(([k, v]) => `${k}=${v}`).join(", ");
+    }
+
     const order = await prisma.retailOrder.create({
       data: {
         tenant_id: tenantId,
@@ -890,7 +935,7 @@ async function processarFinalizacaoPedidoRulesBot(
           product_name: chosenService.name,
           amount: parseFloat(chosenService.price),
           status: "pending",
-          notes: `customer_phone:${contactNumber} | presencial | address:${address}`,
+          notes: `customer_phone:${contactNumber} | presencial | address:${address}${extraNotes}`,
           due_date: new Date(Date.now() + 24 * 60 * 60 * 1000)
         }
       });

@@ -120,7 +120,8 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         keyword: node.data.keyword || '0',
         title: node.data.title || 'Nova Opção',
         actionType: node.data.actionType || 'text',
-        textContent: node.data.textContent || ''
+        textContent: node.data.textContent || '',
+        variableName: node.data.variableName || ''
       });
     });
     updateField("custom_rules_nodes", custom_rules_nodes);

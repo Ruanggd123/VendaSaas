@@ -469,8 +469,25 @@ export default function WorkflowPage() {
                     <option value="catalog">Mostrar Catálogo de Produtos</option>
                     <option value="scheduling">Fluxo de Agendamento</option>
                     <option value="human">Transferir para Humano</option>
+                    <option value="collect_data">Coletar Dados / Texto Aberto</option>
                   </select>
                 </div>
+                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'collect_data' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-zinc-300">Salvar resposta na variável (Nome)</label>
+                    <input
+                      type="text"
+                      value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.variableName || ''}
+                      onChange={(e) => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
+                        if(idx>-1) { newNodes[idx].variableName = e.target.value; updateField("custom_rules_nodes", newNodes); }
+                      }}
+                      placeholder="Ex: tamanho_camiseta"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-zinc-300">Conteúdo da Resposta</label>
                   <textarea
