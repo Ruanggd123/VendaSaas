@@ -930,7 +930,8 @@ export default function PainelParceiro() {
                   </p>
                 </div>
 
-                  <form onSubmit={handleAsaasSetup} className="space-y-4">
+                  {!asaasMsg ? (
+                    <form onSubmit={handleAsaasSetup} className="space-y-4">
                     {/* Seletor de Ambiente */}
                     <div>
                       <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 block">Ambiente</label>
