@@ -569,6 +569,62 @@ export async function processMessageWithRules(
         await saveState(state);
         return matchedNode.textContent || "Por favor, digite a informação solicitada:";
       }
+      else if (matchedNode.actionType === "checkout") {
+        const productsList = settings.products || [];
+        const chosen = productsList.find((p: any) => p.id === matchedNode.productId || p.name === matchedNode.productId);
+        if (!chosen) {
+          return "❌ Erro: Produto não encontrado no sistema.";
+        }
+        
+        const collectedData = state.data.collected || {};
+        
+        if (chosen.delivery_type === 'service') {
+          const availableDates = obterProximosDiasDisponiveis(settings);
+          state.step = "scheduling_select_date";
+          state.data = {
+            serviceName: chosen.name, servicePrice: chosen.price,
+            duration: chosen.duration_min || 60,
+            availableDates: availableDates.map((d: Date) => d.toISOString()),
+            collected: collectedData
+          };
+          await saveState(state);
+          const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+          let resp = `Você selecionou *${chosen.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
+          availableDates.forEach((d: Date, idx: number) => {
+            const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            resp += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+          });
+          resp += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
+          return resp;
+        }
+
+        // Para outros tipos, inicia fluxo de compra
+        state.step = "catalog_select_product";
+        state.data = { chosenService: chosen, collected: collectedData };
+        
+        const deliveryType = chosen.delivery_type || "virtual_instant";
+        const deadline = chosen.delivery_deadline || "imediato";
+        
+        if (deliveryType === "virtual_instant") {
+          const addr = "Envio Digital Imediato";
+          state.data.address = addr;
+          await saveState(state);
+          return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
+        } else if (deliveryType === "virtual_deadline") {
+          const addr = `Envio Digital (Prazo: ${deadline})`;
+          state.data.address = addr;
+          await saveState(state);
+          return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
+        } else if (deliveryType === "both") {
+          state.step = "catalog_select_both_methods";
+          await saveState(state);
+          return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
+        } else {
+          state.step = "catalog_select_delivery_method";
+          await saveState(state);
+          return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
+        }
+      }
       else {
         // default text / submenu Presentation text
         response = matchedNode.textContent || "";
@@ -614,8 +670,9 @@ export async function processMessageWithRules(
         return resp;
       }
       // Para outros tipos, inicia fluxo de compra
+      const collectedData = state.data.collected || {};
       state.step = "catalog_select_product";
-      state.data = {};
+      state.data = { collected: collectedData };
       await saveState(state);
       // Redireciona simulando que entrou no catálogo
       const deliveryType = chosen.delivery_type || "virtual_instant";

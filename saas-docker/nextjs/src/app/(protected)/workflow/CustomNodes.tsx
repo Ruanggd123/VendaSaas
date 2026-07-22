@@ -1,12 +1,13 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles } from 'lucide-react';
+import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart } from 'lucide-react';
 
-const actionConfig: Record<string, { color: string; bg: string; border: string }> = {
   catalog: { color: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/20' },
   scheduling: { color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   human: { color: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
   text: { color: 'text-indigo-300', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
+  collect_data: { color: 'text-pink-300', bg: 'bg-pink-500/10', border: 'border-pink-500/20' },
+  checkout: { color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
 };
 
 export const StartNode = ({ data, selected }: any) => {
@@ -55,6 +56,12 @@ export const MenuNode = ({ data, selected }: any) => {
   } else if (data.actionType === "text" && data.childrenCount > 0) {
     Icon = GitBranch;
     label = "Menu de Opções";
+  } else if (data.actionType === "collect_data") {
+    Icon = MessageSquare;
+    label = "Coletar Dados";
+  } else if (data.actionType === "checkout") {
+    Icon = ShoppingCart;
+    label = "Gerar Checkout";
   }
 
   const cfg = actionConfig[data.actionType] || actionConfig.text;
