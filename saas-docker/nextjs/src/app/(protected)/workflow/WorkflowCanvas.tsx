@@ -62,11 +62,60 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
       ];
       updateField("custom_rules_nodes", defaultData);
     } else if (customNodes.length > 0) {
-      // Parse custom nodes to React Flow
-      customNodes.forEach((cn: any, index: number) => {
+      // Cálculo de Layout Hierárquico Árvore Visual
+      const levelMap = new Map<string, number>();
+      const parentChildrenMap = new Map<string, any[]>();
+
+      // Agrupa filhos por pai
+      customNodes.forEach((cn: any) => {
+        const pKey = cn.parentId || 'start';
+        if (!parentChildrenMap.has(pKey)) {
+          parentChildrenMap.set(pKey, []);
+        }
+        parentChildrenMap.get(pKey)!.push(cn);
+      });
+
+      // Calcula nível de profundidade
+      const getLevel = (nodeId: string): number => {
+        const cn = customNodes.find((n: any) => n.id === nodeId);
+        if (!cn || !cn.parentId) return 1;
+        return (levelMap.get(cn.parentId) || getLevel(cn.parentId)) + 1;
+      };
+
+      customNodes.forEach((cn: any) => {
+        levelMap.set(cn.id, getLevel(cn.id));
+      });
+
+      // Distribuição inteligente de X e Y
+      const level1Nodes = customNodes.filter((cn: any) => !cn.parentId);
+      const totalL1 = level1Nodes.length || 1;
+      const l1Spacing = 300;
+      const startX = Math.max(100, 450 - ((totalL1 - 1) * l1Spacing) / 2);
+
+      const xPositions = new Map<string, number>();
+
+      level1Nodes.forEach((cn: any, idx: number) => {
+        xPositions.set(cn.id, startX + idx * l1Spacing);
+      });
+
+      // Posiciona filhos diretamente abaixo ou espalhados do pai
+      customNodes.forEach((cn: any) => {
+        if (cn.parentId) {
+          const parentX = xPositions.get(cn.parentId) || 450;
+          const siblings = parentChildrenMap.get(cn.parentId) || [];
+          const sIdx = siblings.findIndex((s: any) => s.id === cn.id);
+          const totalSiblings = siblings.length;
+          const subSpacing = 260;
+          const subStartX = parentX - ((totalSiblings - 1) * subSpacing) / 2;
+          xPositions.set(cn.id, subStartX + sIdx * subSpacing);
+        }
+      });
+
+      customNodes.forEach((cn: any) => {
         const hasChildren = customNodes.some((n: any) => n.parentId === cn.id);
-        const xPos = cn.parentId ? 400 + (index * 50) : 100 + (index * 250);
-        const yPos = cn.parentId ? 450 : 250;
+        const level = levelMap.get(cn.id) || 1;
+        const xPos = xPositions.get(cn.id) || 450;
+        const yPos = 50 + level * 170;
 
         initialNodes.push({
           id: cn.id,
@@ -122,7 +171,10 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         actionType: node.data.actionType || 'text',
         textContent: node.data.textContent || '',
         variableName: node.data.variableName || '',
-        productId: node.data.productId || ''
+        productId: node.data.productId || '',
+        productPrice: node.data.productPrice || '',
+        productDescription: node.data.productDescription || '',
+        productName: node.data.productName || ''
       });
     });
     updateField("custom_rules_nodes", custom_rules_nodes);
