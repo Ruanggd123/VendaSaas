@@ -11,8 +11,8 @@ const protectedRoutes = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check if it's a protected route
-  const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
+  const lowerPathname = pathname.toLowerCase();
+  const isProtected = protectedRoutes.some(route => lowerPathname.startsWith(route));
 
   if (isProtected) {
     const sessionCookie = request.cookies.get('session');
@@ -31,11 +31,11 @@ export async function middleware(request: NextRequest) {
       // --- PARCEIRO: PAINEL PRÓPRIO SEMPRE LIBERADO; CLIENTE SÓ COM SESSÃO ATIVA ---
       if (payload.role === 'partner') {
         // Painel do parceiro sempre acessível
-        if (pathname.startsWith('/painel-parceiro')) {
+        if (lowerPathname.startsWith('/painel-parceiro')) {
           return NextResponse.next();
         }
         // Bloqueia /admin para parceiros
-        if (pathname.startsWith('/admin')) {
+        if (lowerPathname.startsWith('/admin')) {
           return NextResponse.redirect(new URL('/painel-parceiro', request.url));
         }
         // Para rotas de cliente, verifica se o acesso está ativo
@@ -48,12 +48,12 @@ export async function middleware(request: NextRequest) {
       }
 
       // --- PROTEÇÃO DO SUPER ADMIN ---
-      if (pathname.startsWith('/admin') && payload.role !== 'superadmin') {
+      if (lowerPathname.startsWith('/admin') && payload.role !== 'superadmin') {
         return NextResponse.redirect(new URL('/whatsapp', request.url));
       }
 
       // --- PROTEÇÃO DO PAINEL PARCEIRO ---
-      if (pathname.startsWith('/painel-parceiro') && payload.role !== 'partner') {
+      if (lowerPathname.startsWith('/painel-parceiro') && payload.role !== 'partner') {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
 
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Se o usuário logado tentar acessar /login ou /register, redireciona para o painel
-  if (pathname === '/login' || pathname === '/register') {
+  if (lowerPathname === '/login' || lowerPathname === '/register') {
     const sessionCookie = request.cookies.get('session');
     if (sessionCookie) {
       try {

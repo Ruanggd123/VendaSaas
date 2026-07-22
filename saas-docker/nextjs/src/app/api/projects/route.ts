@@ -11,10 +11,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
+    if (!session) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    }
+
     const isPartner = session.role === 'partner';
     const isAdmin = session.role === 'superadmin' || session.role === 'manager';
 
-    if (!session || (!isPartner && !isAdmin)) {
+    if (!isPartner && !isAdmin) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 401 });
     }
 
