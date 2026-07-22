@@ -1,5 +1,5 @@
 export const ASAAS_API_KEY = process.env.ASAAS_API_KEY || '';
-const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://sandbox.asaas.com/api/v3';
+const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://asaas.com/api/v3';
 
 export interface Customer {
   name: string;
@@ -28,7 +28,7 @@ export interface PaymentData {
 function getHeaders(apiKey?: string) {
   return {
     'Content-Type': 'application/json',
-    'access_token': apiKey || ASAAS_API_KEY,
+    'access_token': (apiKey || ASAAS_API_KEY).trim(),
   };
 }
 
@@ -36,24 +36,62 @@ function getApiUrl(apiUrl?: string) {
   return apiUrl || ASAAS_API_URL;
 }
 
-export const createCustomer = async (customer: Customer, apiKey?: string, apiUrl?: string) => {
-  const response = await fetch(`${getApiUrl(apiUrl)}/customers`, {
-    method: 'POST',
+async function asaasFetch(endpoint: string, options: any = {}, apiKey?: string, apiUrl?: string) {
+  const primaryUrl = getApiUrl(apiUrl);
+  let response = await fetch(`${primaryUrl}${endpoint}`, {
+    ...options,
     headers: getHeaders(apiKey),
-    body: JSON.stringify(customer)
   });
 
-  const resJson = await response.json();
+  let resJson: any = {};
+  try {
+    resJson = await response.json();
+  } catch (e) {
+    return { errors: [{ description: 'Erro de resposta do gateway Asaas' }] };
+  }
+
+  // Se o Asaas avisar que a chave de API não pertence ao ambiente fornecido (Sandbox vs Produção)
+  if (resJson.errors && Array.isArray(resJson.errors)) {
+    const isEnvMismatch = resJson.errors.some((e: any) =>
+      e.description?.toLowerCase().includes("não pertence a este ambiente") ||
+      e.description?.toLowerCase().includes("nao pertence a este ambiente") ||
+      e.code === "invalid_environment"
+    );
+
+    if (isEnvMismatch) {
+      const fallbackUrl = primaryUrl.includes("sandbox")
+        ? "https://asaas.com/api/v3"
+        : "https://sandbox.asaas.com/api/v3";
+
+      console.log(`⚠️ [Asaas] Alternando ambiente automaticamente para: ${fallbackUrl}`);
+
+      const fallbackResponse = await fetch(`${fallbackUrl}${endpoint}`, {
+        ...options,
+        headers: getHeaders(apiKey),
+      });
+
+      try {
+        resJson = await fallbackResponse.json();
+      } catch (e) {}
+    }
+  }
+
+  return resJson;
+}
+
+export const createCustomer = async (customer: Customer, apiKey?: string, apiUrl?: string) => {
+  const resJson = await asaasFetch('/customers', {
+    method: 'POST',
+    body: JSON.stringify(customer)
+  }, apiKey, apiUrl);
+
   if (resJson.id) return resJson;
 
   // Fallback: Se já existir cliente cadastrado com esse telefone/mobile no Asaas
   try {
     const cleanPhone = (customer.phone || "").replace(/\D/g, "");
     if (cleanPhone) {
-      const searchRes = await fetch(`${getApiUrl(apiUrl)}/customers?phone=${cleanPhone}`, {
-        headers: getHeaders(apiKey)
-      });
-      const searchData = await searchRes.json();
+      const searchData = await asaasFetch(`/customers?phone=${cleanPhone}`, { method: 'GET' }, apiKey, apiUrl);
       if (searchData.data && searchData.data.length > 0) {
         return searchData.data[0];
       }
@@ -66,13 +104,10 @@ export const createCustomer = async (customer: Customer, apiKey?: string, apiUrl
 };
 
 export const createPayment = async (data: PaymentData, apiKey?: string, apiUrl?: string) => {
-  const response = await fetch(`${getApiUrl(apiUrl)}/payments`, {
+  return await asaasFetch('/payments', {
     method: 'POST',
-    headers: getHeaders(apiKey),
     body: JSON.stringify(data)
-  });
-
-  return response.json();
+  }, apiKey, apiUrl);
 };
 
 export const createSubscription = async (
@@ -82,9 +117,8 @@ export const createSubscription = async (
   apiKey?: string,
   apiUrl?: string
 ) => {
-  const response = await fetch(`${getApiUrl(apiUrl)}/subscriptions`, {
+  return await asaasFetch('/subscriptions', {
     method: 'POST',
-    headers: getHeaders(apiKey),
     body: JSON.stringify({
       customer: customerId,
       billingType: plan.billingType,
@@ -94,14 +128,9 @@ export const createSubscription = async (
       cycle: plan.period === 'MONTHLY' ? 'MONTHLY' : 'YEARLY',
       externalReference,
     })
-  });
-
-  return response.json();
+  }, apiKey, apiUrl);
 };
 
 export const getSubscriptionPayments = async (subscriptionId: string, apiKey?: string, apiUrl?: string) => {
-  const response = await fetch(`${getApiUrl(apiUrl)}/subscriptions/${subscriptionId}/payments`, {
-    headers: getHeaders(apiKey),
-  });
-  return response.json();
+  return await asaasFetch(`/subscriptions/${subscriptionId}/payments`, { method: 'GET' }, apiKey, apiUrl);
 };
