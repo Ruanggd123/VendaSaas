@@ -162,7 +162,21 @@ export default function LandingPage() {
   const [selected, setSelected] = useState({ site: "" as string, bot: "" as string, modules: [] as string[] });
   const combo = !!selected.site && !!selected.bot;
 
-  const toggleSite = (id: string) => setSelected((p) => ({ ...p, site: p.site === id ? "" : id }));
+  const siteToBotMap: Record<string, string> = {
+    site_basic: "bot_starter",
+    site_pro: "bot_pro",
+    site_ent: "bot_equipe",
+  };
+
+  const toggleSite = (id: string) => {
+    setSelected((p) => {
+      const nextSite = p.site === id ? "" : id;
+      // Auto-pair matching bot tier so setup becomes 100% ISENTO
+      const nextBot = nextSite ? (siteToBotMap[nextSite] || p.bot) : p.bot;
+      return { ...p, site: nextSite, bot: nextBot };
+    });
+  };
+
   const toggleBot = (id: string) => setSelected((p) => ({ ...p, bot: p.bot === id ? "" : id }));
   const toggleModule = (id: string) => setSelected((p) => ({
     ...p,
@@ -806,13 +820,24 @@ export default function LandingPage() {
                                   {getFinalSetupValue() === 0 ? (
                                     <span className="text-xl font-black text-green-400">ISENTO NO COMBO</span>
                                   ) : (
-                                    <span className="text-xl font-black text-amber-400">R$ {getFinalSetupValue().toLocaleString('pt-BR')} (Desconto)</span>
+                                    <span className="text-xl font-black text-amber-400">R$ {getFinalSetupValue().toLocaleString('pt-BR')} (Desconto R$ {getSavings()})</span>
                                   )}
                                 </>
                               ) : (
                                 <span className="text-2xl font-black text-white">{getSiteSetup(selected.site)}</span>
                               )}
                             </div>
+
+                            {combo && getFinalSetupValue() > 0 && siteToBotMap[selected.site] && (
+                              <button
+                                type="button"
+                                onClick={() => setSelected(p => ({ ...p, bot: siteToBotMap[p.site] }))}
+                                className="mt-2.5 w-full py-2 px-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl text-[11px] font-bold text-amber-300 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                Zerar o Setup (Ativar Isenção Total no {getBotData(siteToBotMap[selected.site])?.name})
+                              </button>
+                            )}
                           </div>
                         )}
 
