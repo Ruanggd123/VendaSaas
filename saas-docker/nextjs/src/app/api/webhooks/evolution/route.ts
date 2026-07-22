@@ -60,19 +60,70 @@ export async function POST(req: Request) {
         const contactName = messageData.pushName || contactNumber;
         const fromMe = messageData.key.fromMe || false;
 
-        // 0. Verifica Lista Negra (ignored_numbers)
+        // 0. Verifica Lista Negra (ignored_numbers) por Telefone E por Nome
         if (webhookTenant && webhookTenant.settings) {
           const settings = typeof webhookTenant.settings === "string" ? JSON.parse(webhookTenant.settings) : webhookTenant.settings;
           if (settings?.ignored_numbers) {
-            let ignoredList: string[] = [];
-            if (Array.isArray(settings.ignored_numbers)) {
-              ignoredList = settings.ignored_numbers.map((i: any) => typeof i === "string" ? i : (i?.number || "")).map((n: string) => n.trim().replace(/\D/g, ""));
-            } else if (typeof settings.ignored_numbers === "string") {
-              ignoredList = settings.ignored_numbers.split(",").map((n: string) => n.trim().replace(/\D/g, ""));
+            const rawList: any[] = Array.isArray(settings.ignored_numbers)
+              ? settings.ignored_numbers
+              : (typeof settings.ignored_numbers === "string" ? settings.ignored_numbers.split(",") : []);
+
+            const cleanContactDigits = contactNumber.replace(/\D/g, "");
+            const normalizedPushName = (contactName || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+            let isBlacklisted = false;
+
+            for (const item of rawList) {
+              let itemNum = "";
+              let itemName = "";
+
+              if (typeof item === "string") {
+                const itemStr = item.trim();
+                const digits = itemStr.replace(/\D/g, "");
+                if (digits.length >= 8) {
+                  itemNum = digits;
+                } else {
+                  itemName = itemStr;
+                }
+              } else if (item && typeof item === "object") {
+                itemNum = (item.number || "").replace(/\D/g, "");
+                itemName = (item.name || "").trim();
+              }
+
+              // Match por Telefone (suporta com e sem o DDI 55 e com/sem o 9º dígito)
+              if (itemNum && cleanContactDigits) {
+                const contactWithout55 = cleanContactDigits.startsWith("55") ? cleanContactDigits.slice(2) : cleanContactDigits;
+                const itemWithout55 = itemNum.startsWith("55") ? itemNum.slice(2) : itemNum;
+
+                if (
+                  cleanContactDigits === itemNum ||
+                  contactWithout55 === itemWithout55 ||
+                  (contactWithout55.length >= 8 && itemWithout55.length >= 8 && (
+                    contactWithout55.endsWith(itemWithout55) ||
+                    itemWithout55.endsWith(contactWithout55)
+                  ))
+                ) {
+                  isBlacklisted = true;
+                  break;
+                }
+              }
+
+              // Match por Nome/Apelido (ex: "Mãe", "Suporte", etc)
+              if (itemName && normalizedPushName) {
+                const normalizedItemName = itemName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                if (
+                  normalizedPushName === normalizedItemName ||
+                  normalizedPushName.includes(normalizedItemName) ||
+                  normalizedItemName.includes(normalizedPushName)
+                ) {
+                  isBlacklisted = true;
+                  break;
+                }
+              }
             }
-            const cleanContact = contactNumber.replace(/\D/g, "");
-            if (cleanContact && ignoredList.includes(cleanContact)) {
-              console.log(`[Webhook] Contato ${contactNumber} está na lista de ignorados (Blacklist). Ignorando mensagem.`);
+
+            if (isBlacklisted) {
+              console.log(`[Webhook] Contato ${contactNumber} (${contactName}) está na lista de ignorados (Blacklist). Ignorando mensagem.`);
               return NextResponse.json({ success: true, ignored: "Blacklist" });
             }
           }
