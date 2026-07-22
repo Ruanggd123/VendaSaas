@@ -389,8 +389,7 @@ export async function POST(req: Request) {
           
           console.log(`✅ [Webhook Asaas] Venda ${saleId} totalmente processada!`);
         }
-      }
-    } else if (body.event === "PAYMENT_OVERDUE") {
+      } else if (body.event === "PAYMENT_OVERDUE") {
       // Pagamento Vencido (Cliente não pagou o Pix/Boleto no prazo)
       const externalRef = body.payment?.externalReference;
       if (externalRef) {
