@@ -290,4 +290,3 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     return NextResponse.json({ error: error.message || 'Erro ao processar checkout' }, { status: 400 });
   }
 }
-}
