@@ -26,10 +26,29 @@ export async function POST(req: Request) {
       const externalRef = body.payment?.externalReference; // Formato esperado: "tenantId_saleId"
       const installment = body.payment?.installmentNumber;
 
-      if (externalRef) {
-        const [tenantId, saleId] = externalRef.split("_");
+      let tenantId = "";
+      let saleId = "";
 
-        if (saleId && tenantId) {
+      if (externalRef && externalRef.includes("_")) {
+        [tenantId, saleId] = externalRef.split("_");
+      } else {
+        // Fallback: Tenta encontrar a venda pelo payment_id ou invoiceUrl no banco
+        const matchedSale = await prisma.sale.findFirst({
+          where: {
+            OR: [
+              { payment_id: paymentId },
+              { payment_link: { contains: paymentId || "___xyz" } },
+              { payment_link: { contains: body.payment?.invoiceUrl || "___xyz" } }
+            ]
+          }
+        });
+        if (matchedSale) {
+          tenantId = matchedSale.tenant_id;
+          saleId = matchedSale.id;
+        }
+      }
+
+      if (saleId && tenantId) {
           // Para pagamentos recorrentes (installment > 1), cria nova venda
           let sale;
           const existingSale = await prisma.sale.findUnique({ where: { id: saleId } });
