@@ -222,7 +222,7 @@ export default function ConversasPage() {
 
     const isAudio = fileUrl?.toLowerCase().includes('.webm');
     const tempMsg = {
-      id: Date.now().toString(), direction: "outgoing", content: newMsg || (isAudio ? "🎤 Áudio" : "[Mídia Enviada]"),
+      id: Date.now().toString(), direction: "outbound", content: newMsg || (isAudio ? "🎤 Áudio" : "[Mídia Enviada]"),
       ai_generated: false, created_at: new Date().toISOString(),
       metadata: fileUrl ? JSON.stringify({ type: isAudio ? "audio" : "document", url: fileUrl }) : undefined
     };
@@ -637,7 +637,7 @@ export default function ConversasPage() {
                 </div>
               ) : (
                 messages.map((msg, index) => {
-                  const isOutgoing = msg.direction === "outgoing";
+                  const isOutgoing = msg.direction === "outbound" || msg.direction === "outgoing";
                   const prevMsg = index > 0 ? messages[index - 1] : null;
                   const isFirstInGroup = !prevMsg || prevMsg.direction !== msg.direction;
 

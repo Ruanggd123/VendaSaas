@@ -41,8 +41,8 @@ export async function POST(req: Request) {
     }
 
     // Preparar o prefixo
-    const userName = session.name || "Equipe";
-    const finalContent = content ? `*[${userName}]:* ${content}` : "";
+    // Preparamos o conteúdo sem prefixo para ficar igual ao WhatsApp
+    const finalContent = content || "";
 
     let success = false;
 
