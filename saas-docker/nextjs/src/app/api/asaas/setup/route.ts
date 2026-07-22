@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const { getAppBaseUrl } = await import("@/lib/auth");
     const baseUrl = getAppBaseUrl();
-    const webhookUrl = `${baseUrl}/api/asaas/webhook`;
+    const webhookUrl = `${baseUrl}/api/webhooks/asaas`;
 
     const webhookRes = await fetch(`${asaasUrl}/webhooks`, {
       method: "POST",
