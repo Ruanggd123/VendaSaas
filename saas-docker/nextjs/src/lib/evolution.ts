@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "http://evolution:8080";
+const EVOLUTION_API_URL = process.env.EVOLUTION_URL || "http://evolution:8080";
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "429683C4C977415CAAFCCE10F7D57E11";
 
 /**

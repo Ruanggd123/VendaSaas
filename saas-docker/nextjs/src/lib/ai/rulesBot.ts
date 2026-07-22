@@ -3,11 +3,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST || "redis",
-  port: 6379,
-  maxRetriesPerRequest: null,
-});
+// Removemos o Redis pois na Vercel Serverless isso causa timeout/erro.
+// Utilizaremos o SystemConfig do Prisma (Banco de Dados) como um key-value store temporário para o state do bot.
 
 interface BotState {
   step: string;
@@ -38,10 +35,17 @@ export async function processMessageWithRules(
     return "Isso é apenas uma demonstração do nosso bot de regras rápidas. Digite '1', '2' ou 'Sair do teste'.";
   }
 
-  const stateKey = `rulesbot:state:${tenantId}:${contactNumber}`;
+  const stateKey = `rulesbot_state_${tenantId}_${contactNumber}`;
   
-  // 1. Get current state from Redis
-  const rawState = await redis.get(stateKey);
+  // 1. Get current state from Database (SystemConfig)
+  let rawState: string | null = null;
+  try {
+    const config = await prisma.systemConfig.findUnique({ where: { key: stateKey } });
+    if (config) rawState = config.value;
+  } catch (e) {
+    console.error("Erro ao buscar state do rulesBot no DB:", e);
+  }
+
   let state: BotState = { step: "main_menu", data: {} };
   
   if (rawState) {
@@ -49,6 +53,26 @@ export async function processMessageWithRules(
       state = JSON.parse(rawState);
     } catch {}
   }
+
+  // Helper para salvar o estado
+  const saveState = async (newState: BotState) => {
+    try {
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify(newState) },
+        create: { key: stateKey, value: JSON.stringify(newState) }
+      });
+    } catch (e) {
+      console.error("Erro ao salvar state do rulesBot no DB:", e);
+    }
+  };
+
+  // Helper para apagar o estado
+  const clearState = async () => {
+    try {
+      await prisma.systemConfig.delete({ where: { key: stateKey } });
+    } catch (e) {}
+  };
 
   const cleanText = userMessage
     .toLowerCase()
@@ -70,13 +94,13 @@ export async function processMessageWithRules(
 
   if (pendingSale && state.step !== "debt_paying") {
     state.step = "debt_paying";
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
     return `Olá! Verificamos em nosso sistema que você possui um pagamento pendente para *${pendingSale.product_name}* no valor de R$ ${pendingSale.amount.toFixed(2)}.\n\nGostaria de realizar o pagamento agora para liberar seu pedido?\n\n1️⃣ Sim, pagar agora\n2️⃣ Não, ir para o menu principal\n\nResponda *1* ou *2*:`;
   }
 
   if (state.step === "debt_paying") {
     if (cleanText === "1" || cleanText.includes("sim") || cleanText.includes("pagar")) {
-      await redis.del(stateKey);
+      await clearState();
       if (pendingSale?.payment_link) {
         return `💳 Para efetuar o pagamento seguro via PIX ou Cartão, clique no link abaixo:\n🔗 ${pendingSale.payment_link}\n\nAssim que o pagamento for confirmado, enviaremos um aviso aqui para você! 🚀`;
       } else {
@@ -84,7 +108,7 @@ export async function processMessageWithRules(
       }
     } else if (cleanText === "2" || cleanText.includes("nao") || cleanText.includes("não") || cleanText === "menu" || cleanText === "voltar") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     } else {
       return `Por favor, responda com *1* para Pagar Agora ou *2* para ir para o Menu Principal.`;
@@ -103,20 +127,20 @@ export async function processMessageWithRules(
       
       if (currentNode && currentNode.parentId) {
         state.step = `submenu:${currentNode.parentId}`;
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         
         const parentNode = customNodes.find((n: any) => n.id === currentNode.parentId);
         return getSubmenuMessage(parentNode, customNodes);
       } else {
         state.step = "main_menu";
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         return getMainMenuMessage(settings);
       }
     }
 
     // Default fallback: reset to main menu
     state = { step: "main_menu", data: {} };
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
     return getMainMenuMessage(settings);
   }
 
@@ -190,7 +214,7 @@ export async function processMessageWithRules(
   if (state.step === "catalog_select_product") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
     const optionIdx = parseInt(cleanText, 10) - 1;
@@ -201,7 +225,7 @@ export async function processMessageWithRules(
     const chosenService = productsList[optionIdx];
     
     // Clear state after selection
-    await redis.del(stateKey);
+    await clearState();
 
     let response = `Você selecionou: *${chosenService.name}*\n`;
     if (chosenService.description) response += `${chosenService.description}\n\n`;
@@ -228,12 +252,12 @@ export async function processMessageWithRules(
       return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey);
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return `🛒 *Você selecionou:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
     } else {
       // Default: physical
       state.step = "catalog_select_delivery_method";
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return `🛒 *Você selecionou:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
     }
   }
@@ -241,7 +265,7 @@ export async function processMessageWithRules(
   if (state.step === "catalog_select_both_methods") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
 
@@ -258,7 +282,7 @@ export async function processMessageWithRules(
       return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey);
     } else {
       state.step = "catalog_input_address";
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):";
     }
   }
@@ -266,7 +290,7 @@ export async function processMessageWithRules(
   if (state.step === "catalog_select_delivery_method") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
 
@@ -276,7 +300,7 @@ export async function processMessageWithRules(
 
     if (cleanText === "1") {
       state.step = "catalog_input_address";
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):";
     } else {
       state.data.address = "Retirada na Loja";
@@ -287,7 +311,7 @@ export async function processMessageWithRules(
   if (state.step === "catalog_input_address") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
     const address = userMessage.trim();
@@ -311,7 +335,7 @@ export async function processMessageWithRules(
       duration: chosenService.duration_min || 60,
       availableDates: availableDates.map(d => d.toISOString())
     };
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
 
     const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
     let response = `Você selecionou *${chosenService.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
@@ -326,7 +350,7 @@ export async function processMessageWithRules(
   if (state.step === "scheduling_select_date") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
       state = { step: "main_menu", data: {} };
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
     
@@ -342,7 +366,7 @@ export async function processMessageWithRules(
     state.data.date = dateFormatted;
     state.data.parsedDate = chosenDate.toISOString();
     state.step = "scheduling_select_period";
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
     
     return `Data definida: *${dateFormatted}*.\n\nEscolha o período desejado:\n1️⃣ Manhã\n2️⃣ Tarde\n\nDigite o número da opção ou *0* para voltar.`;
   }
@@ -368,7 +392,7 @@ export async function processMessageWithRules(
     state.data.period = isMorning ? "manha" : "tarde";
     state.data.availableSlots = filteredSlots;
     state.step = "scheduling_select_time";
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
 
     let response = `🕒 *Horários disponíveis (${isMorning ? 'Manhã' : 'Tarde'}):*\n\n`;
     filteredSlots.forEach((s, idx) => {
@@ -388,7 +412,7 @@ export async function processMessageWithRules(
     const chosenTime = availableSlots[optionIdx];
     state.step = "scheduling_confirm";
     state.data.time = chosenTime;
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
     
     let confirmMsg = `✍️ *Por favor, confirme seus dados:*\n\n`;
     confirmMsg += `🛠 *Serviço:* ${state.data.serviceName} (R$ ${state.data.servicePrice})\n`;
@@ -412,11 +436,11 @@ export async function processMessageWithRules(
           notes: `customer_phone:${contactNumber} | RulesBot Booking`
         }
       });
-      await redis.del(stateKey);
+      await clearState();
       return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n\nObrigado!`;
     }
     state = { step: "main_menu", data: {} };
-    await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+    await saveState(state);
     return `❌ Agendamento cancelado.\n\n${getMainMenuMessage(settings)}`;
   }
 
@@ -454,7 +478,7 @@ export async function processMessageWithRules(
           });
           response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
           state.step = "catalog_select_product";
-          await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+          await saveState(state);
         }
       }
       else if (matchedNode.actionType === "scheduling") {
@@ -470,7 +494,7 @@ export async function processMessageWithRules(
         response += "\nDigite o número do serviço ou *voltar* para cancelar.";
         
         state.step = "scheduling_select_service";
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         return response;
       }
       else if (matchedNode.actionType === "human") {
@@ -497,7 +521,7 @@ export async function processMessageWithRules(
       // If this option matched has further derivations (children submenus), transition to submenu step and list them
       if (hasChildren) {
         state.step = `submenu:${matchedNode.id}`;
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         
         if (response) response += "\n\n";
         response += getSubmenuMessage(matchedNode, customNodes);
@@ -523,7 +547,7 @@ export async function processMessageWithRules(
           duration: chosen.duration_min || 60,
           availableDates: availableDates.map((d: Date) => d.toISOString())
         };
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
         let resp = `Você selecionou *${chosen.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
         availableDates.forEach((d: Date, idx: number) => {
@@ -536,7 +560,7 @@ export async function processMessageWithRules(
       // Para outros tipos, inicia fluxo de compra
       state.step = "catalog_select_product";
       state.data = {};
-      await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+      await saveState(state);
       // Redireciona simulando que entrou no catálogo
       const deliveryType = chosen.delivery_type || "virtual_instant";
       const deadline = chosen.delivery_deadline || "imediato";
@@ -551,11 +575,11 @@ export async function processMessageWithRules(
         return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey);
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
       } else {
         state.step = "catalog_select_delivery_method";
-        await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+        await saveState(state);
         return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
       }
     }
@@ -571,11 +595,11 @@ export async function processMessageWithRules(
       where: { tenant_id: tenantId, contact_number: contactNumber },
       data: { ai_paused: true }
     });
-    await redis.del(stateKey); // Limpa o estado
+    await clearState(); // Limpa o estado
     return "Parece que você está com dificuldade ou é um atendimento automatizado. Estou te transferindo para um atendente humano para te ajudar melhor! Aguarde um momento.";
   }
   
-  await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+  await saveState(state);
 
   if (state.step === "main_menu") {
     return `Desculpe, não entendi. Selecione uma opção válida:\n\n${getMainMenuMessage(settings)}`;
@@ -838,7 +862,7 @@ async function processarFinalizacaoPedidoRulesBot(
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
       const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}`;
 
-      await redis.del(stateKey);
+      await clearState();
 
       return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n🔗 *Clique no link abaixo para finalizar a compra:*\n${checkoutUrl}\n\nApós o pagamento, enviaremos a confirmação aqui! 🚀`;
 
@@ -854,7 +878,7 @@ async function processarFinalizacaoPedidoRulesBot(
         }
       });
 
-      await redis.del(stateKey);
+      await clearState();
 
       return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
     }
