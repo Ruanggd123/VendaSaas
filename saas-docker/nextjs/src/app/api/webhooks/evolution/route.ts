@@ -314,15 +314,45 @@ export async function POST(req: Request) {
             }
           }
         } else {
-          // Se a mensagem veio do cliente (ou é eu testando enviando para mim mesmo), despacha para IA
-          const { messageQueue } = await import('@/lib/queue');
-          await messageQueue.add('process-message', {
-            tenantId,
-            instanceName,
-            from: contactNumber,
-            message: msgContent,
-            isMessageToMyself
-          });
+          // Processamento Síncrono direto no Webhook (pois a Vercel não roda o worker do BullMQ)
+          console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
+          const { processMessageWithAI } = await import('@/lib/ai/engine');
+          const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself);
+          
+          if (iaResponse) {
+             const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
+             const evolutionKey = process.env.EVOLUTION_API_KEY || '';
+             
+             try {
+               await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+                 method: "POST",
+                 headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ 
+                   number: contactNumber, 
+                   options: { delay: 1200, presence: "composing" }, 
+                   textMessage: { text: iaResponse } 
+                 })
+               });
+               console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
+
+               // Salvar a resposta da IA no banco de dados para aparecer na interface
+               await prisma.message.create({
+                 data: {
+                   tenant_id: tenantId,
+                   conversation_id: conversation.id,
+                   direction: "outbound",
+                   content: iaResponse,
+                   ai_generated: true,
+                 }
+               });
+               await prisma.conversation.update({
+                 where: { id: conversation.id },
+                 data: { last_message_at: new Date() }
+               });
+             } catch (e) {
+               console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
+             }
+          }
         }
       }
     }
