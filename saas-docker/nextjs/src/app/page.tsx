@@ -168,15 +168,7 @@ export default function LandingPage() {
     site_ent: "bot_equipe",
   };
 
-  const toggleSite = (id: string) => {
-    setSelected((p) => {
-      const nextSite = p.site === id ? "" : id;
-      // Auto-pair matching bot tier so setup becomes 100% ISENTO
-      const nextBot = nextSite ? (siteToBotMap[nextSite] || p.bot) : p.bot;
-      return { ...p, site: nextSite, bot: nextBot };
-    });
-  };
-
+  const toggleSite = (id: string) => setSelected((p) => ({ ...p, site: p.site === id ? "" : id }));
   const toggleBot = (id: string) => setSelected((p) => ({ ...p, bot: p.bot === id ? "" : id }));
   const toggleModule = (id: string) => setSelected((p) => ({
     ...p,
@@ -256,19 +248,20 @@ export default function LandingPage() {
   };
 
   const goToCheckout = () => {
-    const params = new URLSearchParams();
-    if (selected.site) params.set("site", selected.site);
-    if (selected.bot) params.set("bot", selected.bot);
-    if (selected.modules.length > 0) params.set("modules", selected.modules.join(","));
-    params.set("title", getSummaryText());
-    
-    // Calcula price
-    const siteSetup = getFinalSetupValue();
-    const monthly = getSiteMonthly() + getBotMonthly() + getModulesMonthly();
-    params.set("setup", siteSetup.toString());
-    params.set("monthly", monthly.toString());
+    const summary = getSummaryText();
+    const setupVal = getFinalSetupValue();
+    const monthlyVal = getSiteMonthly() + getBotMonthly();
 
-    router.push(`/checkout?${params.toString()}`);
+    let text = `Olá! Quero contratar: *${summary}*.\n\n`;
+    if (selected.site) {
+      text += `• Setup (Criação): R$ ${setupVal.toLocaleString('pt-BR')}${combo && setupVal === 0 ? " (ISENTO NO COMBO)" : ""}\n`;
+    }
+    if (selected.bot) {
+      text += `• Mensalidade Bot IA: R$ ${monthlyVal.toLocaleString('pt-BR')}/mês\n`;
+    }
+    text += `\nPode me enviar o Pix ou link de pagamento para fecharmos agora?`;
+
+    window.open(`https://wa.me/${PHONE}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   return (
@@ -870,7 +863,7 @@ export default function LandingPage() {
                         onClick={goToCheckout}
                         className="mt-4 group/btn w-full py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl text-sm font-bold transition-all shadow-lg shadow-green-600/20 hover:shadow-xl hover:shadow-green-500/30 flex items-center justify-center gap-2"
                       >
-                        <MessageSquare className="w-4 h-4" /> {combo ? "Comprar Combo Agora" : "Contratar Agora"}
+                        <MessageSquare className="w-4 h-4" /> {combo ? "Comprar Combo pelo WhatsApp" : "Comprar pelo WhatsApp"}
                         <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                       </button>
                     </div>
