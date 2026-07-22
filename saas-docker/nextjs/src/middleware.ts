@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
 
-const protectedRoutes = ['/whatsapp', '/dashboard', '/admin', '/painel-parceiro'];
+const protectedRoutes = [
+  '/whatsapp', '/dashboard', '/admin', '/painel-parceiro',
+  '/agenda', '/autovendas', '/conversas', '/equipe',
+  '/onboarding', '/projetos', '/settings', '/vendas', '/workflow'
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
