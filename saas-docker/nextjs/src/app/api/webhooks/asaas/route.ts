@@ -188,18 +188,23 @@ export async function POST(req: Request) {
               }
             }
 
-            // ── SE FOR SITE: Criar projeto/ordem ──
-            const isSite = productName.includes('presença') || productName.includes('secretária') || productName.includes('enterprise') || productName.includes('digital') || productName.includes('inteligente') || productName.includes('site');
+            // ── SE FOR SITE OU PLATAFORMA: Criar projeto em /projetos ──
+            const isSite = productName.includes('site') || productName.includes('plataforma') || productName.includes('e-commerce') || productName.includes('loja') || productName.includes('presença') || productName.includes('digital') || productName.includes('avulso');
 
             if (isSite) {
               await prisma.project.create({
                 data: {
                   tenant_id: tenantId,
-                  name: `Site: ${sale.product_name} - ${clientName}`,
-                  status: 'pendente',
-                  prazo_entrega: new Date(Date.now() + 15 * 86400000), // 15 dias pra entrega
+                  client_name: clientName,
+                  client_phone: clientPhone,
+                  partner_id: sale.lead?.partner_id || null,
+                  title: `Projeto: ${sale.product_name}`,
+                  description: `Projeto de desenvolvimento ativado automaticamente via pagamento confirmado no Asaas.\nValor Pago: R$ ${sale.amount}`,
+                  price: sale.amount,
+                  status: 'OPEN',
+                  prazo_entrega: new Date(Date.now() + 15 * 86400000),
                 }
-              });
+              }).catch((projErr) => console.error("❌ Erro ao criar projeto no webhook:", projErr));
             }
 
             // ── CONTROLE DE ESTOQUE ──
