@@ -161,17 +161,18 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       }, { status: 400 });
     }
 
+    const cleanDigits = (phone || "").replace(/\D/g, "");
     const customerData = {
       name,
-      email: email || `${phone}@cliente.temp`,
+      email: email && email.includes("@") ? email : `cliente${cleanDigits}@gmail.com`,
       phone,
       cpfCnpj: generateCPF(),
     };
     const customer = await createCustomer(customerData, asaasKey, asaasUrl);
 
     if (!customer.id) {
-      const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway';
-      return NextResponse.json({ error: errMsg }, { status: 502 });
+      const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway de pagamento';
+      return NextResponse.json({ error: errMsg }, { status: 400 });
     }
 
     let paymentLink = '';
@@ -218,8 +219,8 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
             data: { is_recurring: true, subscription_id: sub.id },
           });
         } else {
-          const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura';
-          throw new Error(errMsg);
+          const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura no gateway';
+          return NextResponse.json({ error: errMsg }, { status: 400 });
         }
       } else {
         // No setup fee — just create subscription and get first payment link
@@ -249,8 +250,8 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
             data: { is_recurring: true, subscription_id: sub.id, payment_link: paymentLink, payment_id: paymentId },
           });
         } else {
-          const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura';
-          throw new Error(errMsg);
+          const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura no gateway';
+          return NextResponse.json({ error: errMsg }, { status: 400 });
         }
       }
     } else {
@@ -267,8 +268,8 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         paymentLink = pay.invoiceUrl || pay.bankSlipUrl || pay.pixQrCodeUrl || '';
         paymentId = pay.id;
       } else {
-        const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao gerar pagamento';
-        throw new Error(errMsg);
+        const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao gerar pagamento no gateway';
+        return NextResponse.json({ error: errMsg }, { status: 400 });
       }
     }
 
@@ -285,7 +286,8 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       paymentId,
     });
   } catch (error: any) {
-    console.error('[Checkout]', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    console.error('[Checkout API Error]', error);
+    return NextResponse.json({ error: error.message || 'Erro ao processar checkout' }, { status: 400 });
   }
+}
 }
