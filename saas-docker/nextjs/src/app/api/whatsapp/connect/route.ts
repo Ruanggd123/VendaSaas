@@ -71,7 +71,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               webhook: {
                 enabled: true,
-                url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://nextjs:3000'}/api/webhooks/evolution`,
+                url: `${(process.env.NEXT_PUBLIC_APP_URL || 'http://nextjs:3000').replace(/\\nSensitive/g, '').replace(/Sensitive/g, '').trim()}/api/webhooks/evolution`,
                 webhookByEvents: false,
                 events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
               }
