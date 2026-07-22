@@ -363,12 +363,25 @@ export async function processMessageWithRules(
     const chosenDate = new Date(availableDates[optionIdx]);
     const dateFormatted = `${chosenDate.getDate().toString().padStart(2, '0')}/${(chosenDate.getMonth() + 1).toString().padStart(2, '0')}`;
     
+    // Check available periods
+    const allSlots = await getAvailableSlots(tenantId, chosenDate, state.data.duration || 60, settings);
+    const hasMorning = allSlots.some(s => parseInt(s.split(":")[0], 10) < 12);
+    const hasAfternoon = allSlots.some(s => parseInt(s.split(":")[0], 10) >= 12);
+
+    if (!hasMorning && !hasAfternoon) {
+       return `❌ Não há horários disponíveis para o dia ${dateFormatted}. Por favor, escolha outra data (1-${availableDates.length}) ou digite 0 para voltar ao menu principal:`;
+    }
+
     state.data.date = dateFormatted;
     state.data.parsedDate = chosenDate.toISOString();
     state.step = "scheduling_select_period";
     await saveState(state);
     
-    return `Data definida: *${dateFormatted}*.\n\nEscolha o período desejado:\n1️⃣ Manhã\n2️⃣ Tarde\n\nDigite o número da opção ou *0* para voltar.`;
+    let periodMsg = `Data definida: *${dateFormatted}*.\n\nEscolha o período desejado:\n`;
+    if (hasMorning) periodMsg += `1️⃣ Manhã\n`;
+    if (hasAfternoon) periodMsg += `2️⃣ Tarde\n`;
+    periodMsg += `\nDigite o número da opção ou *0* para voltar.`;
+    return periodMsg;
   }
 
   if (state.step === "scheduling_select_period") {
@@ -386,7 +399,18 @@ export async function processMessageWithRules(
     });
 
     if (filteredSlots.length === 0) {
-      return `❌ Não há horários disponíveis para o período da ${isMorning ? 'Manhã' : 'Tarde'} nesta data. Por favor, digite outra data (ex: *Amanhã*, *Segunda-feira*):`;
+      state.step = "scheduling_select_date";
+      await saveState(state);
+      
+      const availableDates = state.data.availableDates.map((d: string) => new Date(d));
+      const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+      let errorResponse = `❌ Ocorreu um erro e o período selecionado não possui horários disponíveis.\n\n📅 Escolha outra data:\n\n`;
+      availableDates.forEach((d: Date, idx: number) => {
+        const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        errorResponse += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+      });
+      errorResponse += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para cancelar:`;
+      return errorResponse;
     }
 
     state.data.period = isMorning ? "manha" : "tarde";
@@ -487,9 +511,10 @@ export async function processMessageWithRules(
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
-        let response = "📅 *Iniciar Agendamento*\nSelecione o número do serviço que deseja agendar:\n\n";
+        let response = `📅 *Iniciar Agendamento*\nSelecione o número do serviço que deseja agendar:\n\n`;
         productsList.forEach((p: any, idx: number) => {
-          response += `${idx + 1}️⃣ ${p.name} (R$ ${p.price})\n`;
+          const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+          response += `${idx + 1}️⃣ ${p.name} (R$ ${displayPrice})\n`;
         });
         response += "\nDigite o número do serviço ou *voltar* para cancelar.";
         
