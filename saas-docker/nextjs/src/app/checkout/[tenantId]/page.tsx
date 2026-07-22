@@ -88,9 +88,37 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const [selected, setSelected] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedTime, setSelectedTime] = useState('09:00');
   const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
+
+  const isSlotAvailable = (timeSlot: string) => {
+    if (!selectedDate) return false;
+    const now = new Date();
+    const isToday = selectedDate === todayStr;
+
+    if (isToday) {
+      const [slotHour, slotMin] = timeSlot.split(':').map(Number);
+      const currentHour = now.getHours();
+      const currentMin = now.getMinutes();
+      // Se o horário já passou hoje
+      if (slotHour < currentHour || (slotHour === currentHour && slotMin <= currentMin + 15)) {
+        return false;
+      }
+    }
+
+    // Verificar se já existe agendamento neste horário no banco de dados do tenant
+    const targetDateStr = `${selectedDate}T${timeSlot}`;
+    const isBooked = bookedSlots.some(slotIso => {
+      const slotDate = new Date(slotIso);
+      const slotFormatted = `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, '0')}-${String(slotDate.getDate()).padStart(2, '0')}T${String(slotDate.getHours()).padStart(2, '0')}:${String(slotDate.getMinutes()).padStart(2, '0')}`;
+      return slotFormatted.startsWith(targetDateStr);
+    });
+
+    return !isBooked;
+  };
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '',
@@ -116,6 +144,7 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
       .then(async r => { if (!r.ok) throw new Error('Loja não encontrada'); return r.json(); })
       .then(d => {
         if (d.tenantName) setTenantName(d.tenantName);
+        if (d.bookedSlots) setBookedSlots(d.bookedSlots);
         if (d.products?.length) {
           setProducts(d.products);
           if (urlProduct) {
@@ -594,20 +623,27 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
                           2. Escolha o horário comercial disponível (24h):
                         </label>
                         <div className="grid grid-cols-4 gap-2">
-                          {TIME_SLOTS.map(t => (
-                            <button
-                              type="button"
-                              key={t}
-                              onClick={() => setSelectedTime(t)}
-                              className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                                selectedTime === t
-                                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-indigo-500 shadow-md shadow-indigo-500/25 scale-105'
-                                  : 'bg-zinc-950/80 text-zinc-300 border-zinc-800 hover:border-indigo-500/40 hover:text-white'
-                              }`}
-                            >
-                              {t} hs
-                            </button>
-                          ))}
+                          {TIME_SLOTS.map(t => {
+                            const available = isSlotAvailable(t);
+                            const isSelected = selectedTime === t && available;
+                            return (
+                              <button
+                                type="button"
+                                key={t}
+                                disabled={!available}
+                                onClick={() => available && setSelectedTime(t)}
+                                className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                                  !available
+                                    ? 'bg-zinc-950/40 text-zinc-600 border-zinc-900/60 line-through opacity-40 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-indigo-500 shadow-md shadow-indigo-500/25 scale-105'
+                                    : 'bg-zinc-950/80 text-zinc-300 border-zinc-800 hover:border-indigo-500/40 hover:text-white'
+                                }`}
+                              >
+                                {t} {available ? 'hs' : '(Indisponível)'}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 

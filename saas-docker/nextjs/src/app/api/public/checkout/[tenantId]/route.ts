@@ -21,6 +21,17 @@ function generateCPF(): string {
   return [...n9, d1v, d2v].join('');
 }
 
+function cleanDescription(str: string): string {
+  if (!str) return "Pagamento";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100) || "Pagamento";
+}
+
 export async function GET(req: Request, { params }: { params: { tenantId: string } }) {
   try {
     const { tenantId } = params;
@@ -33,9 +44,22 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
     }
     let settings: any = {};
     try { settings = JSON.parse(tenant.settings as string); } catch {}
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        tenant_id: tenantId,
+        scheduled_at: { gte: new Date(Date.now() - 86400000) },
+        status: { notIn: ['canceled', 'refused'] }
+      },
+      select: { scheduled_at: true }
+    });
+
+    const bookedSlots = appointments.map(a => a.scheduled_at.toISOString());
+
     return NextResponse.json({
       tenantName: tenant.name,
       products: settings.products || [],
+      bookedSlots,
     });
   } catch (error: any) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
@@ -111,7 +135,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     if (mpToken && !isSubscription) {
       const baseUrl = getBaseUrl(req);
       const items = (cart || [{ name: productName, price: totalAmount, qty: 1 }]).map((i: any) => ({
-        title: i.name,
+        title: cleanDescription(i.name),
         quantity: i.qty || 1,
         unit_price: i.isBonus ? 0 : (parseFloat(i.price) || totalAmount),
         currency_id: 'BRL',
@@ -179,6 +203,8 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     let paymentId = '';
     let paymentMethod = billingType || 'PIX';
 
+    const safeDescription = cleanDescription(productName);
+
     if (isSubscription) {
       const subAmount = monthlyAmount > 0 ? monthlyAmount : totalAmount;
       const setupAmount = totalAmount - monthlyAmount;
@@ -191,7 +217,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
           billingType: paymentMethod,
           value: totalAmount,
           dueDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-          description: `Primeira mensalidade + taxa - ${productName}`,
+          description: cleanDescription(`Primeira mensalidade taxa - ${productName}`),
           externalReference: `${tenantId}_${sale.id}`,
         }, asaasKey, asaasUrl);
         if (firstPay.id) {
@@ -203,11 +229,11 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         const sub = await createSubscription(
           customer.id,
           {
-            name: productName,
+            name: safeDescription,
             price: subAmount,
             billingType: paymentMethod,
             period: 'MONTHLY',
-            description: productName,
+            description: safeDescription,
           },
           `${tenantId}_${sale.id}`,
           asaasKey,
@@ -227,11 +253,11 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         const sub = await createSubscription(
           customer.id,
           {
-            name: productName,
+            name: safeDescription,
             price: subAmount,
             billingType: paymentMethod,
             period: 'MONTHLY',
-            description: productName,
+            description: safeDescription,
           },
           `${tenantId}_${sale.id}`,
           asaasKey,
@@ -260,7 +286,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         billingType: paymentMethod,
         value: totalAmount,
         dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-        description: productName,
+        description: safeDescription,
         externalReference: `${tenantId}_${sale.id}`,
       }, asaasKey, asaasUrl);
 
