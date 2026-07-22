@@ -261,7 +261,7 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
     const catalog = settings.products || [];
     let catalogText = "NENHUM PRODUTO DISPONÍVEL (A loja não possui produtos).";
     if (catalog.length > 0) {
-      catalogText = catalog.map((p: any) => `- ${p.name}: R$ ${p.price}\n  Descrição: ${p.description}\n  Estoque: ${p.stock !== undefined && p.stock !== null ? p.stock + ' unidades' : 'Ilimitado'}\n  Exige Pagamento Online: ${p.requires_payment === true || p.requires_payment === "true" ? 'Sim' : 'Não'}\n  Tipo de Entrega (delivery_type): ${p.delivery_type || 'physical'}\n  Prazo de Entrega (delivery_deadline): ${p.delivery_deadline || 'imediato'}\n  Foto/URL (OBRIGATÓRIO INCLUIR NA MENSAGEM SE SOLICITADO OU AO OFERECER): ${p.image_url || 'Sem foto'}`).join("\n\n");
+      catalogText = catalog.map((p: any) => `- ${p.name}: R$ ${p.price}\n  Descrição: ${p.description}\n  Estoque: ${p.stock !== undefined && p.stock !== null ? p.stock + ' unidades' : 'Ilimitado'}\n  Exige Pagamento Online: ${p.requires_payment === true || p.requires_payment === "true" ? 'Sim' : 'Não'}\n  Tipo de Entrega (delivery_type): ${p.delivery_type || 'virtual_instant'}\n  Prazo de Entrega (delivery_deadline): ${p.delivery_deadline || 'imediato'}\n  Foto/URL (OBRIGATÓRIO INCLUIR NA MENSAGEM SE SOLICITADO OU AO OFERECER): ${p.image_url || 'Sem foto'}`).join("\n\n");
     }
 
     const now = new Date();

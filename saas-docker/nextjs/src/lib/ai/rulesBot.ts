@@ -67,13 +67,6 @@ export async function processMessageWithRules(
     }
   };
 
-  // Helper para apagar o estado
-  const clearState = async () => {
-    try {
-      await prisma.systemConfig.delete({ where: { key: stateKey } });
-    } catch (e) {}
-  };
-
   const cleanText = userMessage
     .toLowerCase()
     .trim()
@@ -100,7 +93,7 @@ export async function processMessageWithRules(
 
   if (state.step === "debt_paying") {
     if (cleanText === "1" || cleanText.includes("sim") || cleanText.includes("pagar")) {
-      await clearState();
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
       if (pendingSale?.payment_link) {
         return `💳 Para efetuar o pagamento seguro via PIX ou Cartão, clique no link abaixo:\n🔗 ${pendingSale.payment_link}\n\nAssim que o pagamento for confirmado, enviaremos um aviso aqui para você! 🚀`;
       } else {
@@ -224,8 +217,7 @@ export async function processMessageWithRules(
     }
     const chosenService = productsList[optionIdx];
     
-    // Clear state after selection
-    await clearState();
+    await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
     let response = `Você selecionou: *${chosenService.name}*\n`;
     if (chosenService.description) response += `${chosenService.description}\n\n`;
@@ -237,7 +229,7 @@ export async function processMessageWithRules(
     }
 
     // Determinar o tipo de produto/entrega
-    const deliveryType = chosenService.delivery_type || "physical";
+    const deliveryType = chosenService.delivery_type || "virtual_instant";
     const deadline = chosenService.delivery_deadline || "imediato";
     
     state.data = { chosenService };
@@ -460,7 +452,7 @@ export async function processMessageWithRules(
           notes: `customer_phone:${contactNumber} | RulesBot Booking`
         }
       });
-      await clearState();
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
       return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n\nObrigado!`;
     }
     state = { step: "main_menu", data: {} };
@@ -620,7 +612,7 @@ export async function processMessageWithRules(
       where: { tenant_id: tenantId, contact_number: contactNumber },
       data: { ai_paused: true }
     });
-    await clearState(); // Limpa o estado
+    await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
     return "Parece que você está com dificuldade ou é um atendimento automatizado. Estou te transferindo para um atendente humano para te ajudar melhor! Aguarde um momento.";
   }
   
@@ -887,7 +879,7 @@ async function processarFinalizacaoPedidoRulesBot(
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
       const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}`;
 
-      await clearState();
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
       return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n🔗 *Clique no link abaixo para finalizar a compra:*\n${checkoutUrl}\n\nApós o pagamento, enviaremos a confirmação aqui! 🚀`;
 
@@ -903,7 +895,7 @@ async function processarFinalizacaoPedidoRulesBot(
         }
       });
 
-      await clearState();
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
       return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
     }
