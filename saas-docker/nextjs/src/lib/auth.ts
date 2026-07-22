@@ -50,8 +50,5 @@ export function getAppBaseUrl(): string {
   if (envUrl && envUrl.startsWith("http") && !envUrl.includes("NEXT_PUBLIC_APP_URL")) {
     return envUrl.replace(/\/$/, "");
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`.replace(/\/$/, "");
-  }
   return "https://nexus-six-olive.vercel.app";
 }
