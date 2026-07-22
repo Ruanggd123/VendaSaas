@@ -310,9 +310,9 @@ export async function POST(req: Request) {
                  method: "POST",
                  headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
                  body: JSON.stringify({ 
-                   number: contactNumber, 
-                   options: { delay: 1200, presence: "composing" }, 
-                   textMessage: { text: iaResponse } 
+                   number: contactNumber,
+                   text: iaResponse,
+                   delay: 1200
                  })
                });
                console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
