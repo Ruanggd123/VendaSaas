@@ -170,14 +170,23 @@ export async function POST(req: Request) {
             if (isBot && clientEmail) {
               const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
               if (!existingUser) {
-                // Novo cliente: Criar conta com a senha gerada
+                // Novo cliente SaaS: Criar um Tenant 100% isolado para ele
+                const clientTenant = await prisma.tenant.create({
+                  data: {
+                    name: `${clientName} (Empresa)`,
+                    phone: clientPhone ? `${clientPhone}_sub_${Date.now()}` : `phone_${Date.now()}`,
+                    plan: sale.product_name,
+                    subscription_expires_at: new Date(Date.now() + 30 * 86400000),
+                  }
+                });
+
                 await prisma.user.create({
                   data: {
-                    tenant_id: tenantId,
+                    tenant_id: clientTenant.id,
                     name: clientName,
                     email: clientEmail,
                     password_hash: hashedPassword,
-                    role: 'agent',
+                    role: 'admin',
                   }
                 });
 
