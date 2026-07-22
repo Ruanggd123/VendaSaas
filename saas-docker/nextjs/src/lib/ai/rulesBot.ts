@@ -12,6 +12,7 @@ const redis = new Redis({
 interface BotState {
   step: string;
   data: Record<string, any>;
+  errorCount?: number;
 }
 
 export async function processMessageWithRules(
@@ -561,6 +562,21 @@ export async function processMessageWithRules(
   }
 
   // Keyword unmatched fallback
+  const errorCount = (state.errorCount || 0) + 1;
+  state.errorCount = errorCount;
+  
+  if (errorCount >= 3) {
+    // Falhou 3 vezes consecutivas. Pausa a IA e transfere para humano.
+    await prisma.conversation.updateMany({
+      where: { tenant_id: tenantId, contact_number: contactNumber },
+      data: { ai_paused: true }
+    });
+    await redis.del(stateKey); // Limpa o estado
+    return "Parece que você está com dificuldade ou é um atendimento automatizado. Estou te transferindo para um atendente humano para te ajudar melhor! Aguarde um momento.";
+  }
+  
+  await redis.set(stateKey, JSON.stringify(state), "EX", 3600);
+
   if (state.step === "main_menu") {
     return `Desculpe, não entendi. Selecione uma opção válida:\n\n${getMainMenuMessage(settings)}`;
   } else if (state.step.startsWith("submenu:")) {
