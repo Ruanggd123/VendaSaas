@@ -294,24 +294,6 @@ export async function POST(req: Request) {
               data: { ai_paused: true }
             });
             console.log(`⏸️ IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
-
-            // Adiciona o contato à blacklist
-            if (webhookTenant) {
-              let settings: any = {};
-              try { settings = JSON.parse((webhookTenant.settings as string) || "{}"); } catch {}
-              const currentIgnored = settings.ignored_numbers || "";
-              const list = currentIgnored ? currentIgnored.split(",").map((n: string) => n.trim()).filter(Boolean) : [];
-              const cleanContact = contactNumber.replace(/\D/g, "");
-              if (!list.includes(cleanContact)) {
-                list.push(cleanContact);
-                settings.ignored_numbers = list.join(",");
-                await prisma.tenant.update({
-                  where: { id: tenantId },
-                  data: { settings: JSON.stringify(settings) },
-                });
-                console.log(`[Blacklist] Contato ${contactNumber} adicionado à blacklist (humano assumiu).`);
-              }
-            }
           }
         } else {
           // Processamento Síncrono direto no Webhook (pois a Vercel não roda o worker do BullMQ)
