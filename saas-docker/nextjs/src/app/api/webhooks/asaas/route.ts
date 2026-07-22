@@ -170,6 +170,7 @@ export async function POST(req: Request) {
             if (isBot && clientEmail) {
               const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
               if (!existingUser) {
+                // Novo cliente: Criar conta com a senha gerada
                 await prisma.user.create({
                   data: {
                     tenant_id: tenantId,
@@ -179,12 +180,17 @@ export async function POST(req: Request) {
                     role: 'agent',
                   }
                 });
-              }
 
-              // Sempre envia WhatsApp (inclusive se reativar)
-              if (clientPhone && providerInstance) {
-                const msg = `🎉 *Pagamento Confirmado!*\n\nOlá ${clientName}, seu *${sale.product_name}* já está liberado!\n\n📋 *Seus dados de acesso:*\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n🔑 ${password}\n\nRecomendamos trocar a senha após o primeiro acesso.\nQualquer dúvida, estamos aqui! 🚀`;
-                await sendWhatsAppMessage(providerInstance.name, clientPhone, msg);
+                if (clientPhone && providerInstance) {
+                  const msg = `🎉 *Pagamento Confirmado!*\n\nOlá ${clientName}, seu *${sale.product_name}* já está liberado!\n\n📋 *Seus dados de acesso:*\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n🔑 ${password}\n\nRecomendamos trocar a senha após o primeiro acesso.\nQualquer dúvida, estamos aqui! 🚀`;
+                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg);
+                }
+              } else {
+                // Cliente já cadastrado: Enviar confirmação de assinatura sem alterar ou inventar nova senha
+                if (clientPhone && providerInstance) {
+                  const msg = `🎉 *Assinatura Confirmada!*\n\nOlá ${clientName}, sua assinatura do *${sale.product_name}* foi confirmada!\n\nSua conta já está ativa em nosso sistema:\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n\n(Caso não se lembre da sua senha, utilize a opção "Esqueci minha senha" na tela de login). 🚀`;
+                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg);
+                }
               }
             }
 
