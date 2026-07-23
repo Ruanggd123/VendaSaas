@@ -1,57 +1,73 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { PrismaClient } from '@prisma/client';
-
+import { PrismaClient } from "@prisma/client";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
+export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
+function getValidAppBaseUrl(req: Request): string {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+
+  let envUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/[\r\n\t]/g, "").trim();
+  if (envUrl.includes("Sensitive") || envUrl.includes("NEXT_PUBLIC") || !envUrl.startsWith("http")) {
+    envUrl = "";
+  }
+
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "");
+  }
+
+  if (host) {
+    return `${proto}://${host}`.replace(/\/$/, "");
+  }
+
+  return "http://localhost:3000";
+}
+
+export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session || !session.tenant_id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const body = await request.json().catch(() => ({}));
-    const connectionName = body.connectionName || "Meu WhatsApp";
-    // instanceName is passed if we are trying to REFRESH or CONNECT an existing DB instance
-    let instanceName = body.instanceName;
+    const { instanceId, connectionName } = await req.json();
 
     const evolutionUrl = process.env.EVOLUTION_URL || "http://evolution:8080";
     const evolutionKey = process.env.EVOLUTION_API_KEY;
 
     if (!evolutionKey) {
-      throw new Error("EVOLUTION_API_KEY não configurada no servidor");
+      return NextResponse.json({ error: "EVOLUTION_API_KEY não configurada no servidor." }, { status: 500 });
     }
 
     const headers = {
-      'apikey': evolutionKey,
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true'
+      apikey: evolutionKey,
+      "Content-Type": "application/json",
     };
 
-    let dbInstance;
+    const appBaseUrl = getValidAppBaseUrl(req);
+    const webhookTargetUrl = `${appBaseUrl}/api/webhooks/evolution`;
 
-    // Caso 1: Instância já existe no DB e estamos tentando pegar o QR ou recriar
-    if (instanceName) {
+    let instanceName: string;
+    let dbInstance: any;
+
+    if (instanceId) {
+      // Reconectar instância existente
       dbInstance = await prisma.whatsappInstance.findUnique({
-        where: { name: instanceName }
+        where: { id: instanceId },
       });
+
       if (!dbInstance || dbInstance.tenant_id !== session.tenant_id) {
-        return NextResponse.json({ error: "Instância não encontrada ou acesso negado" }, { status: 404 });
+        return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
       }
 
-      if (session.role === 'partner' && dbInstance.partner_id !== session.id) {
-        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-      }
+      instanceName = dbInstance.name;
 
-      // Tenta obter o QR code da instância existente
-      let connectRes = await fetch(`${evolutionUrl}/instance/connect/${instanceName}`, { 
-        method: "GET", 
-        headers 
+      let connectRes = await fetch(`${evolutionUrl}/instance/connect/${instanceName}`, {
+        method: "GET",
+        headers,
       });
 
-      // Se a instância não existir mais na Evolution (ex: deletada pelo painel avançado), recriamos ela
       if (connectRes.status === 404) {
         connectRes = await fetch(`${evolutionUrl}/instance/create`, {
           method: "POST",
@@ -59,8 +75,8 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             instanceName,
             integration: "WHATSAPP-BAILEYS",
-            qrcode: true
-          })
+            qrcode: true,
+          }),
         });
 
         // Garantir que o webhook seja configurado
@@ -71,11 +87,11 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               webhook: {
                 enabled: true,
-                url: `${(process.env.NEXT_PUBLIC_APP_URL || 'http://nextjs:3000').replace(/\\nSensitive/g, '').replace(/Sensitive/g, '').trim()}/api/webhooks/evolution`,
+                url: webhookTargetUrl,
                 webhookByEvents: false,
-                events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
-              }
-            })
+                events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"],
+              },
+            }),
           });
         } catch (e) {
           console.error("Erro ao configurar webhook na recriação", e);
@@ -88,63 +104,58 @@ export async function POST(request: Request) {
 
       const connectData = await connectRes.json();
 
-      // Atualiza status no banco
       await prisma.whatsappInstance.update({
         where: { id: dbInstance.id },
-        data: { status: "connecting" }
+        data: { status: "connecting" },
       });
 
       return NextResponse.json({
         status: "connecting",
         qrcode: connectData?.base64 || connectData?.qrcode?.base64 || null,
         instanceName,
-        dbInstance
+        dbInstance,
       });
-      
     } else {
-      // Caso 2: Criando uma instância do ZERO
-      
-      // Checar limites do plano
+      // Criando uma nova instância
       const tenant = await prisma.tenant.findUnique({ where: { id: session.tenant_id } });
       if (!tenant) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
 
-      const isPartner = session.role === 'partner';
+      const isPartner = session.role === "partner";
       const instanceFilter = {
         tenant_id: session.tenant_id,
         ...(isPartner ? { partner_id: session.id } : {}),
       };
 
-      const planLimit = tenant.plan === 'solo' ? 1 : tenant.plan === 'pro' ? 3 : 999;
+      const planLimit = tenant.plan === "solo" ? 1 : tenant.plan === "pro" ? 3 : 999;
       const partnerLimit = 1;
       const limit = isPartner ? partnerLimit : planLimit;
       const currentInstancesCount = await prisma.whatsappInstance.count({
-        where: instanceFilter
+        where: instanceFilter,
       });
 
       if (currentInstancesCount >= limit) {
         return NextResponse.json({ error: `Limite de ${limit} conexão(ões) atingido.` }, { status: 403 });
       }
 
-      instanceName = `${session.tenant_id}_${crypto.randomUUID().substring(0,8)}`;
+      instanceName = `${session.tenant_id}_${crypto.randomUUID().substring(0, 8)}`;
       dbInstance = await prisma.whatsappInstance.create({
         data: {
           tenant_id: session.tenant_id,
           ...(isPartner ? { partner_id: session.id } : {}),
           name: instanceName,
-          connectionName: connectionName,
-          status: "connecting"
-        }
+          connectionName: connectionName || "WhatsApp Bot",
+          status: "connecting",
+        },
       });
-      
-      // Criar a instância na Evolution API
+
       const createRes = await fetch(`${evolutionUrl}/instance/create`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           instanceName,
           integration: "WHATSAPP-BAILEYS",
-          qrcode: true
-        })
+          qrcode: true,
+        }),
       });
 
       if (!createRes.ok) {
@@ -153,40 +164,38 @@ export async function POST(request: Request) {
 
       const createData = await createRes.json();
 
-      // Configurar webhook automaticamente para que as mensagens cheguem na nossa IA
+      // Configurar webhook automaticamente
       try {
-        const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-six-olive.vercel.app').replace(/\/$/, '');
         const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
           method: "POST",
           headers,
           body: JSON.stringify({
             webhook: {
               enabled: true,
-              url: `${appBaseUrl}/api/webhooks/evolution`,
-              webhookByOccurrences: false,
-              events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
-            }
-          })
+              url: webhookTargetUrl,
+              webhookByEvents: false,
+              events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"],
+            },
+          }),
         });
         if (!webhookRes.ok) {
           console.error("Falha ao registrar webhook da Evolution:", await webhookRes.text());
         } else {
-          console.log(`✅ Webhook auto-configurado para a nova instância ${instanceName}`);
+          console.log(`✅ Webhook auto-configurado com URL ${webhookTargetUrl} para ${instanceName}`);
         }
-      } catch (webhookErr) {
-        console.error("Erro ao configurar webhook automático:", webhookErr);
+      } catch (e) {
+        console.error("Erro ao configurar webhook", e);
       }
-      
+
       return NextResponse.json({
         status: "connecting",
-        qrcode: createData?.qrcode?.base64 || null,
+        qrcode: createData?.base64 || createData?.qrcode?.base64 || null,
         instanceName,
-        dbInstance
+        dbInstance,
       });
     }
-
-  } catch (error: any) {
-    console.error("Erro na rota /api/whatsapp/connect:", error);
-    return NextResponse.json({ error: error.message || "Erro interno no servidor" }, { status: 500 });
+  } catch (err: any) {
+    console.error("POST /api/whatsapp/connect:", err);
+    return NextResponse.json({ error: err.message || "Erro ao conectar WhatsApp" }, { status: 500 });
   }
 }

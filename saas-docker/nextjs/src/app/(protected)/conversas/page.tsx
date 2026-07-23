@@ -155,6 +155,7 @@ export default function ConversasPage() {
         if (d.team) setTeam(d.team);
       })
       .catch(() => {});
+    fetch("/api/whatsapp/sync-webhook", { method: "POST" }).catch(() => {});
   }, []);
 
   useEffect(() => {

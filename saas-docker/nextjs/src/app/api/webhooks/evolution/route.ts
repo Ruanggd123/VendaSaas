@@ -13,16 +13,32 @@ export async function POST(req: Request) {
     // O evento da Evolution API geralmente vem no formato:
     // { event: "messages.upsert", instance: "nome_instancia", data: { messages: [...] } }
     
-    const event = body.event || body.type;
+    const rawEvent = (body.event || body.type || "").toString().toLowerCase().replace(/_/g, ".").replace(/-/g, ".");
     const instanceName = body.instance;
     console.log("[Webhook Debug] Payload recebido:", JSON.stringify(body).substring(0, 500));
     
-    if (event === "messages.upsert" && instanceName) {
-      // Procurar qual Tenant é dono dessa instância
-      const instance = await prisma.whatsappInstance.findUnique({
-        where: { name: instanceName }
+    const isMessageEvent =
+      rawEvent.includes("messages") ||
+      rawEvent.includes("message") ||
+      rawEvent.includes("upsert") ||
+      rawEvent.includes("send");
+
+    if (isMessageEvent && instanceName) {
+      // Procurar qual Tenant é dono dessa instância (por name ou connectionName)
+      let instance = await prisma.whatsappInstance.findFirst({
+        where: {
+          OR: [
+            { name: instanceName },
+            { connectionName: instanceName }
+          ]
+        }
       });
       
+      // Fallback: se houver apenas 1 instância cadastrada no banco, associa a ela
+      if (!instance) {
+        instance = await prisma.whatsappInstance.findFirst();
+      }
+
       if (!instance) {
         console.warn(`[Webhook Evolution] Instância ${instanceName} não encontrada no banco.`);
         return NextResponse.json({ success: true, ignored: "Instância desconhecida" });

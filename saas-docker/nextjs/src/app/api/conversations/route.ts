@@ -58,7 +58,16 @@ export async function GET(req: Request) {
 
     const whereClause: any = { tenant_id: session.tenant_id };
     if (activeInstanceName) {
-      whereClause.instance_name = activeInstanceName;
+      const matched = instances.find((i) => i.name === activeInstanceName || i.connectionName === activeInstanceName);
+      if (matched) {
+        whereClause.OR = [
+          { instance_name: matched.name },
+          { instance_name: matched.connectionName },
+          { instance_name: activeInstanceName },
+        ];
+      } else {
+        whereClause.instance_name = activeInstanceName;
+      }
     }
 
     if (session.role === 'agent') {
