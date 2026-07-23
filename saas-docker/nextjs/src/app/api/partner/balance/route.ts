@@ -11,8 +11,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    const partnerId = session.id || session.userId || session.partnerId;
     const partner = await prisma.partner.findUnique({
-      where: { id: session.userId },
+      where: { id: partnerId },
     });
     if (!partner) {
       return NextResponse.json({ error: 'Parceiro não encontrado' }, { status: 404 });

@@ -29,8 +29,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Tipo de chave PIX inválido' }, { status: 400 });
     }
 
+    const partnerId = session.id || session.userId || session.partnerId;
     const partner = await prisma.partner.findUnique({
-      where: { id: session.userId },
+      where: { id: partnerId },
     });
     if (!partner) {
       return NextResponse.json({ error: 'Parceiro não encontrado' }, { status: 404 });
