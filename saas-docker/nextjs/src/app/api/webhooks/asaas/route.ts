@@ -52,14 +52,20 @@ export async function POST(req: Request) {
           let sale;
           const existingSale = await prisma.sale.findUnique({ where: { id: saleId } });
 
-          // Se a venda já foi processada como 'paid' e NÃO é uma nova parcela de recorrência futura (installment > 1)
-          if (existingSale && existingSale.status === "paid" && (!installment || installment <= 1)) {
-            console.log(`ℹ️ [Asaas Webhook] Evento duplicado ignorado para a venda ${saleId} (já processada).`);
-            return NextResponse.json({ received: true, note: "Venda já processada anteriormente." });
+          // Checa se este ID de pagamento específico do Asaas (paymentId) já foi processado anteriormente
+          const existingPayment = await prisma.sale.findFirst({
+            where: { payment_id: paymentId, status: "paid" }
+          });
+
+          if (existingPayment) {
+            console.log(`ℹ️ [Asaas Webhook] Evento duplicado ignorado para o pagamento ${paymentId}.`);
+            return NextResponse.json({ received: true, note: "Pagamento já processado anteriormente." });
           }
 
-          if (existingSale && installment && installment > 1) {
-            // Já foi paga antes → criar nova Sale para esta recorrência
+          const isNewRecurringPayment = existingSale && existingSale.status === "paid" && existingSale.payment_id !== paymentId;
+
+          if ((existingSale && installment && installment > 1) || isNewRecurringPayment) {
+            // Nova mensalidade/recorrência recebida (Mês 2, Mês 3, etc.)
             sale = await prisma.sale.create({
               data: {
                 tenant_id: tenantId,
@@ -69,7 +75,8 @@ export async function POST(req: Request) {
                 status: "paid",
                 paid_at: new Date(),
                 payment_id: paymentId,
-                notes: `Recorrência #${installment} da venda original ${saleId}`,
+                is_recurring: true,
+                notes: `Recorrência mensal (Pagamento ${paymentId}) da venda original ${saleId}`,
               },
               include: {
                 lead: {
@@ -78,7 +85,7 @@ export async function POST(req: Request) {
               }
             });
           } else {
-            // Primeiro pagamento ou pagamento avulso
+            // Primeiro pagamento da assinatura ou pagamento avulso
             sale = await prisma.sale.update({
               where: { id: saleId },
               data: { status: "paid", paid_at: new Date(), payment_id: paymentId },
@@ -106,7 +113,7 @@ export async function POST(req: Request) {
             let commissionAmount = 0;
             let commissionType = "percentage";
 
-            const isFirstPayment = !installment || installment === 1;
+            const isFirstPayment = !sale.is_recurring && (!installment || installment === 1);
 
             // Tenta encontrar commission_fixed no produto
             const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
