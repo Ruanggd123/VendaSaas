@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
-
-export const runtime = 'nodejs';
-
-const prisma = new PrismaClient();
 
 const protectedRoutes = [
   '/whatsapp', '/dashboard', '/admin', '/painel-parceiro',
@@ -28,52 +23,21 @@ export async function middleware(request: NextRequest) {
 
     try {
       const payload = await decrypt(sessionCookie.value);
-      
-      if (!payload.tenant_id) {
+
+      if (!payload || !payload.tenant_id) {
         const response = NextResponse.redirect(new URL('/login', request.url));
         response.cookies.delete('session');
         return response;
       }
 
-      // Verificação no Banco de Dados: Se o usuário/parceiro foi apagado, expulsa e limpa a sessão
-      if (payload.role === 'partner') {
-        const partner = await prisma.partner.findUnique({
-          where: { id: payload.id },
-          select: { id: true }
-        });
-        if (!partner) {
-          const response = NextResponse.redirect(new URL('/login', request.url));
-          response.cookies.delete('session');
-          return response;
-        }
-      } else {
-        const userId = payload.id || payload.userId;
-        if (userId) {
-          const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { id: true, role: true }
-          });
-          if (!user) {
-            const response = NextResponse.redirect(new URL('/login', request.url));
-            response.cookies.delete('session');
-            return response;
-          }
-          // Garante a role real do banco de dados (evita privilégios falsos no token)
-          payload.role = user.role;
-        }
-      }
-
       // --- PARCEIRO: PAINEL PRÓPRIO SEMPRE LIBERADO; CLIENTE SÓ COM SESSÃO ATIVA ---
       if (payload.role === 'partner') {
-        // Painel do parceiro sempre acessível
         if (lowerPathname.startsWith('/painel-parceiro')) {
           return NextResponse.next();
         }
-        // Bloqueia /admin para parceiros
         if (lowerPathname.startsWith('/admin')) {
           return NextResponse.redirect(new URL('/painel-parceiro', request.url));
         }
-        // Para rotas de cliente, verifica se o acesso está ativo
         const accessExpiresAt = payload.accessExpiresAt ? new Date(payload.accessExpiresAt) : null;
         const now = new Date();
         if (!accessExpiresAt || accessExpiresAt <= now) {
@@ -106,8 +70,10 @@ export async function middleware(request: NextRequest) {
     if (sessionCookie) {
       try {
         const payload = await decrypt(sessionCookie.value);
-        const redirect = payload.role === 'partner' ? '/painel-parceiro' : '/whatsapp';
-        return NextResponse.redirect(new URL(redirect, request.url));
+        if (payload && payload.tenant_id) {
+          const redirect = payload.role === 'partner' ? '/painel-parceiro' : '/dashboard';
+          return NextResponse.redirect(new URL(redirect, request.url));
+        }
       } catch (e) {}
     }
   }
