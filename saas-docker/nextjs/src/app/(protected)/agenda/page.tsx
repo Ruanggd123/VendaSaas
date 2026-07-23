@@ -510,7 +510,7 @@ export default function AgendaPage() {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xl dark:shadow-2xl">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-full text-indigo-700 dark:text-indigo-300 text-xs font-mono font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Atendimento Inteligente
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Agenda de Clientes
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             Agenda &amp; Horários
