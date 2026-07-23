@@ -67,9 +67,9 @@ export default function AutoVendasPage() {
     try {
       const metricsData = await fetch('/api/autovendas/metrics').then(r => r.json());
       const role = metricsData?.role;
-      const isManager = role === 'manager' || role === 'superadmin';
+      const isManager = role === 'admin' || role === 'superadmin' || role === 'manager';
       
-      if (role !== 'superadmin') {
+      if (!isManager) {
         router.replace('/dashboard');
         return;
       }

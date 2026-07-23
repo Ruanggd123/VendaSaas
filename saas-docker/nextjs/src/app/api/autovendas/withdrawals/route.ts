@@ -7,7 +7,8 @@ const prisma = new PrismaClient();
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session || session.role?.toLowerCase() !== 'superadmin' && session.role?.toLowerCase() !== 'manager') {
+    const userRole = session?.role?.toLowerCase();
+    if (!session || !['admin', 'superadmin', 'manager'].includes(userRole || '')) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 

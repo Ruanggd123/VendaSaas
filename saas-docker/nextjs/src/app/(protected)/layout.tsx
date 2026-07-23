@@ -39,6 +39,7 @@ const navItems = [
     items: [
       { href: "/agenda", label: "Agenda", icon: Calendar },
       { href: "/vendas", label: "Vendas & Cobranças", icon: DollarSign },
+      { href: "/autovendas", label: "Afiliados & Saques", icon: Wallet },
       { href: "/projetos", label: "Projetos", icon: Rocket },
     ],
   },
