@@ -37,6 +37,54 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     if (action === 'approve') {
+      // Tenta realizar a transferência PIX automática via Asaas se houver chave configurada
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+      let settings: any = {};
+      try { settings = JSON.parse(tenant?.settings as string || '{}'); } catch {}
+
+      const asaasApiKey = settings.asaasApiKey || process.env.ASAAS_API_KEY;
+      const asaasEnv = settings.asaasEnvironment || process.env.ASAAS_ENVIRONMENT || "sandbox";
+      const asaasUrl = asaasEnv === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
+
+      if (asaasApiKey && withdrawal.pixKey) {
+        try {
+          const pixTypeMap: Record<string, string> = {
+            cpf: "CPF",
+            cnpj: "CNPJ",
+            phone: "PHONE",
+            email: "EMAIL",
+            random: "EVP"
+          };
+          const pixType = pixTypeMap[withdrawal.pixKeyType?.toLowerCase()] || "PHONE";
+
+          console.log(`🏦 [Asaas PIX Transfer] Enviando R$ ${withdrawal.amount} para ${withdrawal.pixKey} (${pixType})...`);
+          
+          const transferRes = await fetch(`${asaasUrl}/transfers`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "access_token": asaasApiKey,
+              "User-Agent": "NexusSaaS/1.0"
+            },
+            body: JSON.stringify({
+              value: withdrawal.amount,
+              pixAddressKey: withdrawal.pixKey,
+              pixAddressKeyType: pixType,
+              description: `Saque de Comissão Afiliado Nexus SaaS (${withdrawal.partner?.name || 'Afiliado'})`
+            })
+          });
+
+          const transferData = await transferRes.json();
+          if (transferRes.ok) {
+            console.log("✅ [Asaas PIX Transfer] Transferência realizada com sucesso! ID:", transferData.id);
+          } else {
+            console.warn("⚠️ [Asaas PIX Transfer] Transferência automática não concluída:", transferData.errors || transferData);
+          }
+        } catch (transferErr) {
+          console.error("❌ Erro ao tentar transferência automática no Asaas:", transferErr);
+        }
+      }
+
       // Mark withdrawal as approved
       await prisma.partnerWithdrawal.update({
         where: { id: params.id },
