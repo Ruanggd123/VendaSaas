@@ -49,9 +49,14 @@ export async function POST(req: Request) {
       }
 
       if (saleId && tenantId) {
-          // Para pagamentos recorrentes (installment > 1), cria nova venda
           let sale;
           const existingSale = await prisma.sale.findUnique({ where: { id: saleId } });
+
+          // Se a venda já foi processada como 'paid' e NÃO é uma nova parcela de recorrência futura (installment > 1)
+          if (existingSale && existingSale.status === "paid" && (!installment || installment <= 1)) {
+            console.log(`ℹ️ [Asaas Webhook] Evento duplicado ignorado para a venda ${saleId} (já processada).`);
+            return NextResponse.json({ received: true, note: "Venda já processada anteriormente." });
+          }
 
           if (existingSale && installment && installment > 1) {
             // Já foi paga antes → criar nova Sale para esta recorrência
