@@ -23,6 +23,8 @@ import {
   DollarSign,
   ArrowUpRight,
   TrendingUp,
+  FolderCheck,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -64,6 +66,7 @@ export default function AdminProjectsPage() {
   const [newStatus, setNewStatus] = useState("");
   const [customMsg, setCustomMsg] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tabFilter, setTabFilter] = useState<"ongoing" | "completed" | "all">("ongoing");
 
   const fetchProjects = () => {
     setLoading(true);
@@ -161,6 +164,122 @@ export default function AdminProjectsPage() {
     }
   };
 
+  const ongoingProjects = projects.filter((p) => p.status !== "COMPLETED");
+  const completedProjects = projects.filter((p) => p.status === "COMPLETED");
+
+  const displayProjects =
+    tabFilter === "ongoing"
+      ? ongoingProjects
+      : tabFilter === "completed"
+      ? completedProjects
+      : projects;
+
+  const renderProjectCard = (p: Project) => {
+    let briefingObj: any = null;
+    if (p.briefing) {
+      try {
+        briefingObj = JSON.parse(p.briefing);
+      } catch (e) {}
+    }
+
+    return (
+      <div
+        key={p.id}
+        className="bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
+      >
+        <div>
+          {/* Card Top: Client & Status */}
+          <div className="flex items-start justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/10">
+            <div className="min-w-0">
+              <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
+                {p.client_name || "Cliente sem Nome"}
+              </h3>
+              <p className="text-[11px] font-mono text-slate-400 font-semibold mt-0.5">
+                {new Date(p.created_at).toLocaleDateString("pt-BR")}
+              </p>
+            </div>
+            {getStatusBadge(p.status)}
+          </div>
+
+          {/* Contratado */}
+          <div className="space-y-3 mb-6">
+            <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/70 dark:border-white/5 space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-mono block">
+                Item Contratado
+              </span>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white">{p.title}</h4>
+              <div className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
+                R$ {p.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (Taxa de Setup)
+              </div>
+            </div>
+
+            {/* Briefing Summary */}
+            {briefingObj && (
+              <div className="p-4 bg-indigo-50/70 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200/60 dark:border-indigo-500/20 text-xs space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300 font-mono block">
+                  Briefing do Cliente
+                </span>
+                {briefingObj.cores && (
+                  <p className="text-slate-700 dark:text-slate-300">
+                    <strong>Cores:</strong> {briefingObj.cores}
+                  </p>
+                )}
+                {briefingObj.objetivo && (
+                  <p className="text-slate-700 dark:text-slate-300">
+                    <strong>Objetivo:</strong> {briefingObj.objetivo}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card Actions */}
+        <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/10">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => openWhatsApp(p.client_phone, p.title)}
+              className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedProject(p);
+                setNewStatus(p.status);
+              }}
+              className="py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95"
+            >
+              <Layers className="w-3.5 h-3.5" /> Gerenciar
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <Link
+              href={`/projeto/${p.id}`}
+              target="_blank"
+              className="flex-1 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
+            >
+              <Eye className="w-3.5 h-3.5" /> Ver Visão do Cliente
+            </Link>
+            <button
+              onClick={() => copyTrackingLink(p.id)}
+              className="px-3 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+              title="Copiar Link de Tracking do Cliente"
+            >
+              {copiedId === p.id ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 text-slate-900 dark:text-white">
       {/* ── Top Header ── */}
@@ -177,14 +296,55 @@ export default function AdminProjectsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-            Total: {projects.length} projetos
-          </div>
+        {/* Tab Filters (Em Andamento / Concluídos / Todos) */}
+        <div className="flex items-center p-1.5 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl">
+          <button
+            onClick={() => setTabFilter("ongoing")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              tabFilter === "ongoing"
+                ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md font-black"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Rocket className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Em Andamento</span>
+            <span className="px-2 py-0.5 text-[10px] font-mono font-extrabold rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+              {ongoingProjects.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setTabFilter("completed")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              tabFilter === "completed"
+                ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-md font-black"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <FolderCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Concluídos</span>
+            <span className="px-2 py-0.5 text-[10px] font-mono font-extrabold rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+              {completedProjects.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setTabFilter("all")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              tabFilter === "all"
+                ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md font-black"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <span>Todos</span>
+            <span className="px-2 py-0.5 text-[10px] font-mono font-extrabold rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+              {projects.length}
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* ── Grid de Projetos ── */}
+      {/* ── Grid de Projetos Separados ── */}
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-8 h-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
@@ -197,113 +357,73 @@ export default function AdminProjectsPage() {
             Quando um cliente contratar um site ou robô de atendimento, ele aparecerá aqui para você gerenciar o progresso.
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((p) => {
-            let briefingObj: any = null;
-            if (p.briefing) {
-              try {
-                briefingObj = JSON.parse(p.briefing);
-              } catch (e) {}
-            }
-
-            return (
-              <div
-                key={p.id}
-                className="bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 shadow-xl dark:shadow-2xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
-              >
-                <div>
-                  {/* Card Top: Client & Status */}
-                  <div className="flex items-start justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/10">
-                    <div className="min-w-0">
-                      <h3 className="font-black text-base text-slate-900 dark:text-white truncate">
-                        {p.client_name || "Cliente sem Nome"}
-                      </h3>
-                      <p className="text-[11px] font-mono text-slate-400 font-semibold mt-0.5">
-                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                    {getStatusBadge(p.status)}
-                  </div>
-
-                  {/* Contratado */}
-                  <div className="space-y-3 mb-6">
-                    <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/70 dark:border-white/5 space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-mono block">
-                        Item Contratado
-                      </span>
-                      <h4 className="text-sm font-black text-slate-900 dark:text-white">{p.title}</h4>
-                      <div className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
-                        R$ {p.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (Taxa de Setup)
-                      </div>
-                    </div>
-
-                    {/* Briefing Summary */}
-                    {briefingObj && (
-                      <div className="p-4 bg-indigo-50/70 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200/60 dark:border-indigo-500/20 text-xs space-y-1.5">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300 font-mono block">
-                          Briefing do Cliente
-                        </span>
-                        {briefingObj.cores && (
-                          <p className="text-slate-700 dark:text-slate-300">
-                            <strong>Cores:</strong> {briefingObj.cores}
-                          </p>
-                        )}
-                        {briefingObj.objetivo && (
-                          <p className="text-slate-700 dark:text-slate-300">
-                            <strong>Objetivo:</strong> {briefingObj.objetivo}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Actions */}
-                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/10">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => openWhatsApp(p.client_phone, p.title)}
-                      className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setSelectedProject(p);
-                        setNewStatus(p.status);
-                      }}
-                      className="py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95"
-                    >
-                      <Layers className="w-3.5 h-3.5" /> Gerenciar
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/projeto/${p.id}`}
-                      target="_blank"
-                      className="flex-1 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Ver Visão do Cliente
-                    </Link>
-                    <button
-                      onClick={() => copyTrackingLink(p.id)}
-                      className="px-3 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                      title="Copiar Link de Tracking do Cliente"
-                    >
-                      {copiedId === p.id ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+      ) : tabFilter === "all" ? (
+        /* Seção dividida para aba TODOS */
+        <div className="space-y-12">
+          {/* Seção 1: Em Andamento */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-200 dark:border-white/10">
+              <Rocket className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                Projetos em Andamento ({ongoingProjects.length})
+              </h2>
+            </div>
+            {ongoingProjects.length === 0 ? (
+              <p className="text-xs text-slate-500 font-medium py-4">Nenhum projeto em andamento no momento.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ongoingProjects.map(renderProjectCard)}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Seção 2: Concluídos */}
+          <div className="space-y-4 pt-4">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-200 dark:border-white/10">
+              <FolderCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                Projetos Concluídos &amp; Entregues ({completedProjects.length})
+              </h2>
+            </div>
+            {completedProjects.length === 0 ? (
+              <p className="text-xs text-slate-500 font-medium py-4">Nenhum projeto concluído ainda.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedProjects.map(renderProjectCard)}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Exibição normal por aba selecionada */
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 pb-2 border-b border-slate-200 dark:border-white/10">
+            {tabFilter === "ongoing" ? (
+              <>
+                <Rocket className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                  Projetos em Andamento ({ongoingProjects.length})
+                </h2>
+              </>
+            ) : (
+              <>
+                <FolderCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                  Projetos Concluídos &amp; Entregues ({completedProjects.length})
+                </h2>
+              </>
+            )}
+          </div>
+
+          {displayProjects.length === 0 ? (
+            <div className="text-center py-12 bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200 dark:border-white/10">
+              <p className="text-xs text-slate-500 font-medium">Nenhum projeto encontrado nesta categoria.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayProjects.map(renderProjectCard)}
+            </div>
+          )}
         </div>
       )}
 
