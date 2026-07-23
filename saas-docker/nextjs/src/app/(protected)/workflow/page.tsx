@@ -6,18 +6,13 @@ import {
   Settings,
   FileCode,
   Sparkles,
-  ArrowRight,
-  RefreshCw,
   Plus,
   Download,
-  Upload,
   X,
   Package,
   Layers,
-  Bot,
-  CheckCircle,
-  HelpCircle,
-  BookOpen,
+  Check,
+  Copy,
 } from "lucide-react";
 
 interface AISettings {
@@ -56,7 +51,7 @@ const DEFAULT_AI: AISettings = {
   bot_type: "regras",
   ai_name: "Atendente Nexus",
   ai_personality: "profissional",
-  ai_prompt: "Você é um Atendente...",
+  ai_prompt: "Você é um Atendente de excelência...",
   business_hours_start: "08:00",
   business_hours_end: "18:00",
   business_days: ["mon", "tue", "wed", "thu", "fri"],
@@ -70,7 +65,6 @@ const DEFAULT_AI: AISettings = {
   enableScheduling: true,
 };
 
-// Templates Prontos
 const TEMPLATES = [
   {
     id: "comercial",
@@ -107,10 +101,12 @@ export default function WorkflowPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>("start");
   const [jsonText, setJsonText] = useState<string>("");
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
+  const [showProductsModal, setShowProductsModal] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchConfig();
@@ -141,7 +137,7 @@ export default function WorkflowPage() {
         body: JSON.stringify(updatedSettings),
       });
       if (!res.ok) throw new Error();
-      setAlert({ type: "success", msg: "Configurações de fluxo salvas com sucesso! ✅" });
+      setAlert({ type: "success", msg: "Configurações salvas com sucesso! ✅" });
       setJsonText(JSON.stringify(updatedSettings, null, 2));
     } catch {
       setAlert({ type: "error", msg: "Erro ao salvar as configurações. Tente novamente." });
@@ -163,9 +159,9 @@ export default function WorkflowPage() {
       setSettings(merged);
       saveConfig(merged);
       setShowJsonModal(false);
-      setAlert({ type: "success", msg: "Fluxo importado do JSON com sucesso! ✅" });
+      setAlert({ type: "success", msg: "Configuração JSON restaurada e importada com sucesso! ✅" });
     } catch {
-      setAlert({ type: "error", msg: "JSON inválido. Verifique a sintaxe e tente novamente." });
+      setAlert({ type: "error", msg: "JSON inválido. Verifique a sintaxe." });
     }
   };
 
@@ -183,7 +179,7 @@ export default function WorkflowPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white -m-8 overflow-hidden font-sans">
-      {/* HEADER SUPERIOR DO EDITOR */}
+      {/* HEADER SUPERIOR */}
       <header className="h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-6 flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
@@ -191,12 +187,12 @@ export default function WorkflowPage() {
           </div>
           <div>
             <h1 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              Editor de Fluxo &amp; Menu Bot
+              Editor Visual de Fluxo &amp; Regras
               <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">
-                VISUAL
+                JSON CONFIG
               </span>
             </h1>
-            <p className="text-[11px] text-slate-500 font-medium">Construa menus numéricos, ações automáticas e inteligência do atendimento</p>
+            <p className="text-[11px] text-slate-500 font-medium">Configure menus numéricos, catálogo de produtos e parâmetros do JSON</p>
           </div>
         </div>
 
@@ -224,15 +220,18 @@ export default function WorkflowPage() {
             }`}
           >
             <FileCode className="w-4 h-4" />
-            <span className="hidden sm:inline">Prompt da IA</span>
+            <span className="hidden sm:inline">Prompt IA</span>
           </button>
 
           <button
-            onClick={() => setShowJsonModal(true)}
+            onClick={() => {
+              setJsonText(JSON.stringify(settings, null, 2));
+              setShowJsonModal(true);
+            }}
             className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
           >
-            <Download className="w-4 h-4 text-slate-400" />
-            <span className="hidden sm:inline">JSON</span>
+            <Download className="w-4 h-4 text-indigo-500" />
+            <span className="hidden sm:inline">JSON Config</span>
           </button>
 
           <button
@@ -264,9 +263,9 @@ export default function WorkflowPage() {
         </div>
       </header>
 
-      {/* ÁREA PRINCIPAL: WORKFLOW CANVAS & PAINÉIS LATERAIS */}
+      {/* WORKFLOW CONTAINER */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* PAINEL LATERAL ESQUERDO: TEMPLATES & TIPO DE BOT */}
+        {/* ESQUERDA: TEMPLATES E MODO */}
         <aside className="w-72 border-r border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 p-5 space-y-6 overflow-y-auto">
           <div className="space-y-2">
             <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Modo de Operação</label>
@@ -297,7 +296,6 @@ export default function WorkflowPage() {
             </div>
           </div>
 
-          {/* Templates de Fluxo */}
           <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/10">
             <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">Templates Prontos</span>
             <div className="space-y-2">
@@ -315,6 +313,15 @@ export default function WorkflowPage() {
               ))}
             </div>
           </div>
+
+          <div className="pt-4 border-t border-slate-100 dark:border-white/10">
+            <button
+              onClick={() => setShowProductsModal(true)}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+              <Package className="w-4 h-4 text-indigo-500" /> Gerenciar Catálogo
+            </button>
+          </div>
         </aside>
 
         {/* WORKFLOW CANVAS CENTRAL */}
@@ -329,7 +336,7 @@ export default function WorkflowPage() {
           )}
         </main>
 
-        {/* PAINEL LATERAL DIREITO: PROPRIEDADES DO NÓ / PROMPT IA */}
+        {/* DIREITA: PROPRIEDADES DO NÓ */}
         <aside className="w-80 border-l border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 p-5 space-y-6 overflow-y-auto">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-white/10">
             {showAIPrompt ? <FileCode className="w-5 h-5 text-purple-600" /> : <Settings className="w-5 h-5 text-indigo-600" />}
@@ -427,6 +434,18 @@ export default function WorkflowPage() {
                   <option value="human">👤 Transferir para Humano</option>
                 </select>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== selectedNodeId && n.parentId !== selectedNodeId);
+                  updateField("custom_rules_nodes", newNodes);
+                  setSelectedNodeId(null);
+                }}
+                className="w-full mt-4 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-rose-100"
+              >
+                Excluir Nó
+              </button>
             </div>
           )}
 
@@ -444,12 +463,15 @@ export default function WorkflowPage() {
         </aside>
       </div>
 
-      {/* MODAL JSON */}
+      {/* MODAL JSON CONFIG - COMPLETO COM COPIAR E IMPORTAR */}
       {showJsonModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
-              <h3 className="text-base font-black text-slate-900 dark:text-white">Importar / Exportar JSON</h3>
+              <div className="flex items-center gap-2">
+                <FileCode className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">JSON de Configuração da Automação</h3>
+              </div>
               <button type="button" onClick={() => setShowJsonModal(false)} className="p-1 text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
@@ -457,17 +479,107 @@ export default function WorkflowPage() {
             <textarea
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
-              rows={10}
+              rows={14}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+              spellCheck={false}
             />
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={handleImportJson}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold"
+                onClick={() => {
+                  navigator.clipboard.writeText(jsonText);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5"
               >
-                Importar JSON
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "Copiado!" : "Copiar JSON"}
               </button>
+              <button
+                type="button"
+                onClick={handleImportJson}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold"
+              >
+                Importar &amp; Salvar JSON
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PRODUTOS */}
+      {showProductsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Gerenciar Produtos do Catálogo</h3>
+              </div>
+              <button type="button" onClick={() => setShowProductsModal(false)} className="p-1 text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-950/50 rounded-2xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {(settings.products || []).map((p: any, idx: number) => (
+                  <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 relative group shadow-sm">
+                    <button
+                      onClick={() => {
+                        const newP = [...(settings.products || [])];
+                        newP.splice(idx, 1);
+                        updateField("products", newP);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
+                      title="Excluir Produto"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="space-y-1 pr-6">
+                      <label className="text-[10px] text-slate-500 font-bold uppercase">Nome do Produto</label>
+                      <input
+                        type="text"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
+                        value={p.name || ""}
+                        onChange={(e) => {
+                          const newP = [...(settings.products || [])];
+                          newP[idx].name = e.target.value;
+                          updateField("products", newP);
+                        }}
+                        placeholder="Ex: Novo Produto"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[10px] text-slate-500 font-bold uppercase">Preço (R$)</label>
+                        <input
+                          type="number"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-emerald-600 font-mono font-bold"
+                          value={p.price}
+                          onChange={(e) => {
+                            const newP = [...(settings.products || [])];
+                            newP[idx].price = Number(e.target.value);
+                            updateField("products", newP);
+                          }}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const newP = [...(settings.products || [])];
+                    newP.push({ name: "Novo Produto", price: 0, description: "" });
+                    updateField("products", newP);
+                  }}
+                  className="bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all min-h-[160px]"
+                >
+                  <Plus className="w-6 h-6 text-indigo-500" />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Adicionar Produto</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
