@@ -1,18 +1,23 @@
 "use client";
-import WorkflowCanvas from './WorkflowCanvas';
 
+import WorkflowCanvas from "./WorkflowCanvas";
 import { useState, useEffect } from "react";
-import { 
-  Settings, 
-  FileCode, 
-  Sparkles, 
-  ArrowRight, 
+import {
+  Settings,
+  FileCode,
+  Sparkles,
+  ArrowRight,
   RefreshCw,
   Plus,
   Download,
   Upload,
   X,
-  Package
+  Package,
+  Layers,
+  Bot,
+  CheckCircle,
+  HelpCircle,
+  BookOpen,
 } from "lucide-react";
 
 interface AISettings {
@@ -38,11 +43,11 @@ interface AISettings {
 }
 
 const DEFAULT_SCHEDULE_PER_DAY = {
-  mon: { enabled: true,  start: "08:00", end: "18:00", max_appointments: 8 },
-  tue: { enabled: true,  start: "08:00", end: "18:00", max_appointments: 8 },
-  wed: { enabled: true,  start: "08:00", end: "18:00", max_appointments: 8 },
-  thu: { enabled: true,  start: "08:00", end: "18:00", max_appointments: 8 },
-  fri: { enabled: true,  start: "08:00", end: "18:00", max_appointments: 8 },
+  mon: { enabled: true, start: "08:00", end: "18:00", max_appointments: 8 },
+  tue: { enabled: true, start: "08:00", end: "18:00", max_appointments: 8 },
+  wed: { enabled: true, start: "08:00", end: "18:00", max_appointments: 8 },
+  thu: { enabled: true, start: "08:00", end: "18:00", max_appointments: 8 },
+  fri: { enabled: true, start: "08:00", end: "18:00", max_appointments: 8 },
   sat: { enabled: false, start: "09:00", end: "14:00", max_appointments: 4 },
   sun: { enabled: false, start: "09:00", end: "12:00", max_appointments: 2 },
 };
@@ -57,11 +62,11 @@ const DEFAULT_AI: AISettings = {
   business_days: ["mon", "tue", "wed", "thu", "fri"],
   schedule_per_day: DEFAULT_SCHEDULE_PER_DAY,
   appointment_gap_min: 15,
-  off_hours_message: "Olá! Estamos fora do horário de atendimento. Retornaremos em breve! 🟣Œ™",
+  off_hours_message: "Olá! Estamos fora do horário de expediente. Deixe sua mensagem que responderemos assim que retornarmos!",
   products: [],
   manager_phone: "",
   blocked_dates: [],
-  welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 🟣¤–🟣‘‹",
+  welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
   enableScheduling: true,
 };
 
@@ -69,60 +74,43 @@ const DEFAULT_AI: AISettings = {
 const TEMPLATES = [
   {
     id: "comercial",
-    title: "Comercial Padrào",
+    title: "Comercial Padrão",
     description: "Ideal para empresas que querem listar serviços, informar horários e agendar clientes.",
-    welcome_message: "Olá! Seja bem-vindo(a) ao canal de atendimento da nossa empresa! Como podemos te ajudar hoje? 🟣’¼🟣¤–",
+    welcome_message: "Olá! Seja bem-vindo(a) ao canal de atendimento da nossa empresa! Como podemos te ajudar hoje? 👋",
     enableScheduling: true,
   },
   {
     id: "saude",
-    title: "Clínica MéDica / Odonto",
-    description: "Focado em agendamento de consultas méDicas e informações de contato clínico.",
-    welcome_message: "Olá! Você está no pré-atendimento da nossa Clínica de Saúde. Escolha as opções abaixo para prosseguir com seu agendamento: 🟣¥🟣©º",
+    title: "Clínica Médica / Odonto",
+    description: "Focado em agendamento de consultas médicas e informações de contato clínico.",
+    welcome_message: "Olá! Você está no pré-atendimento da nossa Clínica de Saúde. Escolha uma das opções abaixo para agendar sua consulta: 👋",
     enableScheduling: true,
   },
   {
     id: "alimentacao",
     title: "Delivery / Restaurante",
-    description: "Cardápio integrado e direcionamento direto para falar com Atendente.",
-    welcome_message: "Olá! Que bom ter você aqui no nosso restaurante. Escolha 1 para ver as delícias do nosso cardápio ou 4 para falar com nossos garçons! 🟣•🟣”",
+    description: "Cardápio integrado e direcionamento direto para falar com atendentes.",
+    welcome_message: "Olá! Que bom ter você aqui no nosso restaurante. Digite 1 para ver o cardápio ou 4 para falar com nossos atendentes! 🍽️",
     enableScheduling: false,
   },
   {
     id: "suporte",
-    title: "suporte Técnico",
-    description: "Foco total em triagem e repasse rápido para atendimento de Atendentes humanos.",
-    welcome_message: "Olá, bem-vindo(a) ao nosso suporte técnico! Diga o que precisa ou digite 4 para que um técnico assuma a conversa imediatamente. 🟣› 🟣“ž",
+    title: "Suporte Técnico",
+    description: "Foco total em triagem e repasse rápido para atendimento humano.",
+    welcome_message: "Olá, bem-vindo(a) ao nosso suporte técnico! Diga o que precisa ou digite 4 para falar com um técnico. 👨‍💻",
     enableScheduling: false,
-  }
+  },
 ];
 
 export default function WorkflowPage() {
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>('start');
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>("start");
   const [jsonText, setJsonText] = useState<string>("");
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
-  const [showProductsModal, setShowProductsModal] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
-  const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
-
-  // IA Chatbot local state
-  const [chatMessages, setChatMessages] = useState<any[]>([
-    { sender: "ai", text: "Olá! Eu sou o Assistente de fluxos. Me diga qual o seu negócio ou o que você deseja criar e eu monto todo o seu menu de regras automaticamente! 🟣š€" }
-  ]);
-  const [chatInput, setChatInput] = useState<string>("");
-  
-  // AI Wizard State (interactive questionnaire)
-  const [wizardStep, setWizardStep] = useState<number>(0);
-  const [wizardData, setWizardData] = useState<any>({
-    ai_name: "",
-    welcome_message: "",
-    enableScheduling: true,
-    manager_phone: ""
-  });
 
   useEffect(() => {
     fetchConfig();
@@ -153,7 +141,7 @@ export default function WorkflowPage() {
         body: JSON.stringify(updatedSettings),
       });
       if (!res.ok) throw new Error();
-      setAlert({ type: "success", msg: "Configurações de fluxo salvas com sucesso! 🟣š€" });
+      setAlert({ type: "success", msg: "Configurações de fluxo salvas com sucesso! ✅" });
       setJsonText(JSON.stringify(updatedSettings, null, 2));
     } catch {
       setAlert({ type: "error", msg: "Erro ao salvar as configurações. Tente novamente." });
@@ -168,7 +156,6 @@ export default function WorkflowPage() {
     saveConfig(updated);
   };
 
-  // Importar JSON
   const handleImportJson = () => {
     try {
       const parsed = JSON.parse(jsonText);
@@ -176,767 +163,315 @@ export default function WorkflowPage() {
       setSettings(merged);
       saveConfig(merged);
       setShowJsonModal(false);
-      setAlert({ type: "success", msg: "fluxo importado do JSON com sucesso! âœ…" });
+      setAlert({ type: "success", msg: "Fluxo importado do JSON com sucesso! ✅" });
     } catch {
       setAlert({ type: "error", msg: "JSON inválido. Verifique a sintaxe e tente novamente." });
     }
   };
 
-  // Carregar Template
   const handleLoadTemplate = (tpl: typeof TEMPLATES[0]) => {
     const updated = {
       ...settings,
       welcome_message: tpl.welcome_message,
       enableScheduling: tpl.enableScheduling,
-      bot_type: "regras"
+      bot_type: "regras",
     };
     setSettings(updated);
     saveConfig(updated);
-    setAlert({ type: "success", msg: `Template "${tpl.title}" carregado e salvo com sucesso! 🟣Ž­` });
-  };
-
-  // AI Chat processor (commands and wizard questionnaire)
-  const handleSendChat = () => {
-    if (!chatInput.trim()) return;
-
-    const userText = chatInput;
-    setChatMessages(prev => [...prev, { sender: "user", text: userText }]);
-    setChatInput("");
-    setAiLoading(true);
-
-    setTimeout(() => {
-      // Simple Wizard State Check
-      if (wizardStep > 0) {
-        processWizardAnswer(userText);
-        setAiLoading(false);
-        return;
-      }
-
-      // Keyword matching
-      const clean = userText.toLowerCase();
-      if (clean.includes("criar") || clean.includes("mudar") || clean.includes("restaurante") || clean.includes("clinica") || clean.includes("suporte") || clean.includes("fluxo") || clean.includes("bot")) {
-        setChatMessages(prev => [...prev, { sender: "ai", text: "Excelente! Para estruturar o melhor fluxo para o seu WhatsApp, vou te fazer um rápido questionário de 4 perguntas. Vamos lá?" }]);
-        setChatMessages(prev => [...prev, { sender: "ai", text: "🟣¤– Pergunta 1: Qual o nome da sua empresa ou do seu Atendente?" }]);
-        setWizardStep(1);
-      } else if (clean.includes("agendamento") || clean.includes("agenda")) {
-        const toggleVal = clean.includes("ativar") || clean.includes("habilitar") || clean.includes("sim");
-        updateField("enableScheduling", toggleVal);
-        setChatMessages(prev => [...prev, { sender: "ai", text: `Entendido! Acabei de ${toggleVal ? 'habilitar' : 'desabilitar'} o agendamento guiado (Opçào 3) no seu menu de regras.` }]);
-      } else if (clean.includes("boas vindas") || clean.includes("saudacao") || clean.includes("welcome")) {
-        // Extract message inside quotes or take the rest of text
-        const match = userText.match(/"([^"]+)"/) || userText.match(/'([^']+)'/);
-        const msg = match ? match[1] : userText.replace(/alterar|mudar|boas vindas|sauda[cç]ao/gi, "").trim();
-        if (msg.length > 5) {
-          updateField("welcome_message", msg);
-          setChatMessages(prev => [...prev, { sender: "ai", text: `Prontinho! Sua mensagem de boas-vindas foi alterada para: "${msg}"` }]);
-        } else {
-          setChatMessages(prev => [...prev, { sender: "ai", text: "Envie a mensagem desejada entre aspas. Ex: mudar boas vindas para \"Olá, seja bem-vindo!\"" }]);
-        }
-      } else {
-        setChatMessages(prev => [...prev, { sender: "ai", text: "Nào entendi muito bem. Você pode pedir coisas como: 'criar fluxo comercial', 'ativar agendamento' ou 'mudar boas-vindas para \"Oi!\"'" }]);
-      }
-      setAiLoading(false);
-    }, 1000);
-  };
-
-  const processWizardAnswer = (ans: string) => {
-    if (wizardStep === 1) {
-      setWizardData((d: any) => ({ ...d, ai_name: ans }));
-      setChatMessages(prev => [...prev, { sender: "ai", text: `Legal! O nome configurado é "${ans}".` }]);
-      setChatMessages(prev => [...prev, { sender: "ai", text: "🟣¤– Pergunta 2: Qual mensagem de boas-vindas quer exibir no menu INICIAL?" }]);
-      setWizardStep(2);
-    } else if (wizardStep === 2) {
-      setWizardData((d: any) => ({ ...d, welcome_message: ans }));
-      setChatMessages(prev => [...prev, { sender: "ai", text: "Salvo! Mensagem gravada." }]);
-      setChatMessages(prev => [...prev, { sender: "ai", text: "🟣¤– Pergunta 3: deseja habilitar agendamentos online de serviços? (Responda com 'Sim' ou 'Nào')" }]);
-      setWizardStep(3);
-    } else if (wizardStep === 3) {
-      const isScheduling = ans.toLowerCase().includes("sim") || ans.toLowerCase().includes("s");
-      setWizardData((d: any) => ({ ...d, enableScheduling: isScheduling }));
-      setChatMessages(prev => [...prev, { sender: "ai", text: `${isScheduling ? 'Agendamento ativado!' : 'Agendamento desativado.'}` }]);
-      setChatMessages(prev => [...prev, { sender: "ai", text: "🟣¤– Pergunta 4: Qual o número do gerente para repassar o atendimento humano? (Digite com DDD, ex: 11999999999)" }]);
-      setWizardStep(4);
-    } else if (wizardStep === 4) {
-      const phone = ans.replace(/[^0-9]/g, "");
-      const finalSettings = {
-        ...settings,
-        ai_name: wizardData.ai_name,
-        welcome_message: wizardData.welcome_message,
-        enableScheduling: wizardData.enableScheduling,
-        manager_phone: phone,
-        bot_type: "regras"
-      };
-      setSettings(finalSettings);
-      saveConfig(finalSettings);
-      
-      setChatMessages(prev => [...prev, { sender: "ai", text: "🟣Ž‰ Maravilha! Questionário finalizado! Montei todo o seu fluxo de decisào estilo n8n com base nas suas respostas e já o salvei. Veja o painel ao lado!" }]);
-      setWizardStep(0);
-    }
+    setAlert({ type: "success", msg: `Template "${tpl.title}" carregado e salvo com sucesso! ✅` });
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100 font-sans overflow-hidden -m-8">
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {/* CANVAS CENTRAL: ESTILO n8n */}
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      
-        {/* NEW CANVAS */}
-        <main className="flex-1 relative flex flex-col">
+    <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white -m-8 overflow-hidden font-sans">
+      {/* HEADER SUPERIOR DO EDITOR */}
+      <header className="h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-6 flex items-center justify-between z-20 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+              Editor de Fluxo &amp; Menu Bot
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">
+                VISUAL
+              </span>
+            </h1>
+            <p className="text-[11px] text-slate-500 font-medium">Construa menus numéricos, ações automáticas e inteligência do atendimento</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
           {alert && (
-            <div className={`absolute bottom-6 left-[50%] translate-x-[-50%] px-4 py-3 rounded-xl text-xs font-semibold z-50 flex items-center gap-2 border shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300 ${
-              alert.type === "success" 
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
-                : "bg-red-500/10 border-red-500/20 text-red-300"
-            }`}>
+            <div
+              onClick={() => setAlert(null)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition-all ${
+                alert.type === "success"
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
+                  : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20"
+              }`}
+            >
               <span>{alert.msg}</span>
-              <button onClick={() => setAlert(null)} className="ml-2 hover:text-white transition-colors">✕</button>
+              <X className="w-3.5 h-3.5" />
             </div>
           )}
 
-          <div className="absolute top-4 left-4 right-4 flex items-start sm:items-center justify-between pointer-events-none z-10 gap-4 flex-col sm:flex-row">
-            <div className="bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-xl px-4 py-2 flex items-center gap-3 pointer-events-auto shadow-xl">
-              <span className="text-xs font-bold text-zinc-400">Status:</span>
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <span className="text-xs font-semibold text-white whitespace-nowrap">Editor Visual Ativo</span>
-            </div>
+          <button
+            onClick={() => setShowAIPrompt(!showAIPrompt)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm ${
+              showAIPrompt
+                ? "bg-purple-600 text-white border-purple-600"
+                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
+            }`}
+          >
+            <FileCode className="w-4 h-4" />
+            <span className="hidden sm:inline">Prompt da IA</span>
+          </button>
 
-            <div className="flex flex-wrap gap-2 pointer-events-auto justify-end">
+          <button
+            onClick={() => setShowJsonModal(true)}
+            className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <Download className="w-4 h-4 text-slate-400" />
+            <span className="hidden sm:inline">JSON</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const newNodes = [...(settings.custom_rules_nodes || [])];
+              newNodes.push({
+                id: "node_" + Math.random().toString(36).substr(2, 9),
+                parentId: selectedNodeId !== "start" ? selectedNodeId : null,
+                keyword: String(newNodes.length + 1),
+                title: "Nova Opção",
+                actionType: "text",
+                textContent: "Responda aqui...",
+              });
+              updateField("custom_rules_nodes", newNodes);
+            }}
+            className="px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Novo Nó</span>
+          </button>
+
+          <button
+            onClick={() => saveConfig()}
+            disabled={saving}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95"
+          >
+            {saving ? "Salvando..." : "Salvar Fluxo"}
+          </button>
+        </div>
+      </header>
+
+      {/* ÁREA PRINCIPAL: WORKFLOW CANVAS & PAINÉIS LATERAIS */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* PAINEL LATERAL ESQUERDO: TEMPLATES & TIPO DE BOT */}
+        <aside className="w-72 border-r border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 p-5 space-y-6 overflow-y-auto">
+          <div className="space-y-2">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Modo de Operação</label>
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => setShowAIPrompt(!showAIPrompt)}
-                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl ${
-                  showAIPrompt
-                    ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
-                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
+                type="button"
+                onClick={() => updateField("bot_type", "regras")}
+                className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all ${
+                  settings.bot_type === "regras"
+                    ? "bg-indigo-50 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                    : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
                 }`}
-                title="Mostrar/esconder o prompt de IA do bot"
               >
-                <FileCode className="w-4 h-4 flex-shrink-0" />
-                <span className="whitespace-nowrap hidden lg:inline">Prompt IA</span>
+                📋 Menu de Regras
               </button>
+
               <button
-                onClick={() => setShowJsonModal(true)}
-                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl"
-                title="Importar ou exportar configurações como JSON"
+                type="button"
+                onClick={() => updateField("bot_type", "ia")}
+                className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all ${
+                  settings.bot_type === "ia"
+                    ? "bg-purple-50 dark:bg-purple-500/15 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 shadow-sm"
+                    : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
+                }`}
               >
-                <Download className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                <span className="whitespace-nowrap hidden lg:inline">JSON</span>
-              </button>
-              <button
-                onClick={() => {
-                  const newNodes = [...(settings.custom_rules_nodes || [])];
-                  newNodes.push({
-                    id: 'node_' + Math.random().toString(36).substr(2, 9),
-                    parentId: selectedNodeId !== 'start' ? selectedNodeId : null,
-                    keyword: newNodes.length + 1 + '',
-                    title: 'Nova Opção',
-                    actionType: 'text',
-                    textContent: 'Responda aqui...'
-                  });
-                  updateField('custom_rules_nodes', newNodes);
-                }}
-                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl"
-              >
-                <Plus className="w-4 h-4 text-purple-400" />
-                <span>+ Novo Nó</span>
-              </button>
-              <button
-                onClick={() => saveConfig()}
-                disabled={saving}
-                className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-xl shadow-purple-500/10"
-              >
-                <span>{saving ? "Salvando..." : "Salvar fluxo"}</span>
+                🤖 Atendente IA
               </button>
             </div>
           </div>
 
-          <div className="flex-1 w-full h-full">
-            {isLoaded && (
-              <WorkflowCanvas 
-                settings={settings} 
-                updateField={updateField}
-                selectedNodeId={selectedNodeId}
-                setSelectedNodeId={setSelectedNodeId}
-              />
-            )}
-          </div>
-        </main>
-
-        {/* PAINEL LATERAL DIREITO: CONFIGURAÇÃO DO NÓ SELECIONADO / PROMPT DE IA */}
-        <aside className="w-80 border-l border-zinc-800 bg-[#0c0c0e] flex flex-col flex-shrink-0 z-10">
-          <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-            {showAIPrompt ? (
-              <FileCode className="w-5 h-5 text-purple-400" />
-            ) : (
-              <Settings className="w-5 h-5 text-purple-400" />
-            )}
-            <h3 className="font-bold text-sm text-white">
-              {showAIPrompt ? 'Prompt de IA' : 'Propriedades do Nó'}
-            </h3>
-          </div>
-
-          <div className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800">
-            {!selectedNodeId && !showAIPrompt && (
-              <div className="text-center text-xs text-zinc-500 mt-10 space-y-2">
-                <div className="text-3xl opacity-20">☰</div>
-                <p>Selecione um nó no canvas</p>
-                <p className="text-[10px] text-zinc-600">ou clique em &quot;Prompt de IA&quot; para configurar</p>
-              </div>
-            )}
-
-            {selectedNodeId === 'start' && !showAIPrompt && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-600/10 to-purple-500/5 border border-purple-500/10">
-                  <h4 className="text-xs font-bold text-white mb-1">Boas-vindas</h4>
-                  <p className="text-[10px] text-zinc-400">
-                    A primeira mensagem que o bot envia quando inicia a conversa.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Mensagem de Boas-vindas</label>
-                  <textarea
-                    value={settings.welcome_message || ""}
-                    onChange={(e) => updateField("welcome_message", e.target.value)}
-                    rows={6}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"
-                  />
-                </div>
-                <div className="flex items-center gap-2 mt-4 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/50">
-                  <input
-                    type="checkbox"
-                    id="hide_auto_catalog"
-                    checked={settings.hide_auto_catalog || false}
-                    onChange={(e) => updateField("hide_auto_catalog", e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-purple-600 focus:ring-purple-500 focus:ring-offset-zinc-950"
-                  />
-                  <label htmlFor="hide_auto_catalog" className="text-xs text-zinc-300 cursor-pointer select-none">
-                    Ocultar lista automática de produtos
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {selectedNodeId && selectedNodeId !== 'start' && !showAIPrompt && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-zinc-800/30 border border-zinc-700/30">
-                  <h4 className="text-xs font-bold text-white mb-1">{settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.title || 'Nó selecionado'}</h4>
-                  <p className="text-[10px] text-zinc-400">
-                    Configure a resposta e o comportamento deste nó.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Dígito / Palavra-chave</label>
-                  <input
-                    type="text"
-                    value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.keyword || ''}
-                    onChange={(e) => {
-                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                      const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                      if(idx>-1) { newNodes[idx].keyword = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                    }}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Título do Menu</label>
-                  <input
-                    type="text"
-                    value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.title || ''}
-                    onChange={(e) => {
-                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                      const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                      if(idx>-1) { newNodes[idx].title = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                    }}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Ação / Tipo de Resposta</label>
-                  <select
-                    value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType || 'text'}
-                    onChange={(e) => {
-                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                      const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                      if(idx>-1) {
-                        const newType = e.target.value;
-                        newNodes[idx].actionType = newType;
-                        // Clear type-specific fields when switching
-                        if (newType !== 'collect_data') newNodes[idx].variableName = '';
-                        if (newType !== 'checkout' && newType !== 'product') newNodes[idx].productId = '';
-                        updateField("custom_rules_nodes", newNodes);
-                      }
-                    }}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="text">💬 Texto / Submenu</option>
-                    <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                    <option value="product">📦 Mostrar Produto Individual</option>
-                    <option value="scheduling">📅 Iniciar Fluxo de Agendamento</option>
-                    <option value="human">👤 Transferir para Humano</option>
-                    <option value="collect_data">📝 Coletar Dados do Cliente</option>
-                    <option value="checkout">🛒 Gerar Checkout / Finalizar Pedido</option>
-                  </select>
-                  {/* Helper text showing what each action does */}
-                  {(() => {
-                    const actionType = settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType;
-                    const helpTexts: Record<string, string> = {
-                      text: 'Exibe um texto de resposta. Se houver filhos, vira um submenu de opções.',
-                      catalog: 'Lista todos os produtos cadastrados para o cliente escolher. Os filhos product definem o comportamento de cada produto.',
-                      product: 'Exibe informações de um produto específico. Adicione filhos para definir ações após mostrar o produto.',
-                      scheduling: 'Inicia o fluxo de agendamento: seleção de serviço, data e horário.',
-                      human: 'Pausa a IA e transfere a conversa para um atendente humano.',
-                      collect_data: 'Solicita um texto livre do cliente e salva em uma variável para uso posterior.',
-                      checkout: 'Gera um link de pagamento e finaliza o pedido com base no produto vinculado.',
-                    };
-                    return (
-                      <p className="text-[10px] text-zinc-500 leading-relaxed mt-1.5 px-1">
-                        {helpTexts[actionType] || ''}
-                      </p>
-                    );
-                  })()}
-                </div>
-                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'collect_data' && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-zinc-300">Salvar resposta na variável (Nome)</label>
-                    <input
-                      type="text"
-                      value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.variableName || ''}
-                      onChange={(e) => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                        if(idx>-1) { newNodes[idx].variableName = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                      }}
-                      placeholder="Ex: tamanho_camiseta"
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                    />
-                  </div>
-                )}
-                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'checkout' && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-zinc-300">Vincular a qual Produto?</label>
-                    <select
-                      value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.productId || ''}
-                      onChange={(e) => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                        if(idx>-1) { newNodes[idx].productId = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                      }}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                    >
-                      <option value="">Selecione um Produto...</option>
-                      {(settings.products || []).map((p: any, i: number) => (
-                        <option key={i} value={p.id || p.name}>{p.name} (R$ {p.price})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Conteúdo da Resposta</label>
-                  <textarea
-                    value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.textContent || ''}
-                    onChange={(e) => {
-                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                      const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                      if(idx>-1) { newNodes[idx].textContent = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                    }}
-                    rows={4}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"
-                  />
-                </div>
-
-                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'catalog' && (
-                  <div className="mt-4 space-y-3">
-                    <div className="p-3.5 rounded-xl bg-gradient-to-br from-sky-600/10 to-cyan-500/5 border border-sky-500/10">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-xs font-bold text-white">Produtos no Catálogo</h4>
-                        <span className="text-[10px] bg-sky-500/15 text-sky-300 px-2 py-0.5 rounded-full font-medium border border-sky-500/20">
-                          {settings.products?.length || 0} cadastrados
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-zinc-400">
-                        Conecte cada produto a um nó no fluxo para definir o que acontece quando o cliente escolher ele.
-                      </p>
-                    </div>
-
-                    {(settings.products || []).length > 0 && (
-                      <div className="space-y-1.5 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 pr-1">
-                        {(settings.products || []).map((prod: any, i: number) => {
-                          const existingNode = (settings.custom_rules_nodes || []).find(
-                            (n: any) => n.parentId === selectedNodeId && n.actionType === 'product' && n.productId === prod.name
-                          );
-                          const hasNode = !!existingNode;
-
-                          // Find children of the product node to show what happens next
-                          const childrenOfProduct = existingNode
-                            ? (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === existingNode.id)
-                            : [];
-
-                          const actionLabels: Record<string, { label: string; icon: string; color: string }> = {
-                            text: { label: 'Exibir texto / Submenu', icon: '💬', color: 'text-indigo-400' },
-                            catalog: { label: 'Mostrar catálogo', icon: '📋', color: 'text-sky-400' },
-                            product: { label: 'Mostrar produto', icon: '📦', color: 'text-cyan-400' },
-                            scheduling: { label: 'Iniciar agendamento', icon: '📅', color: 'text-emerald-400' },
-                            human: { label: 'Transferir p/ humano', icon: '👤', color: 'text-amber-400' },
-                            collect_data: { label: 'Coletar dados', icon: '📝', color: 'text-pink-400' },
-                            checkout: { label: 'Gerar checkout / Finalizar', icon: '🛒', color: 'text-fuchsia-400' },
-                          };
-
-                          return (
-                            <div key={i} className={`p-3 rounded-xl border transition-all ${
-                              hasNode
-                                ? 'bg-gradient-to-r from-emerald-500/5 to-emerald-500/0 border-emerald-500/20'
-                                : 'bg-zinc-900/50 border-zinc-800/50 hover:border-zinc-700'
-                            }`}>
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                  hasNode ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]' : 'bg-zinc-600'
-                                }`} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-semibold text-white truncate">{prod.name}</p>
-                                  <p className="text-[10px] text-zinc-500">R$ {prod.price}</p>
-                                </div>
-                                {hasNode ? (
-                                  <button
-                                    onClick={() => setSelectedNodeId(existingNode?.id || null)}
-                                    className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-lg px-2 py-1 font-medium hover:bg-emerald-500/20 transition-all active:scale-95 flex-shrink-0"
-                                  >
-                                    Editar
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                                      const newId = 'node_' + Math.random().toString(36).substr(2, 9);
-                                      newNodes.push({
-                                        id: newId,
-                                        parentId: selectedNodeId,
-                                        keyword: String(i + 1),
-                                        title: prod.name,
-                                        actionType: 'product',
-                                        textContent: '',
-                                        productId: prod.name,
-                                        productPrice: prod.price || '',
-                                        productDescription: prod.description || ''
-                                      });
-                                      updateField('custom_rules_nodes', newNodes);
-                                    }}
-                                    className="text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20 rounded-lg px-2 py-1 font-medium hover:bg-sky-500/20 transition-all active:scale-95 flex-shrink-0"
-                                  >
-                                    + Conectar
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Behavior preview when connected */}
-                              {hasNode && existingNode && (
-                                <div className="mt-2 ml-4 space-y-1 border-l-2 border-emerald-500/20 pl-3">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] text-emerald-400/70">➤</span>
-                                    <span className={`text-[10px] font-medium ${actionLabels[existingNode.actionType]?.color || 'text-zinc-400'}`}>
-                                      {actionLabels[existingNode.actionType]?.icon}{' '}
-                                      {actionLabels[existingNode.actionType]?.label || existingNode.actionType}
-                                    </span>
-                                  </div>
-
-                                  {childrenOfProduct.length > 0 && (
-                                    <div className="space-y-0.5 mt-1">
-                                      <p className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold">DEPOIS DISSO:</p>
-                                      {childrenOfProduct.map((child: any) => (
-                                        <div key={child.id} className="flex items-center gap-1.5">
-                                          <span className="text-[9px] text-zinc-600">↳</span>
-                                          <span className={`text-[9px] ${actionLabels[child.actionType]?.color || 'text-zinc-500'}`}>
-                                            {actionLabels[child.actionType]?.icon} {child.title}: {actionLabels[child.actionType]?.label || child.actionType}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {childrenOfProduct.length === 0 && existingNode.actionType !== 'product' && (
-                                    <p className="text-[9px] text-zinc-600 italic">Sem ação adicional configurada</p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowProductsModal(true)}
-                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl px-3 py-2 text-[11px] font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 border border-zinc-700/50"
-                      >
-                        <Package className="w-3.5 h-3.5" />
-                        <span>Gerenciar Produtos</span>
-                      </button>
-                      {(settings.products || []).length > 0 && (
-                        <button
-                          onClick={() => {
-                            const existing = settings.custom_rules_nodes || [];
-                            const newNodes = [...existing];
-                            let added = 0;
-                            (settings.products || []).forEach((prod: any) => {
-                              const already = existing.some(
-                                (n: any) => n.parentId === selectedNodeId && n.actionType === 'product' && n.productId === prod.name
-                              );
-                              if (!already) {
-                                newNodes.push({
-                                  id: 'node_' + Math.random().toString(36).substr(2, 9),
-                                  parentId: selectedNodeId,
-                                  keyword: String((settings.products || []).indexOf(prod) + 1),
-                                  title: prod.name,
-                                  actionType: 'product',
-                                  textContent: '',
-                                  productId: prod.name,
-                                  productPrice: prod.price || '',
-                                  productDescription: prod.description || ''
-                                });
-                                added++;
-                              }
-                            });
-                            if (added > 0) updateField('custom_rules_nodes', newNodes);
-                          }}
-                          className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/20 rounded-xl px-3 py-2 text-[11px] font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                        >
-                          <span>Gerar Todos</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.actionType === 'product' && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-zinc-300">Vincular a qual Produto?</label>
-                    <select
-                      value={settings.custom_rules_nodes?.find((n:any)=>n.id===selectedNodeId)?.productId || ''}
-                      onChange={(e) => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        const idx = newNodes.findIndex(n=>n.id===selectedNodeId);
-                        if(idx>-1) { newNodes[idx].productId = e.target.value; updateField("custom_rules_nodes", newNodes); }
-                      }}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                    >
-                      <option value="">-- Selecione um produto --</option>
-                      {(settings.products || []).map((p: any, i: number) => (
-                        <option key={i} value={p.name}>{p.name} - R$ {p.price}</option>
-                      ))}
-                    </select>
-                    {!settings.products?.length && (
-                      <p className="text-[10px] text-zinc-500">Nenhum produto cadastrado. Vá em Settings para adicionar produtos.</p>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  onClick={() => {
-                    const newNodes = (settings.custom_rules_nodes || []).filter((n:any)=>n.id!==selectedNodeId && n.parentId!==selectedNodeId);
-                    updateField("custom_rules_nodes", newNodes);
-                    setSelectedNodeId(null);
-                  }}
-                  className="w-full mt-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
+          {/* Templates de Fluxo */}
+          <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/10">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">Templates Prontos</span>
+            <div className="space-y-2">
+              {TEMPLATES.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  onClick={() => handleLoadTemplate(tpl)}
+                  className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-white/10 hover:border-indigo-400 rounded-2xl cursor-pointer transition-all space-y-1 shadow-sm group"
                 >
-                  Excluir Nó
-                </button>
-              </div>
-            )}
-
-            {/* Configuração do Prompt de IA (colapsável) */}
-            {showAIPrompt && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-600/10 to-indigo-500/5 border border-purple-500/10">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileCode className="w-4 h-4 text-purple-400" />
-                    <h4 className="text-xs font-bold text-white">Prompt de IA do Bot</h4>
-                  </div>
-                  <p className="text-[10px] text-zinc-400">
-                    Instruções de personalidade e comportamento que a IA deve seguir.
-                  </p>
+                  <span className="text-xs font-black text-slate-900 dark:text-white block group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                    {tpl.title}
+                  </span>
+                  <p className="text-[11px] text-slate-500 leading-snug font-medium">{tpl.description}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Nome do Atendente</label>
-                  <input
-                    type="text"
-                    value={settings.ai_name || ''}
-                    onChange={(e) => updateField("ai_name", e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                    placeholder="Ex: Atendente Nexus"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-zinc-300">Personalidade</label>
-                  <select
-                    value={settings.ai_personality || 'profissional'}
-                    onChange={(e) => updateField("ai_personality", e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="profissional">Profissional</option>
-                    <option value="casual">Casual e Amigável</option>
-                    <option value="tecnico">Técnico</option>
-                    <option value="persuasivo">Persuasivo / Vendas</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-zinc-300">Prompt do Sistema</label>
-                    <button
-                      onClick={() => setShowAIPrompt(false)}
-                      className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-                    >
-                      Esconder ✕
-                    </button>
-                  </div>
-                  <textarea
-                    value={settings.ai_prompt || ''}
-                    onChange={(e) => updateField("ai_prompt", e.target.value)}
-                    rows={16}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none font-mono leading-relaxed"
-                    placeholder="Digite as instruções do sistema para a IA..."
-                  />
-                </div>
-                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                  <p className="text-[10px] text-amber-400/80 leading-relaxed">
-                    O prompt define como a IA se comporta. Seja específico sobre regras, tom de voz, 
-                    informações do negócio e limites de atuação.
-                  </p>
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         </aside>
 
-        {/* Modal Produtos */}
-        {showProductsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <Package className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-sm text-white">Gerenciar Produtos do Catálogo</h3>
-                </div>
-                <button
-                  onClick={() => setShowProductsModal(false)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="p-4 overflow-y-auto flex-1 bg-zinc-900/50">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {(settings.products || []).map((p: any, idx: number) => (
-                    <div key={idx} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-3 relative group">
-                      <button onClick={() => {
-                        const newP = [...(settings.products || [])];
-                        newP.splice(idx, 1);
-                        updateField('products', newP);
-                      }} className="absolute top-2 right-2 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Excluir Produto">
-                         <X className="w-4 h-4" />
-                      </button>
-                      
-                      <div className="space-y-1 pr-6">
-                        <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Nome do Produto</label>
-                        <input type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none transition-colors font-semibold" value={p.name || ''} onChange={e => {
-                          const newP = [...(settings.products || [])];
-                          newP[idx].name = e.target.value;
-                          updateField('products', newP);
-                        }} placeholder="Ex: 🌐 Site Avulso" />
-                      </div>
-                      
-                      <div className="flex gap-3">
-                        <div className="flex-1 space-y-1">
-                          <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Preço (R$)</label>
-                          <input type="number" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-emerald-400 font-mono focus:border-purple-500 focus:outline-none transition-colors" value={p.price} onChange={e => {
-                            const newP = [...(settings.products || [])];
-                            newP[idx].price = Number(e.target.value);
-                            updateField('products', newP);
-                          }} placeholder="0" />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Mensalidade (R$)</label>
-                          <input type="number" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-purple-400 font-mono focus:border-purple-500 focus:outline-none transition-colors" value={p.monthly || 0} onChange={e => {
-                            const newP = [...(settings.products || [])];
-                            newP[idx].monthly = Number(e.target.value);
-                            updateField('products', newP);
-                          }} placeholder="0" />
-                        </div>
-                      </div>
+        {/* WORKFLOW CANVAS CENTRAL */}
+        <main className="flex-1 h-full bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
+          {isLoaded && (
+            <WorkflowCanvas
+              settings={settings}
+              updateField={updateField}
+              selectedNodeId={selectedNodeId}
+              setSelectedNodeId={setSelectedNodeId}
+            />
+          )}
+        </main>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Descrição P/ Cliente</label>
-                        <textarea className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 h-20 resize-none focus:border-purple-500 focus:outline-none transition-colors leading-relaxed" value={p.description || ''} onChange={e => {
-                          const newP = [...(settings.products || [])];
-                          newP[idx].description = e.target.value;
-                          updateField('products', newP);
-                        }} placeholder="Explique os benefícios deste produto..." />
-                      </div>
-                    </div>
-                  ))}
-                  <button onClick={() => {
-                    const newP = [...(settings.products || [])];
-                    newP.push({ name: 'Novo Produto', price: 0, description: '' });
-                    updateField('products', newP);
-                  }} className="bg-zinc-900 border border-dashed border-zinc-700 hover:border-purple-500 hover:bg-purple-500/5 text-zinc-400 hover:text-purple-400 p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all min-h-[250px] group">
-                    <div className="p-3 bg-zinc-800 rounded-full group-hover:bg-purple-500/20 transition-colors">
-                      <Plus className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs font-bold">Adicionar Produto</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+        {/* PAINEL LATERAL DIREITO: PROPRIEDADES DO NÓ / PROMPT IA */}
+        <aside className="w-80 border-l border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 p-5 space-y-6 overflow-y-auto">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-white/10">
+            {showAIPrompt ? <FileCode className="w-5 h-5 text-purple-600" /> : <Settings className="w-5 h-5 text-indigo-600" />}
+            <h3 className="text-sm font-black text-slate-900 dark:text-white">
+              {showAIPrompt ? "Prompt da IA" : "Propriedades do Nó"}
+            </h3>
           </div>
-        )}
 
-        {/* Modal JSON */}
-        {showJsonModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <FileCode className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-sm text-white">Importar / Exportar JSON</h3>
-                </div>
-                <button
-                  onClick={() => setShowJsonModal(false)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+          {selectedNodeId === "start" && !showAIPrompt && (
+            <div className="space-y-4">
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl space-y-1">
+                <h4 className="text-xs font-black text-indigo-900 dark:text-indigo-300">Boas-vindas</h4>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Primeira mensagem enviada quando o cliente inicia conversa</p>
               </div>
-              <div className="p-4">
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Mensagem de Boas-vindas</label>
                 <textarea
-                  value={jsonText}
-                  onChange={(e) => setJsonText(e.target.value)}
-                  rows={20}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500 resize-none font-mono leading-relaxed"
-                  spellCheck={false}
+                  value={settings.welcome_message || ""}
+                  onChange={(e) => updateField("welcome_message", e.target.value)}
+                  rows={6}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
-              <div className="flex items-center justify-end gap-2 p-4 border-t border-zinc-800">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(jsonText);
-                    setAlert({ type: "success", msg: "JSON copiado para a área de transferência!" });
-                  }}
-                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl px-4 py-2 text-xs font-semibold transition-all active:scale-95"
-                >
-                  Copiar
-                </button>
-                <button
-                  onClick={handleImportJson}
-                  className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
-                >
-                  Importar JSON
-                </button>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="hide_auto_catalog"
+                  checked={settings.hide_auto_catalog || false}
+                  onChange={(e) => updateField("hide_auto_catalog", e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="hide_auto_catalog" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                  Ocultar catálogo automático de produtos
+                </label>
               </div>
             </div>
+          )}
+
+          {selectedNodeId && selectedNodeId !== "start" && !showAIPrompt && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Dígito / Palavra-chave</label>
+                <input
+                  type="text"
+                  value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.keyword || ""}
+                  onChange={(e) => {
+                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                    const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
+                    if (idx > -1) {
+                      newNodes[idx].keyword = e.target.value;
+                      updateField("custom_rules_nodes", newNodes);
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Título da Opção</label>
+                <input
+                  type="text"
+                  value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.title || ""}
+                  onChange={(e) => {
+                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                    const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
+                    if (idx > -1) {
+                      newNodes[idx].title = e.target.value;
+                      updateField("custom_rules_nodes", newNodes);
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Ação / Tipo de Resposta</label>
+                <select
+                  value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.actionType || "text"}
+                  onChange={(e) => {
+                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                    const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
+                    if (idx > -1) {
+                      newNodes[idx].actionType = e.target.value;
+                      updateField("custom_rules_nodes", newNodes);
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="text">💬 Texto / Submenu</option>
+                  <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                  <option value="product">📦 Mostrar Produto Individual</option>
+                  <option value="scheduling">📅 Iniciar Agendamento</option>
+                  <option value="human">👤 Transferir para Humano</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {showAIPrompt && (
+            <div className="space-y-4">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Instruções de Personalidade da IA</label>
+              <textarea
+                value={settings.ai_prompt || ""}
+                onChange={(e) => updateField("ai_prompt", e.target.value)}
+                rows={12}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-purple-500 resize-none"
+              />
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {/* MODAL JSON */}
+      {showJsonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Importar / Exportar JSON</h3>
+              <button type="button" onClick={() => setShowJsonModal(false)} className="p-1 text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <textarea
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
+              rows={10}
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={handleImportJson}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold"
+              >
+                Importar JSON
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }

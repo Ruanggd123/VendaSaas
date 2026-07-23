@@ -1,38 +1,81 @@
 "use client";
 
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import {
+  ShieldCheck,
+  Users,
+  Building2,
+  Phone,
+  Search,
+  Plus,
+  UserCheck,
+  Calendar,
+  Sparkles,
+  Award,
+  Layers,
+  X,
+  Lock,
+  Eye,
+  EyeOff,
+  Clock,
+  AlertCircle,
+  TrendingUp,
+  DollarSign,
+  Briefcase,
+} from "lucide-react";
 
-// Tipos para os dados
-type Tenant = {
+type UserItem = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+  tenant?: { id: string; name: string } | null;
+};
+
+type PartnerItem = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  pix_key?: string;
+  created_at: string;
+  _count?: { leads: number; dev_services: number; withdrawals: number };
+};
+
+type TenantItem = {
   id: string;
   name: string;
   phone: string;
   plan: string;
   subscription_expires_at?: string;
-  users?: Array<{ email?: string }>;
+  users?: UserItem[];
+  partners?: PartnerItem[];
   whatsapp_instances?: Array<{
     id: string;
     connectionName: string;
     name: string;
     status: string;
   }>;
-};
-
-type MessageLog = {
-  number: string;
-  timestamp: string;
+  _count?: { users: number; leads: number; whatsapp_instances: number; sales: number };
 };
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const [tenants, setTenants] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<TenantItem[]>([]);
+  const [allUsers, setAllUsers] = useState<UserItem[]>([]);
+  const [allPartners, setAllPartners] = useState<PartnerItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Form state
+  const [activeTab, setActiveTab] = useState<"tenants" | "users" | "partners" | "create">("tenants");
+  const [selectedTenantModal, setSelectedTenantModal] = useState<TenantItem | null>(null);
+
+  // Search filters
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [partnerSearch, setPartnerSearch] = useState("");
+
+  // Create form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -41,165 +84,33 @@ export default function SuperAdminPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [blacklistNumber, setBlacklistNumber] = useState("");
-  const [isBlocking, setIsBlocking] = useState(false);
-  const [messageLogs, setMessageLogs] = useState<any[]>([]);
-  const [cooldownActive, setCooldownActive] = useState(false);
-  const [cooldownEnd, setCooldownEnd] = useState<Date | null>(null);
 
-  // Verifica cooldown periodicamente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (cooldownEnd && new Date() > cooldownEnd) {
-        setCooldownActive(false);
-        setCooldownEnd(null);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [cooldownEnd]);
-
-  const fetchMessageLogs = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/message-logs");
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Resposta não é JSON");
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Dados de logs inválidos");
-      }
-
-      // Validar cada item do log
-      const validatedLogs = data.filter((log: any): log is MessageLog => {
-        return typeof log.number === 'string' && 
-               typeof log.timestamp === 'string';
-      });
-
-      setMessageLogs(validatedLogs);
-    } catch (e) {
-      console.error("Erro ao buscar logs:", e);
-      setMessageLogs([]);
-      setError("Falha ao carregar logs de mensagens");
-    }
-  }, []);
-
-  const fetchTenants = useCallback(async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch("/api/admin/tenants");
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tenants) setTenants(data.tenants);
+        if (data.allUsers) setAllUsers(data.allUsers);
+        if (data.allPartners) setAllPartners(data.allPartners);
       }
-      
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Resposta não é JSON");
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        throw new Error("Dados de tenants inválidos");
-      }
-
-      // Validar cada tenant
-      const validatedTenants = data.filter((tenant: any): tenant is Tenant => {
-        return typeof tenant.id === 'string' &&
-               typeof tenant.name === 'string' &&
-               typeof tenant.phone === 'string' &&
-               typeof tenant.plan === 'string';
-      });
-
-      setTenants(validatedTenants);
     } catch (e) {
-      console.error("Erro ao buscar tenants:", e);
-      setTenants([]);
-      setError("Falha ao carregar clientes");
+      console.error(e);
+      setError("Erro ao carregar dados do Super Admin.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    const abortController = new AbortController();
-
-    const initialize = async () => {
-      try {
-        if (!mounted) return;
-        
-        const [tenantsResult, logsResult] = await Promise.allSettled([
-          fetchTenants(),
-          fetchMessageLogs()
-        ]);
-
-        if (tenantsResult.status === 'rejected') {
-          console.error('Erro ao carregar tenants:', tenantsResult.reason);
-        }
-
-        if (logsResult.status === 'rejected') {
-          console.error('Erro ao carregar logs:', logsResult.reason);
-        }
-
-        handleUserActivity();
-
-        // Verificar e adicionar número problemático se necessário
-        const problemNumber = "558881681751";
-        try {
-          const checkRes = await fetch(`/api/admin/blacklist/check?number=${problemNumber}`, {
-            signal: abortController.signal
-          });
-          
-          if (!checkRes.ok) throw new Error(`HTTP error! status: ${checkRes.status}`);
-          
-          const data = await checkRes.json();
-          if (data?.isBlocked) {
-            if (mounted) setSuccess(`Número ${problemNumber} já está na lista negra`);
-            return;
-          }
-          
-          const blockRes = await fetch("/api/admin/blacklist", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ number: problemNumber }),
-            signal: abortController.signal
-          });
-
-          if (!blockRes.ok) throw new Error(`HTTP error! status: ${blockRes.status}`);
-          if (mounted) setSuccess(`Número ${problemNumber} foi adicionado à lista negra`);
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            console.error("Erro na lista negra:", err);
-          }
-        }
-      } catch (error) {
-        if (mounted && error.name !== 'AbortError') {
-          console.error("Erro na inicialização:", error);
-          setError("Falha ao carregar dados iniciais");
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    initialize();
-
-    return () => {
-      mounted = false;
-      abortController.abort();
-    };
-  }, [fetchTenants, fetchMessageLogs]);
+    fetchData();
+  }, [fetchData]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !phone || !password) {
-      setError("Preencha todos os campos obrigatórios");
+      setError("Preencha todos os campos obrigatórios.");
       return;
     }
 
@@ -211,35 +122,27 @@ export default function SuperAdminPage() {
       const res = await fetch("/api/admin/tenants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
-          phone: phone.replace(/\D/g, ''),
+          phone: phone.replace(/\D/g, ""),
           password,
-          plan 
+          plan,
         }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Erro ao criar cliente");
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Erro desconhecido ao criar cliente");
-      }
-
-      setSuccess("Cliente cadastrado com sucesso!");
-      setName(""); 
-      setEmail(""); 
-      setPhone(""); 
+      setSuccess("Cliente e empresa cadastrados com sucesso!");
+      setName("");
+      setEmail("");
+      setPhone("");
       setPassword("");
-      
-      // Atualiza a lista com cuidado
-      try {
-        await fetchTenants();
-      } catch (fetchError) {
-        console.error("Erro ao atualizar lista:", fetchError);
-      }
+      fetchData();
+      setActiveTab("tenants");
     } catch (err: any) {
-      setError(err.message || "Falha ao criar cliente");
+      setError(err.message || "Falha ao criar cliente.");
     } finally {
       setIsCreating(false);
     }
@@ -252,11 +155,8 @@ export default function SuperAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan: newPlan }),
       });
-      if (res.ok) fetchTenants();
-      else alert("Erro ao atualizar plano");
-    } catch (e) {
-      console.error(e);
-    }
+      if (res.ok) fetchData();
+    } catch (e) {}
   };
 
   const handleAddDays = async (id: string, days: number) => {
@@ -267,430 +167,499 @@ export default function SuperAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addDays: days }),
       });
-      if (res.ok) fetchTenants();
-      else alert("Erro ao adicionar dias");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const [lastUserActivity, setLastUserActivity] = useState<Date | null>(null);
-
-  // Verifica atividade do usuário a cada minuto
-  useEffect(() => {
-    const activityCheck = setInterval(() => {
-      if (lastUserActivity && new Date().getTime() - lastUserActivity.getTime() > 5 * 60 * 1000) {
-        setError('Sistema inativo - mensagens automáticas desativadas');
-      }
-    }, 60000);
-    return () => clearInterval(activityCheck);
-  }, [lastUserActivity]);
-
-  const handleUserActivity = () => {
-    setLastUserActivity(new Date());
-  };
-
-  const activateCooldown = (minutes: number) => {
-    setCooldownActive(true);
-    const endTime = new Date();
-    endTime.setMinutes(endTime.getMinutes() + minutes);
-    setCooldownEnd(endTime);
-  };
-
-  const handleBlockNumber = async () => {
-    handleUserActivity();
-    
-    if (cooldownActive) {
-      setError('Sistema em cooldown - operação não permitida');
-      return;
-    }
-    if (!blacklistNumber) return;
-    
-    const formattedNumber = blacklistNumber.replace(/\D/g, '');
-    
-    if (!/^55\d{10,11}$/.test(formattedNumber)) {
-      setError("Número inválido. Deve conter DDI 55 + DDD + número (ex: 558881681751)");
-      return;
-    }
-
-    if (!confirm(`Bloquear o número ${formattedNumber}? Isso impedirá qualquer comunicação.`)) {
-      return;
-    }
-
-    setIsBlocking(true);
-    try {
-      const res = await fetch("/api/admin/blacklist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: formattedNumber }),
-      });
-      if (!res.ok) throw new Error("Falha ao bloquear número");
-      setSuccess(`Número ${blacklistNumber} adicionado à lista negra`);
-      setBlacklistNumber("");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsBlocking(false);
-    }
+      if (res.ok) fetchData();
+    } catch (e) {}
   };
 
   const handleSuspend = async (id: string) => {
-    if (!confirm("Tem certeza que deseja suspender o acesso desta empresa imediatamente?")) return;
+    if (!confirm("Tem certeza que deseja suspender o acesso desta empresa?")) return;
     try {
       const res = await fetch(`/api/admin/tenants/${id}`, { method: "DELETE" });
-      if (res.ok) fetchTenants();
-      else alert("Erro ao suspender cliente");
-    } catch (e) {
-      console.error(e);
-    }
+      if (res.ok) fetchData();
+    } catch (e) {}
   };
 
+  // Filtered lists
+  const filteredTenants = tenants.filter((t) => {
+    const term = tenantSearch.toLowerCase();
+    return t.name.toLowerCase().includes(term) || t.phone.includes(term);
+  });
+
+  const filteredUsers = allUsers.filter((u) => {
+    const term = userSearch.toLowerCase();
+    return u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term) || (u.tenant?.name || "").toLowerCase().includes(term);
+  });
+
+  const filteredPartners = allPartners.filter((p) => {
+    const term = partnerSearch.toLowerCase();
+    return p.name.toLowerCase().includes(term) || p.email.toLowerCase().includes(term);
+  });
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#09090b] dark:to-[#111113] p-8 text-slate-900 dark:text-white -m-8">
-      <div className="mx-auto max-w-7xl">
-          <header className="mb-12 flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-400 dark:to-purple-500">
-                Super Admin
-              </h1>
-              <p className="text-zinc-500 dark:text-zinc-400 mt-2">
-                Painel de controle para gerenciamento de clientes e assinaturas
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
-                SA
-              </div>
-            </div>
-          </header>
-
-        <div className="grid gap-8 lg:grid-cols-3">
-          
-          {/* Formulário de Cadastro Seguro */}
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-lg hover:shadow-xl transition-shadow backdrop-blur-md lg:col-span-1 h-fit">
-            <div className="flex items-center mb-6">
-              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 mr-3">
-                <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold">Novo Cliente</h2>
-            </div>
-            <form onSubmit={handleCreate} className="space-y-4">
-              {error && <div className="rounded border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
-              {success && <div className="rounded border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-400">{success}</div>}
-              
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">Nome da Empresa</label>
-                <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">E-mail do Admin</label>
-                <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">Telefone / WhatsApp</label>
-                <input required type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">Senha Inicial Segura</label>
-                <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">Plano Contratado</label>
-                <select value={plan} onChange={e => setPlan(e.target.value)} className="w-full rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none">
-                  <option value="solo">Plano Solo (1 Instância)</option>
-                  <option value="pro">Plano Pro (3 Instâncias)</option>
-                  <option value="enterprise">Plano Enterprise (Ilimitado)</option>
-                </select>
-              </div>
-
-              <button disabled={isCreating} className="w-full rounded-lg bg-indigo-600 p-3 text-sm font-medium hover:bg-indigo-500 transition-colors">
-                {isCreating ? "Criando e Criptografando..." : "Gerar Acesso"}
-              </button>
-
-              {/* Super Admin Controls */}
-              <div 
-                className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800 space-y-4"
-                onClick={handleUserActivity}
-                onKeyDown={handleUserActivity}
-              >
-                <div className="p-3 bg-zinc-800 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-medium">Monitor de Mensagens</h3>
-                    {cooldownActive && (
-                      <span className="text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded">
-                        COOLDOWN ATIVO ({Math.ceil(((cooldownEnd?.getTime() || 0) - Date.now()) / 60000)}min)
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs space-y-2 max-h-40 overflow-y-auto">
-                    {messageLogs.slice(0, 5).map((log, i) => (
-                      <div key={i} className="flex justify-between">
-                        <span>{log.number}</span>
-                        <span className="text-zinc-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                    ))}
-                    {messageLogs.length > 5 && (
-                      <button 
-                        onClick={fetchMessageLogs}
-                        className="text-xs text-indigo-400 hover:text-indigo-300"
-                      >
-                        Ver todos ({messageLogs.length})
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => activateCooldown(30)}
-                    disabled={cooldownActive}
-                    className={`rounded-lg p-2 text-sm font-medium transition-colors ${
-                      cooldownActive 
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                        : 'bg-red-600 hover:bg-red-500 text-white'
-                    }`}
-                  >
-                    {cooldownActive ? 'Cooldown Ativo' : 'Ativar Cooldown (30min)'}
-                  </button>
-                  <label className="mb-1 block text-xs text-zinc-400">Adicionar à Lista Negra</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={blacklistNumber}
-                      onChange={(e) => setBlacklistNumber(e.target.value)}
-                      placeholder="Número com DDD (ex: 558881681751)"
-                      className="flex-1 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-2.5 text-sm focus:border-indigo-500 focus:outline-none"
-                    />
-                    <button
-                      onClick={handleBlockNumber}
-                      disabled={isBlocking || !blacklistNumber}
-                      className="rounded-lg bg-red-600 hover:bg-red-500 px-4 text-sm font-medium transition-colors disabled:opacity-50"
-                    >
-                      {isBlocking ? "Bloqueando..." : "Bloquear"}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <button 
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="text-xs text-zinc-400 hover:text-indigo-400 transition-colors"
-                  >
-                    {showApiKey ? 'Esconder' : 'Mostrar'} Chave API
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setShowAIAssistant(!showAIAssistant)}
-                    className="text-xs text-zinc-400 hover:text-indigo-400 transition-colors"
-                  >
-                    {showAIAssistant ? 'Esconder' : 'Mostrar'} Assistente IA
-                  </button>
-                </div>
-
-                {showApiKey && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-zinc-500">Chave API (Super Admin)</span>
-                      <button 
-                        onClick={() => navigator.clipboard.writeText(process.env.SUPERADMIN_API_KEY || '')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300"
-                      >
-                        Copiar
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="password"
-                        readOnly
-                        value={process.env.SUPERADMIN_API_KEY || ''}
-                        className="w-full p-2 bg-zinc-800 rounded text-xs break-all font-mono"
-                      />
-                      <button
-                        onClick={() => {
-                          const input = document.querySelector('input[type="password"]') as HTMLInputElement;
-                          input.type = input.type === 'password' ? 'text' : 'password';
-                        }}
-                        className="absolute right-2 top-2 text-xs text-zinc-400 hover:text-white"
-                      >
-                        👁️
-                      </button>
-                    </div>
-                    <div className="mt-1 text-[10px] text-red-400">
-                      Atenção: Esta chave fornece acesso total ao sistema
-                    </div>
-                  </div>
-                )}
-              </div>
-            </form>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 text-slate-900 dark:text-white">
+      {/* Top Banner Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900/90 p-6 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xl dark:shadow-2xl">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-full text-indigo-700 dark:text-indigo-300 text-xs font-mono font-bold uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Painel Master Super Admin
           </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+            Gestão Global da Plataforma
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+            Gerencie todas as empresas contratantes, usuários das equipes, afiliados e conexões de WhatsApp.
+          </p>
+        </div>
 
-          {/* AI Flow Assistant Panel */}
-          {showAIAssistant && (
-            <div className="absolute top-0 right-0 w-96 h-full bg-zinc-900 border-l border-zinc-800 flex flex-col">
-              <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Assistente de Fluxo IA</h3>
-                <button 
-                  onClick={() => setShowAIAssistant(false)}
-                  className="text-zinc-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Configurações Rápidas</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-zinc-400 block mb-1">Nível de Acesso</label>
-                      <select className="w-full bg-zinc-700 rounded p-2 text-sm">
-                        <option>Básico (somente leitura)</option>
-                        <option>Intermediário (ações limitadas)</option>
-                        <option>Super Admin (acesso total)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400 block mb-1">Modo de Operação</label>
-                      <select className="w-full bg-zinc-700 rounded p-2 text-sm">
-                        <option>Automatizado</option>
-                        <option>Assistido</option>
-                        <option>Manual</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-zinc-800 rounded-lg p-4">
-                  <h4 className="font-medium mb-2">Histórico de Ações</h4>
-                  <div className="text-xs text-zinc-400 space-y-2">
-                    <div className="flex justify-between">
-                      <span>Atualização de plano</span>
-                      <span className="text-zinc-500">12/07 14:30</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Criação de cliente</span>
-                      <span className="text-zinc-500">12/07 10:15</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 border-t border-zinc-800">
-                <button className="w-full bg-indigo-600 hover:bg-indigo-500 rounded p-2 text-sm">
-                  Salvar Configurações
-                </button>
-              </div>
-            </div>
-          )}
+        <button
+          onClick={() => setActiveTab("create")}
+          className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-indigo-600/25 active:scale-95 flex items-center gap-2 shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Novo Cliente
+        </button>
+      </div>
 
-          {/* Lista de Clientes */}
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-6 shadow-lg hover:shadow-xl transition-shadow backdrop-blur-md lg:col-span-2">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 mr-3">
-                  <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <h2 className="text-xl font-semibold">Clientes Ativos</h2>
-              </div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                Total: {tenants.length} {tenants.length === 1 ? 'cliente' : 'clientes'}
-              </div>
-            </div>
-            {loading ? (
-              <div className="animate-pulse text-zinc-500">Carregando carteira de clientes...</div>
-            ) : tenants.length === 0 ? (
-              <div className="text-zinc-500">Nenhum cliente cadastrado ainda.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-zinc-600 dark:text-zinc-400">
-                  <thead className="border-b border-zinc-200 dark:border-zinc-800 text-xs uppercase text-zinc-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/50">
-                    <tr>
-                      <th className="py-3 pr-4">Empresa</th>
-                      <th className="py-3 px-4">Plano</th>
-                      <th className="py-3 px-4">Admin Principal</th>
-                      <th className="py-3 px-4">Validade</th>
-                      <th className="py-3 pl-4">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tenants.map(tenant => (
-                      <tr key={tenant.id} className="border-b border-slate-200 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors align-top">
-                        <td className="py-4 pr-4">
-                          <div className="font-medium text-white">{tenant.name}</div>
-                          <div className="text-xs text-zinc-500 mt-1">{tenant.phone}</div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <select 
-                            className={`rounded-lg px-2 py-1 text-[10px] uppercase tracking-wider focus:outline-none appearance-none cursor-pointer ${tenant.plan === 'enterprise' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : tenant.plan === 'pro' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/30'}`}
-                            value={tenant.plan}
-                            onChange={(e) => handleUpdatePlan(tenant.id, e.target.value)}
-                          >
-                            <option className="bg-zinc-900 text-white" value="solo">SOLO</option>
-                            <option className="bg-zinc-900 text-white" value="pro">PRO</option>
-                            <option className="bg-zinc-900 text-white" value="enterprise">ENTERPRISE</option>
-                          </select>
-                        </td>
-                        <td className="py-4 px-4 text-xs">
-                          {tenant.users?.[0]?.email || 'N/A'}
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className={`text-xs mb-2 ${tenant.subscription_expires_at && new Date(tenant.subscription_expires_at) < new Date() ? 'text-red-400 font-bold' : 'text-emerald-400'}`}>
-                            Validade: {tenant.subscription_expires_at ? new Date(tenant.subscription_expires_at).toLocaleDateString('pt-BR') : 'N/A'}
-                          </div>
-                          
-                          {/* Listagem de Instâncias (Celulares virtuais do cliente) */}
-                          <div className="mt-2 space-y-2">
-                            <div className="text-[10px] uppercase tracking-wide text-zinc-500 font-semibold mb-1">
-                              Aparelhos WhatsApp ({tenant.whatsapp_instances?.length || 0})
-                            </div>
-                            {tenant.whatsapp_instances?.length === 0 ? (
-                              <div className="text-xs text-zinc-600 italic">Nenhum aparelho conectado</div>
-                            ) : (
-                              tenant.whatsapp_instances?.map((inst: any) => (
-                                <div key={inst.id} className="flex items-center justify-between bg-slate-50 dark:bg-zinc-900/80 p-2 rounded border border-slate-200 dark:border-zinc-800">
-                                  <div>
-                                    <div className="text-xs font-medium text-zinc-200">{inst.connectionName}</div>
-                                    <div className="text-[10px] text-zinc-500">{inst.name}</div>
-                                  </div>
-                                  <div>
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                                      inst.status === 'open' || inst.status === 'connected' 
-                                        ? 'bg-emerald-500/20 text-emerald-400' 
-                                        : 'bg-amber-500/20 text-amber-400'
-                                    }`}>
-                                      {inst.status}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 pl-4 space-y-2">
-                          <button 
-                            onClick={() => handleAddDays(tenant.id, 30)}
-                            className="block w-full text-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                          >
-                            +30 Dias
-                          </button>
-                          <button 
-                            onClick={() => handleSuspend(tenant.id)}
-                            className="block w-full text-center rounded border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-400 hover:bg-red-500/20 transition-colors"
-                          >
-                            Suspender
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {/* Cards de Métricas Globais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-md flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+            <Building2 className="w-6 h-6" />
           </div>
+          <div>
+            <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{tenants.length}</span>
+            <span className="text-xs font-bold text-slate-500 block">Empresas (Tenants)</span>
+          </div>
+        </div>
 
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-md flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{allUsers.length}</span>
+            <span className="text-xs font-bold text-slate-500 block">Usuários de Equipes</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-md flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+            <Award className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">{allPartners.length}</span>
+            <span className="text-xs font-bold text-slate-500 block">Afiliados &amp; Parceiros</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900/90 p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-md flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <Phone className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
+              {tenants.reduce((acc, t) => acc + (t.whatsapp_instances?.length || 0), 0)}
+            </span>
+            <span className="text-xs font-bold text-slate-500 block">Instâncias WhatsApp</span>
+          </div>
         </div>
       </div>
+
+      {/* Navegação por Abas */}
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-slate-950/80 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm">
+        <button
+          onClick={() => setActiveTab("tenants")}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+            activeTab === "tenants"
+              ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md"
+              : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Building2 className="w-4 h-4 text-indigo-500" />
+          <span>Empresas &amp; Instâncias ({tenants.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+            activeTab === "users"
+              ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-md"
+              : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Users className="w-4 h-4 text-purple-500" />
+          <span>Todos os Usuários ({allUsers.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("partners")}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+            activeTab === "partners"
+              ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-md"
+              : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Award className="w-4 h-4 text-amber-500" />
+          <span>Afiliados &amp; Indicações ({allPartners.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("create")}
+          className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-2 ${
+            activeTab === "create"
+              ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-md"
+              : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Plus className="w-4 h-4 text-emerald-500" />
+          <span>Cadastrar Empresa</span>
+        </button>
+      </div>
+
+      {/* Conteúdo das Abas */}
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="w-8 h-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+        </div>
+      ) : activeTab === "tenants" ? (
+        /* ── ABA 1: EMPRESAS & INSTÂNCIAS ── */
+        <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200/90 dark:border-white/10 p-6 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-white/10">
+            <h3 className="text-base font-black text-slate-900 dark:text-white">Empresas Cadastradas</h3>
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar empresa ou número..."
+                value={tenantSearch}
+                onChange={(e) => setTenantSearch(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-200 dark:border-white/10 text-slate-400 uppercase font-mono font-bold">
+                <tr>
+                  <th className="py-3 px-4">Empresa</th>
+                  <th className="py-3 px-4">Plano</th>
+                  <th className="py-3 px-4">Dono / Admin</th>
+                  <th className="py-3 px-4">Equipe &amp; Aparelhos</th>
+                  <th className="py-3 px-4">Validade</th>
+                  <th className="py-3 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {filteredTenants.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">
+                      <div>{t.name}</div>
+                      <span className="text-[10px] font-mono text-slate-400 font-semibold">{t.phone}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <select
+                        value={t.plan}
+                        onChange={(e) => handleUpdatePlan(t.id, e.target.value)}
+                        className="bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-xs font-bold rounded-xl px-2.5 py-1 text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer"
+                      >
+                        <option value="solo">SOLO</option>
+                        <option value="pro">PRO</option>
+                        <option value="enterprise">ENTERPRISE</option>
+                      </select>
+                    </td>
+                    <td className="py-4 px-4 font-medium text-slate-700 dark:text-slate-300">
+                      {t.users?.[0]?.email || "Sem admin registrado"}
+                    </td>
+                    <td className="py-4 px-4 space-y-1">
+                      <button
+                        onClick={() => setSelectedTenantModal(t)}
+                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[11px] font-bold border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1.5"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Ver Equipe ({t.users?.length || 0})
+                      </button>
+                      <span className="text-[10px] text-slate-400 font-mono block">
+                        WhatsApp: {t.whatsapp_instances?.length || 0} aparelhos
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 font-mono font-bold">
+                      {t.subscription_expires_at ? (
+                        <span className={new Date(t.subscription_expires_at) < new Date() ? "text-rose-500" : "text-emerald-600"}>
+                          {new Date(t.subscription_expires_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      ) : (
+                        "Ilimitado"
+                      )}
+                    </td>
+                    <td className="py-4 px-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleAddDays(t.id, 30)}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-xl font-bold"
+                      >
+                        +30 Dias
+                      </button>
+                      <button
+                        onClick={() => handleSuspend(t.id)}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl font-bold"
+                      >
+                        Suspender
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "users" ? (
+        /* ── ABA 2: TODOS OS USUÁRIOS & EQUIPES ── */
+        <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200/90 dark:border-white/10 p-6 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-white/10">
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Usuários &amp; Integrantes de Equipe</h3>
+              <p className="text-xs text-slate-500 font-medium">Listagem unificada de todos os membros cadastrados na plataforma</p>
+            </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, email ou empresa..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-200 dark:border-white/10 text-slate-400 uppercase font-mono font-bold">
+                <tr>
+                  <th className="py-3 px-4">Nome do Usuário</th>
+                  <th className="py-3 px-4">E-mail de Acesso</th>
+                  <th className="py-3 px-4">Empresa / Cliente</th>
+                  <th className="py-3 px-4">Função (Role)</th>
+                  <th className="py-3 px-4 text-right">Data de Cadastro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">{u.name}</td>
+                    <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-300">{u.email}</td>
+                    <td className="py-3.5 px-4 font-bold text-indigo-600 dark:text-indigo-400">
+                      {u.tenant?.name || "Global / Plataforma"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-black uppercase border ${
+                        u.role === "superadmin"
+                          ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300"
+                          : u.role === "admin"
+                          ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300"
+                          : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-slate-300"
+                      }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-400 text-right">
+                      {new Date(u.created_at).toLocaleDateString("pt-BR")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "partners" ? (
+        /* ── ABA 3: AFILIADOS & INDICAÇÕES ── */
+        <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200/90 dark:border-white/10 p-6 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-white/10">
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Afiliados &amp; Desenvolvedores Parceiros</h3>
+              <p className="text-xs text-slate-500 font-medium">Relatório de parceiros registrados e volume de indicações</p>
+            </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar parceiro..."
+                value={partnerSearch}
+                onChange={(e) => setPartnerSearch(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-200 dark:border-white/10 text-slate-400 uppercase font-mono font-bold">
+                <tr>
+                  <th className="py-3 px-4">Nome do Parceiro</th>
+                  <th className="py-3 px-4">E-mail</th>
+                  <th className="py-3 px-4">Chave PIX</th>
+                  <th className="py-3 px-4">Leads Indicados</th>
+                  <th className="py-3 px-4 text-right">Data de Cadastro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {filteredPartners.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">{p.name}</td>
+                    <td className="py-3.5 px-4 font-medium text-slate-600 dark:text-slate-300">{p.email}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-500">{p.pix_key || "Não cadastrada"}</td>
+                    <td className="py-3.5 px-4 font-bold text-amber-600 dark:text-amber-400 font-mono">
+                      {p._count?.leads || 0} indicações
+                    </td>
+                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-400 text-right">
+                      {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* ── ABA 4: CADASTRAR NOVA EMPRESA ── */
+        <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200/90 dark:border-white/10 p-8 shadow-xl max-w-xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-white/10">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold">
+              <Plus className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Cadastrar Novo Cliente</h3>
+              <p className="text-xs text-slate-500 font-medium">Gere acesso e empresa para um novo contratante</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            {error && <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-xs font-bold">{error}</div>}
+            {success && <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-2xl text-xs font-bold">{success}</div>}
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">Nome da Empresa / Marca</label>
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+                placeholder="Ex: Barbearia Silva"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">E-mail do Administrador</label>
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+                placeholder="admin@empresa.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">Telefone / WhatsApp</label>
+              <input
+                required
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+                placeholder="5588981885499"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">Senha Inicial de Acesso</label>
+              <input
+                required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-indigo-500"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">Plano Contratado</label>
+              <select
+                value={plan}
+                onChange={(e) => setPlan(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="solo">Plano Solo (1 Aparelho)</option>
+                <option value="pro">Plano Pro (3 Aparelhos)</option>
+                <option value="enterprise">Plano Enterprise (Ilimitado)</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-all disabled:opacity-50"
+            >
+              {isCreating ? "Cadastrando..." : "Cadastrar Cliente e Liberar Acesso"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── MODAL: VER EQUIPE DO CLIENTE SELECIONADO ── */}
+      {selectedTenantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-7 shadow-2xl backdrop-blur-2xl text-slate-900 dark:text-white space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/10">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Equipe de {selectedTenantModal.name}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">Membros e agentes com acesso a esta empresa</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTenantModal(null)}
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {(selectedTenantModal.users || []).length === 0 ? (
+                <p className="text-xs text-slate-500 font-medium py-4 text-center">Nenhum membro cadastrado nesta empresa.</p>
+              ) : (
+                (selectedTenantModal.users || []).map((u) => (
+                  <div
+                    key={u.id}
+                    className="p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200/80 dark:border-white/5 text-xs flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <span className="font-black text-slate-900 dark:text-white block">{u.name}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">{u.email}</span>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-md text-[9px] font-mono font-black uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20">
+                      {u.role}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedTenantModal(null)}
+                className="w-full py-3 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 rounded-2xl text-xs font-bold hover:bg-slate-200"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

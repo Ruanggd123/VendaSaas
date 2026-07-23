@@ -804,7 +804,10 @@ export async function processMessageWithRules(
 }
 
 function getMainMenuMessage(settings: any): string {
-  let msg = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 🤖👋\n\n";
+  let rawWelcome = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋";
+  // Remove caracteres mojibake/corrompidos se houver
+  let welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
+  let msg = welcome + "\n\n";
   
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
   if (rootNodes.length > 0) {
