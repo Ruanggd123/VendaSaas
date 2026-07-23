@@ -25,6 +25,7 @@ import {
   Sunset,
   Moon,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -169,12 +170,15 @@ export default function OnePageBarberLandingPageDemo() {
             <span className="text-white font-extrabold">Modelo de Site de Página Única (One-Page)</span>
             <span className="hidden sm:inline text-stone-400 font-normal">| Exemplo: Barbearia &amp; Salão de Serviços</span>
           </div>
-          <Link
-            href="/"
-            className="px-3.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
-          >
-            <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/"
+              className="px-3.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
+            >
+              <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
+            </Link>
+          </div>
         </div>
       </div>
 

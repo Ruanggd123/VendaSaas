@@ -28,6 +28,7 @@ import {
   MessageSquare,
   RefreshCw,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Category = "Todos" | "Eletrônicos" | "Calçados" | "Acessórios" | "Vestuário";
 
@@ -334,12 +335,15 @@ export default function EcommerceDemo() {
             <span className="text-white font-black">Modelo de E-Commerce &amp; Loja Virtual</span>
             <span className="hidden sm:inline text-stone-400 font-normal">| Checkout com Pix &amp; Carrinho em Tempo Real</span>
           </div>
-          <Link
-            href="/"
-            className="px-3.5 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
-          >
-            <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Nexus
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/"
+              className="px-3.5 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
+            >
+              <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Nexus
+            </Link>
+          </div>
         </div>
       </div>
 

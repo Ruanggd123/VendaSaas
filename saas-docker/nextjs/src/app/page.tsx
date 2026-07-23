@@ -45,6 +45,7 @@ import {
   Send,
   RefreshCw,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const PHONE = "5588981885499";
 const WHATSAPP_LINK = `https://wa.me/${PHONE}?text=${encodeURIComponent("Olá! Vim pelo site e quero saber mais sobre os sistemas de automação da Nexus.")}`;
@@ -657,9 +658,10 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/login"
-              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold transition-all hover:border-white/20 text-slate-200"
+              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 dark:border-white/10 rounded-xl text-xs font-bold transition-all hover:border-white/20 text-slate-700 dark:text-slate-200"
             >
               Painel do Cliente
             </Link>
@@ -701,6 +703,7 @@ export default function LandingPage() {
               FAQ
             </a>
             <div className="border-t border-white/10 pt-4 space-y-2">
+              <ThemeToggle className="w-full justify-center" />
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}

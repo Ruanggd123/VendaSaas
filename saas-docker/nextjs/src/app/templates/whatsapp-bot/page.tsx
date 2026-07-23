@@ -29,6 +29,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ScenarioKey = "telecom" | "odonto" | "barber" | "ecommerce";
 
@@ -242,12 +243,15 @@ export default function WhatsappBotDemo() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-white font-extrabold">Demonstração de Atendimento WhatsApp (Tema Claro &amp; Responsivo)</span>
           </div>
-          <Link
-            href="/"
-            className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
-          >
-            <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              href="/"
+              className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
+            >
+              <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
+            </Link>
+          </div>
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className = "" }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -13,7 +13,9 @@ export function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10" />;
+    return (
+      <div className={`w-9 h-9 rounded-2xl bg-stone-200/50 dark:bg-stone-800/50 animate-pulse ${className}`} />
+    );
   }
 
   const isDark = theme === "dark";
@@ -21,15 +23,24 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className={`p-2 rounded-xl transition-all duration-300 ${
+      aria-label="Alternar Tema Claro/Escuro"
+      className={`relative p-2.5 rounded-2xl border transition-all duration-300 flex items-center justify-center gap-2 text-xs font-bold ${
         isDark
-          ? "bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400 hover:text-white"
-          : "bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-600 hover:text-slate-900"
-      }`}
-      title={isDark ? "Modo Claro" : "Modo Escuro"}
-      aria-label={isDark ? "Mudar para modo claro" : "Mudar para modo escuro"}
+          ? "bg-stone-900 border-stone-800 text-amber-400 hover:bg-stone-800 hover:border-stone-700 shadow-md"
+          : "bg-white border-stone-200 text-slate-800 hover:bg-stone-100 hover:border-stone-300 shadow-sm"
+      } ${className}`}
     >
-      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      {isDark ? (
+        <>
+          <Sun className="w-4 h-4 text-amber-400 transition-transform hover:rotate-45" />
+          <span className="hidden sm:inline font-mono text-[11px]">Modo Claro</span>
+        </>
+      ) : (
+        <>
+          <Moon className="w-4 h-4 text-indigo-600 transition-transform hover:-rotate-12" />
+          <span className="hidden sm:inline font-mono text-[11px]">Modo Escuro</span>
+        </>
+      )}
     </button>
   );
 }

@@ -21,6 +21,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function LoginForm() {
   const router = useRouter();
@@ -155,6 +156,10 @@ export default function LoginPage() {
       <div className="fixed top-1/4 left-10 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
       <div className="fixed bottom-1/4 right-10 w-96 h-96 bg-purple-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
       <div className="fixed inset-0 bg-grid-pattern opacity-30 pointer-events-none -z-10" />
+
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
 
       <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Side: Visual Showcase (Desktop) */}
