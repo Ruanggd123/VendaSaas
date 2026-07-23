@@ -21,7 +21,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "../../../components/ThemeToggle";
 
 function LoginForm() {
   const router = useRouter();
@@ -73,13 +73,13 @@ function LoginForm() {
             E-mail de Acesso
           </label>
           <div className="relative group">
-            <Mail className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-400 transition-colors" />
+            <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
             <input
               id="email"
               name="email"
               type="email"
               required
-              className="block w-full rounded-2xl border border-white/10 bg-slate-950/80 pl-11 pr-4 py-3.5 text-sm text-white placeholder:text-slate-600 transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium"
+              className="block w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/80 pl-11 pr-4 py-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium"
               placeholder="seu.email@empresa.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -90,24 +90,24 @@ function LoginForm() {
         {/* Input de Senha */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <label htmlFor="password" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               Senha
             </label>
             <Link
               href="/forgot-password"
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-semibold"
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
             >
               Esqueceu a senha?
             </Link>
           </div>
           <div className="relative group">
-            <Lock className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-400 transition-colors" />
+            <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
             <input
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
               required
-              className="block w-full rounded-2xl border border-white/10 bg-slate-950/80 pl-11 pr-12 py-3.5 text-sm text-white placeholder:text-slate-600 transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium"
+              className="block w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/80 pl-11 pr-12 py-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none font-medium"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -115,7 +115,7 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
               tabIndex={-1}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -151,11 +151,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#030712] px-4 py-12 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#030712] text-slate-900 dark:text-white transition-colors duration-300 px-4 py-12 font-sans overflow-hidden selection:bg-indigo-500/30">
       {/* Dynamic Glow Orbs */}
-      <div className="fixed top-1/4 left-10 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
-      <div className="fixed bottom-1/4 right-10 w-96 h-96 bg-purple-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
-      <div className="fixed inset-0 bg-grid-pattern opacity-30 pointer-events-none -z-10" />
+      <div className="fixed top-1/4 left-10 w-96 h-96 bg-indigo-600/10 dark:bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
+      <div className="fixed bottom-1/4 right-10 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
+      <div className="fixed inset-0 bg-grid-pattern opacity-20 dark:opacity-30 pointer-events-none -z-10" />
 
       <div className="absolute top-6 right-6 z-20">
         <ThemeToggle />
@@ -166,20 +166,20 @@ export default function LoginPage() {
         <div className="hidden lg:flex lg:col-span-6 flex-col space-y-8 pr-6">
           <Link href="/" className="inline-flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 p-0.5 shadow-xl shadow-indigo-500/30">
-              <div className="w-full h-full bg-[#030712] rounded-[14px] flex items-center justify-center p-1.5">
+              <div className="w-full h-full bg-white dark:bg-[#030712] rounded-[14px] flex items-center justify-center p-1.5">
                 <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain" />
               </div>
             </div>
             <div>
-              <span className="font-black text-2xl tracking-tight text-white">NEXUS</span>
-              <span className="text-[10px] block text-indigo-400 font-mono tracking-widest uppercase font-bold">
+              <span className="font-black text-2xl tracking-tight text-slate-900 dark:text-white">NEXUS</span>
+              <span className="text-[10px] block text-indigo-600 dark:text-indigo-400 font-mono tracking-widest uppercase font-bold">
                 Plataforma de Vendas &amp; Automação
               </span>
             </div>
           </Link>
 
           <div className="space-y-4">
-            <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight">
               Gerencie suas conversas e faturamento em um só lugar.
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed font-medium">
@@ -237,27 +237,27 @@ export default function LoginPage() {
 
         {/* Right Side: Login Form Box */}
         <div className="lg:col-span-6 w-full max-w-md mx-auto">
-          <div className="glass-panel p-8 sm:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl backdrop-blur-2xl relative overflow-hidden">
+          <div className="bg-white dark:bg-slate-900/90 p-8 sm:p-10 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-xl dark:shadow-2xl backdrop-blur-2xl relative overflow-hidden text-slate-900 dark:text-white">
             {/* Header Mobile Brand */}
             <div className="lg:hidden mb-8 text-center space-y-3">
               <Link href="/" className="inline-flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shadow-lg shadow-indigo-500/30">
-                  <div className="w-full h-full bg-[#030712] rounded-[14px] flex items-center justify-center p-1.5">
+                  <div className="w-full h-full bg-white dark:bg-[#030712] rounded-[14px] flex items-center justify-center p-1.5">
                     <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain" />
                   </div>
                 </div>
               </Link>
               <div>
-                <h2 className="text-2xl font-black tracking-tight text-white">NEXUS SAAS</h2>
-                <p className="mt-1 text-xs text-slate-400 font-medium">
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">NEXUS SAAS</h2>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
                   Plataforma de Atendimento e Vendas
                 </p>
               </div>
             </div>
 
             <div className="hidden lg:block mb-8 space-y-1">
-              <h2 className="text-2xl font-black text-white tracking-tight">Bem-vindo de volta!</h2>
-              <p className="text-xs text-slate-400 font-medium">Informe suas credenciais para entrar no sistema.</p>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Bem-vindo de volta!</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">Informe suas credenciais para entrar no sistema.</p>
             </div>
 
             <Suspense

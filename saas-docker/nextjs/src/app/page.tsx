@@ -45,7 +45,7 @@ import {
   Send,
   RefreshCw,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const PHONE = "5588981885499";
 const WHATSAPP_LINK = `https://wa.me/${PHONE}?text=${encodeURIComponent("Olá! Vim pelo site e quero saber mais sobre os sistemas de automação da Nexus.")}`;
@@ -612,47 +612,47 @@ export default function LandingPage() {
   };
 
   return (
-    <main className="min-h-screen text-slate-100 overflow-hidden font-sans bg-[#030712] relative">
+    <main className="min-h-screen text-slate-900 dark:text-slate-100 font-sans bg-slate-50 dark:bg-[#030712] transition-colors duration-300 relative">
       {/* Background Lighting & Grid Texture */}
-      <div className="fixed inset-0 bg-grid-pattern opacity-40 pointer-events-none -z-10" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-indigo-600/15 via-purple-600/10 to-transparent blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed inset-0 bg-grid-pattern opacity-20 dark:opacity-40 pointer-events-none -z-10" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-indigo-600/10 dark:from-indigo-600/15 via-purple-600/5 dark:via-purple-600/10 to-transparent blur-[140px] pointer-events-none -z-10" />
 
       {/* ── Header Nav ── */}
-      <header className="border-b border-white/10 bg-[#030712]/80 backdrop-blur-2xl sticky top-0 z-50 transition-all">
+      <header className="border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-[#030712]/80 backdrop-blur-2xl sticky top-0 z-50 transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 p-0.5 shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-transform">
-              <div className="w-full h-full bg-[#030712] rounded-[14px] flex items-center justify-center p-1">
+              <div className="w-full h-full bg-white dark:bg-[#030712] rounded-[14px] flex items-center justify-center p-1">
                 <img src="/nexus-logo.png" alt="Nexus AI" className="w-full h-full object-contain" />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-xl tracking-tight text-gradient">NEXUS</span>
-                <span className="px-2 py-0.5 text-[9px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full uppercase tracking-wider">
+                <span className="font-black text-xl tracking-tight text-slate-900 dark:text-white">NEXUS</span>
+                <span className="px-2 py-0.5 text-[9px] font-extrabold bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30 rounded-full uppercase tracking-wider">
                   SaaS
                 </span>
               </div>
-              <span className="text-[9px] block text-slate-400 font-mono tracking-widest uppercase font-semibold">
+              <span className="text-[9px] block text-slate-500 dark:text-slate-400 font-mono tracking-widest uppercase font-semibold">
                 Sistemas &amp; Atendimento
               </span>
             </div>
           </Link>
 
           <div className="hidden md:flex items-center gap-7">
-            <a href="#como-funciona" className="text-xs text-slate-300 hover:text-white transition-colors font-semibold">
+            <a href="#como-funciona" className="text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors font-semibold">
               Como Funciona
             </a>
-            <a href="#recursos" className="text-xs text-slate-300 hover:text-white transition-colors font-semibold">
+            <a href="#recursos" className="text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors font-semibold">
               Recursos
             </a>
-            <a href="#calculadora" className="text-xs text-slate-300 hover:text-white transition-colors font-semibold">
+            <a href="#calculadora" className="text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors font-semibold">
               Calculadora ROI
             </a>
-            <a href="#planos" className="text-xs text-slate-300 hover:text-white transition-colors font-semibold">
+            <a href="#planos" className="text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors font-semibold">
               Planos &amp; Preços
             </a>
-            <a href="#faq" className="text-xs text-slate-300 hover:text-white transition-colors font-semibold">
+            <a href="#faq" className="text-xs text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white transition-colors font-semibold">
               FAQ
             </a>
           </div>
@@ -728,17 +728,17 @@ export default function LandingPage() {
       <section className="max-w-7xl mx-auto px-6 pt-16 sm:pt-24 pb-20 lg:pb-32 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
         <div className="lg:col-span-7 space-y-7 text-center lg:text-left">
           {/* Status Badge */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-900/80 border border-indigo-500/30 rounded-full text-indigo-300 text-xs font-bold shadow-lg shadow-indigo-500/10 backdrop-blur-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-slate-300 font-medium">Plataforma de Atendimento Automático</span>
-            <span className="text-indigo-400 font-mono">| 99.9% Uptime</span>
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-[#030712]/5 dark:bg-slate-900/80 border border-indigo-500/20 dark:border-indigo-500/30 rounded-full text-indigo-700 dark:text-indigo-300 text-xs font-bold shadow-sm dark:shadow-lg backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="text-slate-700 dark:text-slate-300 font-medium">Plataforma de Atendimento Automático</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-mono">| 99.9% Uptime</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
+          <h1 className="text-4xl sm:text-6xl lg:text-6xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-white">
             Sua Empresa Vendendo 24h por Dia no <span className="text-gradient-purple">Piloto Automático.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
+          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
             Atenda seus clientes no WhatsApp sem fila de espera. Nosso sistema acolhe contatos, tira dúvidas, envia áudios explicativos e fecha vendas a qualquer hora do dia ou da noite.
           </p>
 
@@ -755,9 +755,9 @@ export default function LandingPage() {
             </a>
             <a
               href="#portfolio"
-              className="px-7 py-4.5 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-indigo-500/40 rounded-2xl text-slate-200 font-bold transition-all duration-300 flex items-center justify-center gap-2 text-base group"
+              className="px-7 py-4.5 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-300 dark:border-white/15 hover:border-indigo-500/40 rounded-2xl text-slate-800 dark:text-slate-200 font-bold transition-all duration-300 flex items-center justify-center gap-2 text-base group shadow-sm"
             >
-              <Play className="w-4 h-4 text-indigo-400 fill-indigo-400" /> Ver Demonstrações
+              <Play className="w-4 h-4 text-indigo-500 fill-indigo-500" /> Ver Demonstrações
             </a>
           </div>
 

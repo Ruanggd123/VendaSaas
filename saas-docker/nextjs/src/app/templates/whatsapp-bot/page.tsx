@@ -29,7 +29,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "../../../components/ThemeToggle";
 
 type ScenarioKey = "telecom" | "odonto" | "barber" | "ecommerce";
 

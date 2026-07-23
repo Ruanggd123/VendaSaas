@@ -25,7 +25,7 @@ import {
   Sunset,
   Moon,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "../../../components/ThemeToggle";
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
