@@ -155,6 +155,7 @@ export async function POST(request: Request) {
 
       // Configurar webhook automaticamente para que as mensagens cheguem na nossa IA
       try {
+        const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-six-olive.vercel.app').replace(/\/$/, '');
         const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
           method: "POST",
           headers,

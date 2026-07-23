@@ -1,6 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 const secretKey = process.env.NEXTAUTH_SECRET || "MudeEstaChaveSecreta@2026";
 const key = new TextEncoder().encode(secretKey);
 
@@ -21,7 +23,7 @@ export async function decrypt(input: string): Promise<any> {
 
 export async function login(user: any) {
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const session = await encrypt({ 
+  const session = await encrypt({ 
     id: user.id, 
     userId: user.id,
     email: user.email, 
@@ -32,17 +34,60 @@ export async function login(user: any) {
     accessExpiresAt: user.accessExpiresAt ?? null
   });
 
-  cookies().set("session", session, { expires, httpOnly: true });
+  cookies().set("session", session, { expires, httpOnly: true, path: "/" });
 }
 
 export async function logout() {
-  cookies().set("session", "", { expires: new Date(0) });
+  cookies().set("session", "", { expires: new Date(0), path: "/" });
 }
 
 export async function getSession() {
   const session = cookies().get("session")?.value;
   if (!session) return null;
-  return await decrypt(session);
+  try {
+    const payload = await decrypt(session);
+    if (!payload) return null;
+
+    if (payload.role === 'partner') {
+      const partner = await prisma.partner.findUnique({
+        where: { id: payload.id },
+        select: { id: true, tenant_id: true }
+      });
+      if (!partner) {
+        try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+        return null;
+      }
+    } else if (payload.id || payload.userId) {
+      const userId = payload.id || payload.userId;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          role: true,
+          tenant_id: true,
+          email: true,
+          name: true,
+          tenant: { select: { id: true, name: true, plan: true, status: true } }
+        }
+      });
+      if (!user) {
+        // Usuário foi apagado do banco! Desloga automaticamente.
+        try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+        return null;
+      }
+      // Sempre garante dados reais atualizados do banco
+      payload.name = user.name || payload.name || "Usuário";
+      payload.email = user.email || payload.email || "";
+      payload.role = user.role;
+      payload.tenant_id = user.tenant_id;
+      payload.tenant_name = user.tenant?.name || "Minha Empresa";
+      payload.tenant_plan = user.tenant?.plan || "solo";
+    }
+    return payload;
+  } catch {
+    try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+    return null;
+  }
 }
 
 export function getAppBaseUrl(): string {

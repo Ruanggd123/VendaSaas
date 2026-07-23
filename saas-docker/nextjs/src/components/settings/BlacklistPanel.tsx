@@ -213,9 +213,32 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
-          <span className="text-[10px] text-zinc-600">
-            A IA ignora automaticamente esses contatos
-          </span>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              try {
+                await fetch("/api/settings/blacklist", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ number: "5588981885499", name: "Ruan Gomes (Gerente / Suporte)" })
+                });
+                await fetch("/api/settings/blacklist", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ number: "5511999999999", name: "Contato de Teste Bloqueado" })
+                });
+                await fetchBlacklist();
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Restaurar Contatos de Exemplo
+          </button>
           <button
             onClick={fetchBlacklist}
             className="p-2 text-zinc-600 hover:text-white hover:bg-white/5 rounded-lg transition-all"

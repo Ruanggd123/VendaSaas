@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/auth';
+import { PrismaClient } from '@prisma/client';
+
+export const runtime = 'nodejs';
+
+const prisma = new PrismaClient();
 
 const protectedRoutes = [
   '/whatsapp', '/dashboard', '/admin', '/painel-parceiro',
@@ -25,7 +30,37 @@ export async function middleware(request: NextRequest) {
       const payload = await decrypt(sessionCookie.value);
       
       if (!payload.tenant_id) {
-        return NextResponse.redirect(new URL('/login', request.url));
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.delete('session');
+        return response;
+      }
+
+      // Verificação no Banco de Dados: Se o usuário/parceiro foi apagado, expulsa e limpa a sessão
+      if (payload.role === 'partner') {
+        const partner = await prisma.partner.findUnique({
+          where: { id: payload.id },
+          select: { id: true }
+        });
+        if (!partner) {
+          const response = NextResponse.redirect(new URL('/login', request.url));
+          response.cookies.delete('session');
+          return response;
+        }
+      } else {
+        const userId = payload.id || payload.userId;
+        if (userId) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, role: true }
+          });
+          if (!user) {
+            const response = NextResponse.redirect(new URL('/login', request.url));
+            response.cookies.delete('session');
+            return response;
+          }
+          // Garante a role real do banco de dados (evita privilégios falsos no token)
+          payload.role = user.role;
+        }
       }
 
       // --- PARCEIRO: PAINEL PRÓPRIO SEMPRE LIBERADO; CLIENTE SÓ COM SESSÃO ATIVA ---
@@ -59,7 +94,9 @@ export async function middleware(request: NextRequest) {
 
     } catch (error) {
       // Token inválido ou expirado
-      return NextResponse.redirect(new URL('/login', request.url));
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('session');
+      return response;
     }
   }
 

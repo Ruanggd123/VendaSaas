@@ -22,6 +22,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: 'Parceiro não encontrado' }, { status: 404 });
     }
 
+    // Desconecta todas as instâncias de WhatsApp vinculadas ao parceiro
+    const { disconnectWhatsappInstances } = await import('@/lib/whatsapp');
+    await disconnectWhatsappInstances({ partner_id: id });
+
     await prisma.partner.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

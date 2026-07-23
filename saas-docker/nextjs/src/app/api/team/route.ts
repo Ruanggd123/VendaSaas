@@ -81,6 +81,10 @@ export async function DELETE(req: Request) {
 
     if (!user) return NextResponse.json({ error: "Funcionário não encontrado" }, { status: 404 });
 
+    // Desconecta instâncias do WhatsApp vinculadas ao tenant/usuário
+    const { disconnectWhatsappInstances } = await import("@/lib/whatsapp");
+    await disconnectWhatsappInstances({ tenant_id: user.tenant_id });
+
     await prisma.user.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

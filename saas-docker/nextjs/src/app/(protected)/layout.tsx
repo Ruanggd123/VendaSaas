@@ -22,9 +22,15 @@ import {
   UserCircle,
   ExternalLink,
   Users,
+  Wallet,
+  Building2,
+  Sparkles,
+  ShieldCheck,
+  ChevronUp,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import PartnerAccessTimer from "@/components/PartnerAccessTimer";
+import AccountModal from "@/components/AccountModal";
 
 const navItems = [
   {
@@ -71,16 +77,32 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [role, setRole] = useState<string>("agent");
-  const [userName, setUserName] = useState<string>("Cliente");
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [userAccount, setUserAccount] = useState({
+    name: "Ruan Gomes",
+    email: "fraruann159@gmail.com",
+    role: "superadmin",
+    tenantName: "Nexus Admin",
+    tenantPlan: "Enterprise",
+    tenantId: "",
+    userId: ""
+  });
 
   useEffect(() => {
     fetch('/api/auth/session')
       .then(r => r.json())
       .then(data => {
         if (data.authenticated && data.user) {
-          setRole(data.user.role);
-          setUserName(data.user.name || "Cliente");
+          const u = data.user;
+          setUserAccount({
+            name: u.name || "Ruan Gomes",
+            email: u.email || "fraruann159@gmail.com",
+            role: u.role || "superadmin",
+            tenantName: u.tenant_name || "Nexus Admin",
+            tenantPlan: u.tenant_plan || "Enterprise",
+            tenantId: u.tenant_id || "",
+            userId: u.id || u.userId || ""
+          });
         }
       })
       .catch(console.error);
@@ -97,17 +119,30 @@ export default function DashboardLayout({
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
+  const role = userAccount.role;
   const isManager = role === "superadmin" || role === "manager" || role === "admin";
   const isPartner = role === "partner";
   const roleLabel = isPartner ? "Parceiro" : isManager ? "Admin" : "Atendente";
   const showInfraestrutura = isManager || isPartner;
-  const initials = userName.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+  const initials = (userAccount.name || "RG")
+    .split(" ")
+    .map(n => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-[#0a0a0a] text-slate-900 dark:text-white transition-colors duration-300 overflow-hidden">
       
+      {/* Account Management Modal */}
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        user={userAccount}
+      />
+
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
@@ -131,7 +166,7 @@ export default function DashboardLayout({
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-slate-900 dark:text-white truncate">Nexus SaaS</p>
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{roleLabel}</p>
+                <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-semibold truncate">{roleLabel}</p>
               </div>
             </Link>
           )}
@@ -163,7 +198,7 @@ export default function DashboardLayout({
                   </p>
                 )}
                 <div className="space-y-0.5">
-                  {group.items.map((item) => {
+                  {group.items.map((item: any) => {
                     if (item.superAdminOnly && role !== "superadmin") return null;
                     const active = isActive(item.href);
                     const Icon = item.icon;
@@ -198,28 +233,46 @@ export default function DashboardLayout({
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-slate-200 dark:border-white/[0.06] p-3 space-y-2`}>
-          {/* User */}
-          <div className={`flex items-center gap-3 rounded-xl py-2 ${isCollapsed ? "justify-center" : "px-2"}`}>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white text-xs shadow-md shrink-0">
-              {initials}
+        <div className="border-t border-slate-200 dark:border-white/[0.06] p-3 space-y-2">
+          {/* Cartão de Usuário Interativo */}
+          <button
+            onClick={() => setIsAccountModalOpen(true)}
+            className={`w-full group flex items-center gap-3 rounded-2xl py-2 px-2.5 bg-slate-100/60 dark:bg-white/[0.03] hover:bg-indigo-500/10 dark:hover:bg-indigo-500/15 border border-slate-200/80 dark:border-white/10 hover:border-indigo-500/30 transition-all duration-200 text-left ${
+              isCollapsed ? "justify-center px-1" : ""
+            }`}
+            title="Gerenciar minha conta"
+          >
+            <div className="relative shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                {initials}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-black"></span>
             </div>
+
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{userName}</p>
-                <p className="text-[10px] text-green-500 dark:text-green-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                  Plano Ativo
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
+                  {userAccount.name}
                 </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium truncate">
+                    Plano {userAccount.tenantPlan ? userAccount.tenantPlan.toUpperCase() : "Enterprise"}
+                  </span>
+                </div>
               </div>
             )}
-          </div>
+
+            {!isCollapsed && (
+              <Settings className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:rotate-45 transition-all ml-auto shrink-0 opacity-60 group-hover:opacity-100" />
+            )}
+          </button>
 
           {/* Partner Panel Button */}
           {!isCollapsed && isPartner && (
             <Link
               href="/painel-parceiro"
-              className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-all mb-2"
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-all mb-1"
             >
               <UserCircle className="w-4 h-4" />
               <span>Painel do Parceiro</span>
@@ -229,10 +282,10 @@ export default function DashboardLayout({
 
           {/* Actions */}
           {!isCollapsed && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 pt-1">
               <button
                 onClick={toggleSidebar}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors text-xs font-medium text-slate-500 dark:text-zinc-400"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl transition-colors text-xs font-medium text-slate-500 dark:text-zinc-400"
               >
                 <PanelLeftClose className="w-3.5 h-3.5" />
                 <span>Recolher</span>
@@ -242,7 +295,7 @@ export default function DashboardLayout({
                   await fetch("/api/auth/logout", { method: "POST" });
                   window.location.href = "/login";
                 }}
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
                 title="Sair do Sistema"
               >
                 <LogOut className="w-4 h-4" />

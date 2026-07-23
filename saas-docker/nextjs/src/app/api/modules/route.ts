@@ -9,17 +9,18 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     const session = await getSession();
-    if (!session?.tenantId) {
+    const tenantId = session?.tenant_id || session?.tenantId;
+    if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const activeModules = await prisma.activeModule.findMany({
-      where: { tenant_id: session.tenantId },
+      where: { tenant_id: tenantId },
       select: { module_name: true, activated_at: true }
     });
 
     const customModules = await prisma.customModule.findMany({
-      where: { tenant_id: session.tenantId }
+      where: { tenant_id: tenantId }
     });
 
     return NextResponse.json({ success: true, activeModules, customModules });
@@ -31,7 +32,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session?.tenantId) {
+    const tenantId = session?.tenant_id || session?.tenantId;
+    if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -45,7 +47,7 @@ export async function POST(req: Request) {
       // Garante que apenas um módulo setorial esteja ativo por vez
       await prisma.activeModule.deleteMany({
         where: {
-          tenant_id: session.tenantId,
+          tenant_id: tenantId,
           module_name: { not: module_name }
         }
       });
@@ -53,12 +55,12 @@ export async function POST(req: Request) {
       await prisma.activeModule.upsert({
         where: {
           tenant_id_module_name: {
-            tenant_id: session.tenantId,
+            tenant_id: tenantId,
             module_name: module_name
           }
         },
         create: {
-          tenant_id: session.tenantId,
+          tenant_id: tenantId,
           module_name: module_name
         },
         update: {}
@@ -66,7 +68,7 @@ export async function POST(req: Request) {
     } else if (action === 'deactivate') {
       await prisma.activeModule.deleteMany({
         where: {
-          tenant_id: session.tenantId,
+          tenant_id: tenantId,
           module_name: module_name
         }
       });
@@ -81,7 +83,8 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await getSession();
-    if (!session?.tenantId) {
+    const tenantId = session?.tenant_id || session?.tenantId;
+    if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -96,12 +99,12 @@ export async function PUT(req: Request) {
     const customModule = await prisma.customModule.upsert({
       where: {
         tenant_id_key: {
-          tenant_id: session.tenantId,
+          tenant_id: tenantId,
           key: keyClean
         }
       },
       create: {
-        tenant_id: session.tenantId,
+        tenant_id: tenantId,
         key: keyClean,
         title,
         icon: icon || "🏪",
@@ -125,7 +128,8 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getSession();
-    if (!session?.tenantId) {
+    const tenantId = session?.tenant_id || session?.tenantId;
+    if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -138,7 +142,7 @@ export async function DELETE(req: Request) {
     // Desativa se tiver ativo
     await prisma.activeModule.deleteMany({
       where: {
-        tenant_id: session.tenantId,
+        tenant_id: tenantId,
         module_name: key
       }
     });
@@ -146,7 +150,7 @@ export async function DELETE(req: Request) {
     // Exclui
     await prisma.customModule.deleteMany({
       where: {
-        tenant_id: session.tenantId,
+        tenant_id: tenantId,
         key: key
       }
     });

@@ -1,1 +1,1 @@
-export { POST, GET } from '@/app/api/webhooks/asaas/route';
+export { POST } from '@/app/api/webhooks/asaas/route';
