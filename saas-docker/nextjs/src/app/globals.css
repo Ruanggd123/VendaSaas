@@ -73,6 +73,14 @@ html.dark body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Hide native browser password reveal icon in Edge/Chrome */
+input::-ms-reveal,
+input::-ms-clear,
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}
+
 /* Selection color */
 ::selection {
   background: rgba(99, 102, 241, 0.4);
