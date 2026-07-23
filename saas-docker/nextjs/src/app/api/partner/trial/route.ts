@@ -23,7 +23,9 @@ export async function GET() {
 
     const now = new Date();
     const accessExpires = partner.access_expires_at;
-    const expired = accessExpires ? now >= accessExpires : true;
+
+    // Se access_expires_at for nulo, o parceiro tem acesso ilimitado ao Painel do Parceiro (sem expiracao padrao)
+    const expired = accessExpires ? now >= accessExpires : false;
     const remainingMs = accessExpires ? Math.max(0, accessExpires.getTime() - now.getTime()) : 0;
     const remainingMinutes = Math.floor(remainingMs / 60000);
     const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);

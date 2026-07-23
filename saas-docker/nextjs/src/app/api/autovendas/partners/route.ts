@@ -130,7 +130,6 @@ export async function POST(req: Request) {
         type: type || 'vendedor',
         referralCode: referralCode.toUpperCase(),
         commissionRate: finalCommissionRate,
-        trial_ends_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hora de trial
       }
     });
 
