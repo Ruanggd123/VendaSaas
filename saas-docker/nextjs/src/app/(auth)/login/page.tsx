@@ -182,55 +182,55 @@ export default function LoginPage() {
             <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight">
               Gerencie suas conversas e faturamento em um só lugar.
             </h1>
-            <p className="text-sm text-slate-400 leading-relaxed font-medium">
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
               Acesse seu painel exclusivo para acompanhar atendimentos em tempo real, configurar agentes virtuais e visualizar relatórios de desempenho.
             </p>
           </div>
 
           {/* Floating Animated Card Preview */}
-          <div className="p-5 bg-slate-900/80 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl space-y-4 relative overflow-hidden group">
+          <div className="p-5 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 rounded-3xl backdrop-blur-xl shadow-xl dark:shadow-2xl space-y-4 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[40px] rounded-full pointer-events-none" />
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                   <TrendingUp className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">Atendimentos Concluídos Hoje</h4>
-                  <p className="text-[10px] text-emerald-400 font-mono font-semibold">+42 conversas finalizadas</p>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Atendimentos Concluídos Hoje</h4>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">+42 conversas finalizadas</p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 text-[9px] font-mono font-extrabold bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">
+              <span className="px-2.5 py-1 text-[9px] font-mono font-extrabold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 rounded-full border border-emerald-200 dark:border-emerald-500/30">
                 AO VIVO
               </span>
             </div>
 
-            <div className="space-y-2 border-t border-white/5 pt-3">
+            <div className="space-y-2 border-t border-slate-200 dark:border-white/5 pt-3">
               {[
                 { title: "Venda aprovada via WhatsApp", detail: "R$ 350,00 • Pix Confirmado", time: "há 2 min" },
                 { title: "Agendamento de consulta", detail: "Amanhã às 14:30 • Confirmado", time: "há 5 min" },
               ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-white/5 text-xs">
+                <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-white/5 text-xs">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     <div>
-                      <span className="font-bold text-white block text-[11px]">{item.title}</span>
-                      <span className="text-[10px] text-slate-400">{item.detail}</span>
+                      <span className="font-bold text-slate-900 dark:text-white block text-[11px]">{item.title}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">{item.detail}</span>
                     </div>
                   </div>
-                  <span className="text-[9px] text-slate-500 font-mono">{item.time}</span>
+                  <span className="text-[9px] text-slate-500 dark:text-slate-400 font-mono">{item.time}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center gap-6 text-xs text-slate-400 font-semibold pt-2">
+          <div className="flex items-center gap-6 text-xs text-slate-600 dark:text-slate-400 font-semibold pt-2">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" /> Conexão Criptografada
+              <ShieldCheck className="w-4 h-4 text-emerald-500" /> Conexão Criptografada
             </div>
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-400" /> Servidores em Alta Velocidade
+              <Zap className="w-4 h-4 text-amber-500" /> Servidores em Alta Velocidade
             </div>
           </div>
         </div>
@@ -271,14 +271,14 @@ export default function LoginPage() {
             </Suspense>
 
             {/* Links e Rodapé */}
-            <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-xs">
+            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs">
               <Link
                 href="/painel-parceiro"
-                className="text-slate-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1.5"
+                className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1.5"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-400" /> Painel de Parceiros
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> Painel de Parceiros
               </Link>
-              <Link href="/" className="text-slate-400 hover:text-white transition-colors font-semibold">
+              <Link href="/" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-semibold">
                 Voltar ao Site
               </Link>
             </div>
