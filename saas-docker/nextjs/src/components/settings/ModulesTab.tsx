@@ -5,9 +5,10 @@ import { useState, useEffect } from "react";
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
       onClick={() => onChange(!enabled)}
       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-        enabled ? "bg-purple-600" : "bg-zinc-700"
+        enabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
       }`}
     >
       <span
@@ -24,9 +25,10 @@ function SaveButton({ saving, onClick, label = "Salvar Configurações" }: {
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={saving}
-      className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-500/20"
+      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-2xl transition-all active:scale-95 shadow-lg shadow-indigo-600/25"
     >
       {saving ? "Salvando..." : label}
     </button>
@@ -37,13 +39,13 @@ function Alert({ type, message, onClose }: {
   type: "success" | "error"; message: string; onClose: () => void;
 }) {
   return (
-    <div className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ${
+    <div className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-xs font-bold border shadow-sm ${
       type === "success"
-        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
-        : "bg-red-500/10 border border-red-500/20 text-red-300"
+        ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+        : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
     }`}>
       <span>{message}</span>
-      <button onClick={onClose} className="opacity-60 hover:opacity-100">✕</button>
+      <button onClick={onClose} className="opacity-60 hover:opacity-100 font-black">✕</button>
     </div>
   );
 }
@@ -69,7 +71,6 @@ export function ModulesTab() {
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   useEffect(() => {
-    // Carrega módulos padrão
     fetch("/api/settings/whatsapp")
       .then((r) => r.json())
       .then((data) => {
@@ -85,7 +86,6 @@ export function ModulesTab() {
         }
       });
       
-    // Carrega módulos setoriais (Marketplace e Customizados)
     fetch("/api/modules")
       .then(r => r.json())
       .then(data => {
@@ -166,7 +166,6 @@ export function ModulesTab() {
     const isActivating = !activeSectorModules.includes(moduleName);
     const previousActive = [...activeSectorModules];
     
-    // Otimista UI: Apenas 1 módulo ativo por vez
     if (isActivating) {
       setActiveSectorModules([moduleName]);
     } else {
@@ -182,7 +181,6 @@ export function ModulesTab() {
       if (!res.ok) throw new Error();
       setAlert({ type: "success", msg: `Especialidade ${isActivating ? 'ativada' : 'desativada'} com sucesso! 🚀` });
     } catch {
-      // Reverte se der erro
       setActiveSectorModules(previousActive);
       setAlert({ type: "error", msg: "Erro ao atualizar especialidade." });
     }
@@ -282,155 +280,149 @@ export function ModulesTab() {
   ];
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-10 text-slate-900 dark:text-white">
       {alert && <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />}
- 
+
       {/* LOJA DE MÓDULOS SETORIAIS */}
-      <section>
-        <header className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <section className="space-y-4">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               🏪 Loja de Especialidades (Multissetorial)
             </h3>
-            <p className="text-sm text-zinc-400">Transforme sua IA em um funcionário especialista no seu ramo de negócio. (Ative apenas 1 por vez).</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">Transforme sua IA em um funcionário especialista no seu ramo de negócio. (Ative apenas 1 por vez).</p>
           </div>
           <button
+            type="button"
             onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs rounded-xl border border-white/10 transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+            className="px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white font-bold text-xs rounded-xl border border-slate-200 dark:border-white/10 transition-all active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm"
           >
             {showAddForm ? "Cancelar Criação" : "➕ Nova Especialidade"}
           </button>
         </header>
 
         {showAddForm && (
-          <div className="mb-8 p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-300">
-            <h4 className="font-bold text-white flex items-center gap-2">🛠️ Criar Especialidade Customizada</h4>
+          <div className="mb-8 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 space-y-4 max-w-2xl shadow-md">
+            <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">🛠️ Criar Especialidade Customizada</h4>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Identificador Técnico (Sem espaços/acentos)*</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Identificador Técnico*</label>
                 <input
                   type="text"
                   placeholder="ex: petshop"
                   value={newMod.key}
                   onChange={e => setNewMod(p => ({ ...p, key: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") }))}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-medium"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Título da Especialidade*</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Ícone Emoji</label>
                 <input
                   type="text"
-                  placeholder="ex: Petshop & Veterinária"
-                  value={newMod.title}
-                  onChange={e => setNewMod(p => ({ ...p, title: e.target.value }))}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-6 gap-4">
-              <div className="col-span-1">
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Ícone Emoji</label>
-                <input
-                  type="text"
-                  placeholder="🏪"
+                  placeholder="🐶"
                   value={newMod.icon}
                   onChange={e => setNewMod(p => ({ ...p, icon: e.target.value }))}
-                  className="w-full text-center bg-zinc-900 border border-white/10 rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                />
-              </div>
-              <div className="col-span-5">
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Descrição Curta (Exibida no Card)*</label>
-                <input
-                  type="text"
-                  placeholder="ex: IA que agenda consultas veterinárias e recomenda rações..."
-                  value={newMod.description}
-                  onChange={e => setNewMod(p => ({ ...p, description: e.target.value }))}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-medium"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Prompt de Sistema do Especialista (Instruções da IA)*</label>
-              <textarea
-                placeholder="Você atua como um médico veterinário extremamente calmo e empático. Responda sobre banho e tosa..."
-                value={newMod.system_prompt}
-                onChange={e => setNewMod(p => ({ ...p, system_prompt: e.target.value }))}
-                rows={4}
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Título Comercial*</label>
+              <input
+                type="text"
+                placeholder="ex: Clínica Veterinária & Petshop"
+                value={newMod.title}
+                onChange={e => setNewMod(p => ({ ...p, title: e.target.value }))}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-medium"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={addCustomModule}
-                disabled={saving}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition-all"
-              >
-                {saving ? "Salvando..." : "Salvar e Disponibilizar"}
-              </button>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Descrição Curta*</label>
+              <input
+                type="text"
+                placeholder="Breve resumo da especialidade para o usuário..."
+                value={newMod.description}
+                onChange={e => setNewMod(p => ({ ...p, description: e.target.value }))}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-medium"
+              />
             </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Prompt do Sistema (Comportamento da IA)*</label>
+              <textarea
+                rows={4}
+                placeholder="Você atua como Atendente de Petshop..."
+                value={newMod.system_prompt}
+                onChange={e => setNewMod(p => ({ ...p, system_prompt: e.target.value }))}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={addCustomModule}
+              disabled={saving}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md"
+            >
+              Salvar Especialidade
+            </button>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {allSectorModules.map((mod) => {
-            const isActived = activeSectorModules.includes(mod.key);
+          {allSectorModules.map((mod: any) => {
+            const isActive = activeSectorModules.includes(mod.key);
             return (
-              <div 
-                key={mod.key} 
-                className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${
-                  isActived ? "border-purple-500/50 bg-purple-500/10 shadow-lg shadow-purple-500/10" : "border-white/10 bg-white/5 hover:border-white/20"
+              <div
+                key={mod.key}
+                className={`p-5 rounded-3xl border transition-all duration-200 flex flex-col justify-between ${
+                  isActive
+                    ? "bg-indigo-50/90 dark:bg-indigo-500/15 border-2 border-indigo-500 text-slate-900 dark:text-white shadow-md ring-1 ring-indigo-500/20"
+                    : "bg-white dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10 hover:border-indigo-300"
                 }`}
               >
                 <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{mod.icon}</span>
+                      <span className="text-2xl p-2 bg-slate-100 dark:bg-slate-800 rounded-2xl shrink-0">{mod.icon}</span>
                       <div>
-                        <h4 className="font-bold text-white flex items-center gap-2">
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm flex items-center gap-2">
                           {mod.title}
                           {mod.isCustom && (
-                            <span className="text-[9px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full">
-                              Customizado
+                            <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-bold uppercase">
+                              Custom
                             </span>
                           )}
                         </h4>
                       </div>
                     </div>
-                    {mod.isCustom && (
-                      <button
-                        onClick={() => deleteCustomModule(mod.key)}
-                        className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
-                        title="Excluir especialidade"
-                      >
-                        🗑️
-                      </button>
-                    )}
+                    <Toggle enabled={isActive} onChange={() => toggleSector(mod.key)} />
                   </div>
-                  <p className="text-sm text-zinc-400 mb-6">{mod.description}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed mb-4">
+                    {mod.description}
+                  </p>
                 </div>
-                
-                <div className="flex gap-2 w-full">
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/10">
                   <button
-                    onClick={() => toggleSector(mod.key)}
-                    className={`flex-grow py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                      isActived 
-                        ? "bg-white/10 text-white border border-white/20 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30" 
-                        : "bg-purple-600 hover:bg-purple-500 text-white shadow-lg"
-                    }`}
-                  >
-                    {isActived ? "Desativar Módulo" : "Ativar Especialidade"}
-                  </button>
-                  <button
+                    type="button"
                     onClick={() => startEdit(mod)}
-                    className="px-3.5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-xl text-sm transition-all flex items-center justify-center shrink-0"
-                    title="Editar Prompt / Regras do Especialista"
+                    className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
-                    ⚙️
+                    ✏️ Configurar Prompt
                   </button>
+                  {mod.isCustom && (
+                    <button
+                      type="button"
+                      onClick={() => deleteCustomModule(mod.key)}
+                      className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline ml-auto"
+                    >
+                      🗑️ Excluir
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -438,50 +430,33 @@ export function ModulesTab() {
         </div>
       </section>
 
+      {/* MÓDULOS DE AUTOMAÇÃO PADRÃO */}
+      <section className="space-y-4 pt-6 border-t border-slate-200 dark:border-white/10">
+        <div>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white">⚙️ Módulos de Automação Padrão</h3>
+          <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">Ative ou desative recursos do sistema</p>
+        </div>
 
-      {/* COMPORTAMENTOS PADRÃO */}
-      <section>
-        <header className="mb-4">
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
-            ⚙️ Comportamentos Padrão
-          </h3>
-          <p className="text-sm text-zinc-400">Regras gerais que se aplicam a qualquer setor escolhido acima.</p>
-        </header>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-          {standardModuleList.map((mod, i) => (
+        <div className="space-y-3">
+          {standardModuleList.map((m) => (
             <div
-              key={mod.key}
-              className={`flex items-start justify-between gap-4 p-5 rounded-xl transition-colors hover:bg-white/5 ${
-                i < standardModuleList.length - 1 ? "border-b border-white/5" : ""
-              }`}
+              key={m.key}
+              className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 shadow-sm"
             >
-              <div className="flex items-start gap-4 flex-1">
-                <span className="text-2xl mt-0.5">{mod.icon}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">{m.icon}</span>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-white">{mod.title}</h4>
-                    {modules[mod.key] && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        Ativo
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{mod.description}</p>
-                  {mod.warning && (
-                    <p className="text-xs text-amber-400 mt-1.5 flex items-center gap-1">
-                      <span>⚡</span> {mod.warning}
-                    </p>
-                  )}
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">{m.title}</h4>
+                  <p className="text-xs text-slate-500 font-medium">{m.description}</p>
                 </div>
               </div>
-              <Toggle enabled={modules[mod.key]} onChange={() => toggleStandard(mod.key)} />
+              <Toggle enabled={modules[m.key]} onChange={() => toggleStandard(m.key)} />
             </div>
           ))}
         </div>
 
-        <div className="flex justify-end mt-4">
-          <SaveButton saving={saving} onClick={save} label="Salvar Comportamentos Padrão" />
+        <div className="flex justify-end pt-4">
+          <SaveButton saving={saving} onClick={save} label="Salvar Módulos Padrão" />
         </div>
       </section>
     </div>
