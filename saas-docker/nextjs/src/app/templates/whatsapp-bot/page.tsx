@@ -2,29 +2,135 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, Phone, Video, MoreVertical, Smile, Paperclip, Mic, Send, CheckCheck, Bot, Sparkles } from "lucide-react";
+import {
+  ChevronRight,
+  Phone,
+  Video,
+  MoreVertical,
+  Smile,
+  Paperclip,
+  Mic,
+  Send,
+  CheckCheck,
+  Bot,
+  Sparkles,
+  Play,
+  QrCode,
+  Check,
+  Copy,
+  RefreshCw,
+  Zap,
+  ShoppingBag,
+  Heart,
+  Scissors,
+  Smartphone,
+  ShieldCheck,
+  MessageSquare,
+  Moon,
+  Sun,
+} from "lucide-react";
 
-type Message = { id: string; text: string; sender: 'user' | 'bot'; time: string };
+type ScenarioKey = "telecom" | "odonto" | "barber" | "ecommerce";
 
-const AUTOPLAY_SCRIPT = [
-  { sender: 'user', text: "Olá! Gostaria de saber mais sobre os planos da internet.", delay: 1000 },
-  { sender: 'bot', text: "Olá! Sou a IA da Nexus Telecom. 👋\n\nTemos planos a partir de 500 Mega por apenas R$ 99,90/mês. Gostaria de verificar a viabilidade para o seu CEP?", delay: 2000 },
-  { sender: 'user', text: "62130000", delay: 2500 },
-  { sender: 'bot', text: "✅ Viabilidade confirmada! Temos cobertura de *Fibra Óptica 100%* na sua rua. 🎉\n\nPodemos prosseguir com o plano de *500 Mega por R$ 99,90*? Digite *'sim'* para eu te enviar o link do nosso WhatsApp oficial!", delay: 2000 },
-  { sender: 'user', text: "sim", delay: 2500 },
-  { sender: 'bot', text: "Perfeito! 🚀 O seu pedido está quase pronto.\n\nClique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499", delay: 2000 }
-];
+interface Message {
+  id: string;
+  text: string;
+  sender: "user" | "bot";
+  time: string;
+  hasAudio?: boolean;
+  audioDuration?: string;
+  hasPix?: boolean;
+  pixCode?: string;
+  options?: string[];
+}
+
+const SCENARIOS: Record<
+  ScenarioKey,
+  {
+    title: string;
+    subtitle: string;
+    avatar: string;
+    icon: any;
+    initialMessages: Message[];
+  }
+> = {
+  telecom: {
+    title: "Nexus Telecom & Fibra",
+    subtitle: "Atendimento Automático 24h",
+    avatar: "/nexus-logo.png",
+    icon: Zap,
+    initialMessages: [
+      {
+        id: "1",
+        sender: "bot",
+        text: "Olá! Seja bem-vindo à Nexus Telecom. 🚀 Como posso te ajudar hoje?",
+        time: "10:00",
+        options: ["📶 Ver Planos de Internet", "💳 Segunda Via da Fatura", "⚡ Testar Viabilidade no CEP"],
+      },
+    ],
+  },
+  odonto: {
+    title: "Clínica Sorriso & Vida",
+    subtitle: "Secretária Virtual • Agendamentos",
+    avatar: "/nexus-logo.png",
+    icon: Heart,
+    initialMessages: [
+      {
+        id: "1",
+        sender: "bot",
+        text: "Olá! Sou a assistente virtual da Clínica Sorriso. 👋 Posso agendar sua consulta ou passar valores dos procedimentos!",
+        time: "14:15",
+        options: ["🗓️ Agendar Avaliação", "💰 Tabela de Preços & Clareamento", "📍 Ver Endereço da Clínica"],
+      },
+    ],
+  },
+  barber: {
+    title: "Royal Barber Club",
+    subtitle: "Atendimento com Hora Marcada",
+    avatar: "/nexus-logo.png",
+    icon: Scissors,
+    initialMessages: [
+      {
+        id: "1",
+        sender: "bot",
+        text: "Fala parceiro! Seja bem-vindo à Royal Barber. 💈 Quer agendar um horário para hoje ou tirar alguma dúvida?",
+        time: "16:20",
+        options: ["✂️ Agendar Corte + Barba", "⏰ Horários Disponíveis Hoje", "💳 Chave Pix para Sinal"],
+      },
+    ],
+  },
+  ecommerce: {
+    title: "Nexus Moda & Estilo",
+    subtitle: "Vendedor Virtual • Envio Rápido",
+    avatar: "/nexus-logo.png",
+    icon: ShoppingBag,
+    initialMessages: [
+      {
+        id: "1",
+        sender: "bot",
+        text: "Oi! Seja bem-vindo à nossa Loja Oficial. ✨ Temos frete grátis e 5% de desconto no Pix hoje!",
+        time: "18:40",
+        options: ["📦 Ver Catálogo em Promoção", "💳 Chave Pix para Compra", "🚚 Calcular Frete"],
+      },
+    ],
+  },
+};
 
 export default function WhatsappBotDemo() {
+  const [activeScenario, setActiveScenario] = useState<ScenarioKey>("telecom");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [isAIMode, setIsAIMode] = useState(true);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [copiedPixId, setCopiedPixId] = useState<string | null>(null);
+  const [phoneTheme, setPhoneTheme] = useState<"light" | "dark">("light");
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  // Autoplay states
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const [scriptIndex, setScriptIndex] = useState(0);
+
+  const scenarioInfo = SCENARIOS[activeScenario];
+
+  useEffect(() => {
+    setMessages(scenarioInfo.initialMessages);
+  }, [activeScenario]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -32,289 +138,415 @@ export default function WhatsappBotDemo() {
     }
   }, [messages, isTyping]);
 
-  // Autoplay Logic
-  useEffect(() => {
-    if (!isAutoPlaying) return;
-    if (scriptIndex >= AUTOPLAY_SCRIPT.length) {
-      setIsAutoPlaying(false);
-      return;
-    }
-
-    const currentAction = AUTOPLAY_SCRIPT[scriptIndex];
-    
-    // Simulate typing indicator if the bot is about to send
-    if (currentAction.sender === 'bot') {
-       const typingTimer = setTimeout(() => setIsTyping(true), currentAction.delay - 1000);
-       var timer = setTimeout(() => {
-         setIsTyping(false);
-         const now = new Date();
-         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-         setMessages(prev => [...prev, { id: Date.now().toString(), text: currentAction.text, sender: currentAction.sender as 'user'|'bot', time: timeStr }]);
-         setScriptIndex(prev => prev + 1);
-       }, currentAction.delay);
-       
-       return () => { clearTimeout(timer); clearTimeout(typingTimer); };
-    } else {
-       // Simulate user thinking then typing
-       var timer = setTimeout(() => {
-         const now = new Date();
-         const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-         setMessages(prev => [...prev, { id: Date.now().toString(), text: currentAction.text, sender: currentAction.sender as 'user'|'bot', time: timeStr }]);
-         setScriptIndex(prev => prev + 1);
-       }, currentAction.delay);
-       
-       return () => clearTimeout(timer);
-    }
-  }, [scriptIndex, isAutoPlaying]);
-
-  // If user interacts, stop autoplay forever
-  const handleUserInteraction = () => {
-    if (isAutoPlaying) {
-      setIsAutoPlaying(false);
-      setIsTyping(false); // Clear typing if bot was fake typing
-    }
+  const getTimeString = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   };
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!inputText.trim() || isTyping) return;
-    handleUserInteraction();
+  const copyPixKey = (id: string, code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedPixId(id);
+    setTimeout(() => setCopiedPixId(null), 3000);
+  };
 
-    const userMsg = inputText.trim();
-    setInputText("");
+  // Smart Response Engine
+  const processUserMessage = (userText: string) => {
+    const time = getTimeString();
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      sender: "user",
+      text: userText,
+      time,
+    };
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    // Add user message
-    setMessages(prev => [...prev, { id: Date.now().toString(), text: userMsg, sender: 'user', time: timeStr }]);
+    setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
-    try {
-      let botReply = "";
+    setTimeout(() => {
+      let botResponse: Message;
+      const lower = userText.toLowerCase();
 
-      if (isAIMode) {
-        // Fetch AI response
-        const res = await fetch("/api/demo-chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMsg })
-        });
-        const data = await res.json();
-        botReply = data.reply || "Desculpe, não consegui entender.";
+      if (lower.includes("plano") || lower.includes("internet") || lower.includes("500 mega") || lower.includes("ver planos")) {
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Temos 3 opções incríveis com Wi-Fi 6 grátis:\n\n1. *300 Mega:* R$ 79,90/mês\n2. *500 Mega:* R$ 99,90/mês (Mais Pedido 🔥)\n3. *1 Giga:* R$ 149,90/mês\n\nQual opção fica melhor para a sua casa?",
+          time: getTimeString(),
+          options: ["Quero o de 500 Mega por R$ 99,90", "Testar Viabilidade no CEP"],
+        };
+      } else if (lower.includes("agendar") || lower.includes("horário") || lower.includes("avaliação") || lower.includes("corte")) {
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Perfeito! Tenho vaga disponível para *hoje às 16:00* ou *amanhã às 10:00*. Qual horário prefere?",
+          time: getTimeString(),
+          options: ["Confirmar Hoje às 16:00", "Confirmar Amanhã às 10:00"],
+        };
+      } else if (lower.includes("pix") || lower.includes("fatura") || lower.includes("comprar") || lower.includes("desconto")) {
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Excelente! Geramos um desconto exclusivo de 5% no Pix. Utilize a chave Pix abaixo para pagamento instantâneo:",
+          time: getTimeString(),
+          hasPix: true,
+          pixCode: "00020126580014BR.GOV.BCB.PIX0136nexus-whatsapp-bot-demo-key520400005303986",
+          options: ["Comprovante Enviado! 👍", "Falar com Atendente Humano"],
+        };
+      } else if (lower.includes("áudio") || lower.includes("preco") || lower.includes("procedimento") || lower.includes("clareamento")) {
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Enviei uma mensagem de voz com os detalhes dos nossos procedimentos abaixo! 🎙️",
+          time: getTimeString(),
+          hasAudio: true,
+          audioDuration: "0:28",
+          options: ["🗓️ Agendar Avaliação", "📍 Ver Endereço"],
+        };
+      } else if (lower.includes("humano") || lower.includes("atendente") || lower.includes("pessoa")) {
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Sem problemas! Estou transferindo seu atendimento. Para ir direto ao WhatsApp oficial, clique no botão abaixo:",
+          time: getTimeString(),
+          options: ["👉 Entrar em Contato Direto"],
+        };
       } else {
-        // Simple Bot Mode (Simulated flow)
-        await new Promise(resolve => setTimeout(resolve, 1500)); // fake delay
-        const lower = userMsg.toLowerCase().replace(/[^a-z0-9 ]/g, '');
-        if (lower.includes("valor") || lower.includes("preco") || lower.includes("plano") || lower.includes("planos")) {
-          botReply = "Temos o Plano Básico (R$ 97/mês) e o Plano Premium (R$ 197/mês).\n\nDigite 1 para Básico.\nDigite 2 para Premium.";
-        } else if (lower === "1") {
-          botReply = "Ótimo! Você escolheu o Plano Básico. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499";
-        } else if (lower === "2") {
-          botReply = "Ótimo! Você escolheu o Plano Premium. 🚀\n\nPara finalizar sua ativação com total segurança, clique no link abaixo para falar com nosso atendimento no WhatsApp:\n\n👉 https://wa.me/5588981885499";
-        } else {
-          botReply = "Desculpe, não entendi. Digite 'planos' para ver nossas opções e preços.";
-        }
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: "Entendi perfeitamente! Como posso te ajudar melhor? Escolha uma das opções abaixo ou digite sua dúvida:",
+          time: getTimeString(),
+          options: ["🗓️ Agendar Horário", "💳 Pedir Chave Pix", "📞 Atendimento Humano"],
+        };
       }
 
-      const replyTime = new Date();
-      const replyTimeStr = `${String(replyTime.getHours()).padStart(2, '0')}:${String(replyTime.getMinutes()).padStart(2, '0')}`;
-
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: botReply, sender: 'bot', time: replyTimeStr }]);
-    } catch (error) {
-      const replyTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: "Tive um erro de conexão temporário. Pode tentar novamente?", sender: 'bot', time: replyTimeStr }]);
-    } finally {
+      setMessages((prev) => [...prev, botResponse]);
       setIsTyping(false);
-    }
+    }, 1200);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || isTyping) return;
+    const txt = inputText.trim();
+    setInputText("");
+    processUserMessage(txt);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden relative selection:bg-emerald-500/30">
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-400/20 blur-[120px] rounded-full -z-10" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-teal-400/20 blur-[120px] rounded-full -z-10" />
-
-      <div className="max-w-5xl w-full grid lg:grid-cols-[1fr,380px] gap-8 items-center">
-        
-        {/* Left Side: Copy & Features */}
-        <div className="hidden lg:flex flex-col justify-center animate-fade-in-right">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-widest mb-6 w-fit">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Simulador Interativo
+    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-emerald-100 overflow-x-hidden relative flex flex-col justify-between">
+      {/* Top Demo Banner Bar */}
+      <div className="bg-stone-900 text-stone-200 text-xs font-bold py-2.5 px-4 sticky top-0 z-50 shadow-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-white font-extrabold">Demonstração de Atendimento WhatsApp (Tema Claro &amp; Responsivo)</span>
           </div>
-          <h1 className="text-4xl xl:text-5xl font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
-            O robô de vendas que <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-600">nunca dorme</span>.
-          </h1>
-          <p className="text-lg text-slate-600 mb-8 leading-relaxed max-w-md">
-            Veja na prática como a nossa Inteligência Artificial atende, qualifica e vende para seus clientes automaticamente pelo WhatsApp.
-          </p>
+          <Link
+            href="/"
+            className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
+          >
+            <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
+          </Link>
+        </div>
+      </div>
 
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-               <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Bot className="w-5 h-5 text-emerald-600" />
-               </div>
-               <div>
-                 <h4 className="font-bold text-slate-900">100% Autônomo</h4>
-                 <p className="text-sm text-slate-500">Ele lê, interpreta e responde qualquer dúvida como se fosse um humano.</p>
-               </div>
-            </div>
-            <div className="flex items-start gap-4">
-               <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5 text-teal-600" />
-               </div>
-               <div>
-                 <h4 className="font-bold text-slate-900">Focado em Conversão</h4>
-                 <p className="text-sm text-slate-500">O robô é treinado com técnicas de persuasão para não deixar o cliente escapar.</p>
-               </div>
-            </div>
+      <main className="max-w-6xl mx-auto px-4 py-6 sm:py-10 flex-1 w-full flex flex-col justify-center">
+        {/* Scenario & Theme Switcher Bar */}
+        <div className="mb-6 text-center space-y-4">
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-full text-xs font-bold shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Selecione o Ramo da Empresa para Testar o Atendimento</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto">
+            {(Object.keys(SCENARIOS) as ScenarioKey[]).map((key) => {
+              const item = SCENARIOS[key];
+              const SIcon = item.icon;
+              const isActive = activeScenario === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveScenario(key)}
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 border ${
+                    isActive
+                      ? "bg-stone-900 border-stone-900 text-white shadow-lg shadow-stone-900/20 scale-105"
+                      : "bg-white border-stone-200 text-stone-700 hover:bg-stone-100"
+                  }`}
+                >
+                  <SIcon className={`w-4 h-4 ${isActive ? "text-emerald-400" : "text-stone-500"}`} />
+                  {item.title.split(" ")[0]}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Theme Toggle Button */}
+          <div className="pt-1 flex items-center justify-center gap-2 text-xs font-bold text-stone-600">
+            <span>Visual do WhatsApp:</span>
+            <button
+              onClick={() => setPhoneTheme(phoneTheme === "light" ? "dark" : "light")}
+              className="px-3 py-1 bg-white border border-stone-300 rounded-xl text-stone-800 font-semibold transition-all hover:bg-stone-100 flex items-center gap-1.5 shadow-sm"
+            >
+              {phoneTheme === "light" ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
+              {phoneTheme === "light" ? "Modo Claro" : "Modo Escuro"}
+            </button>
           </div>
         </div>
 
-        {/* Right Side: The Phone Interface */}
-        <div className="relative animate-fade-in-up flex flex-col items-center">
-          
-          {/* Controls / Demo Panel */}
-          <div className="w-full max-w-[380px] bg-white rounded-2xl shadow-xl border border-slate-200 p-4 mb-6 z-10 relative">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">Painel de Demonstração</h3>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => { setIsAIMode(false); setMessages([]); setIsAutoPlaying(false); }}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border ${!isAIMode ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
-              >
-                Bot Simples (Fluxo)
-              </button>
-              <button 
-                onClick={() => { setIsAIMode(true); setMessages([]); setIsAutoPlaying(false); }}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1 ${isAIMode ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-transparent shadow-md' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
-              >
-                <Sparkles className="w-3 h-3" /> I.A (Premium)
-              </button>
-            </div>
-          </div>
-
-          <div className="w-full max-w-[380px] h-[700px] sm:h-[700px] bg-zinc-100 rounded-[3rem] p-3 shadow-2xl relative border-8 border-slate-800 shrink-0 mx-auto">
-            {/* Phone Notch/Dynamic Island */}
-            <div className="absolute top-0 inset-x-0 flex justify-center z-50">
-              <div className="w-32 h-6 bg-slate-800 rounded-b-2xl"></div>
-            </div>
-
-            <div className="w-full h-full bg-[#EFEAE2] rounded-[2.2rem] overflow-hidden flex flex-col relative shadow-inner">
-              {/* WhatsApp Header */}
-              <div className="bg-[#008069] text-white px-4 py-3 pt-10 flex items-center justify-between shadow-md shrink-0 z-10">
+        {/* WhatsApp Phone Container (100% Mobile Responsive) */}
+        <div className="w-full max-w-[420px] mx-auto">
+          <div className="rounded-[2.5rem] sm:rounded-[3rem] bg-stone-900 p-2.5 sm:p-3 shadow-2xl border-4 border-stone-800 ring-1 ring-stone-900/50 relative overflow-hidden">
+            {/* Phone Display */}
+            <div
+              className={`w-full h-[580px] sm:h-[620px] rounded-[2rem] flex flex-col overflow-hidden relative shadow-inner transition-colors duration-300 ${
+                phoneTheme === "light" ? "bg-[#efeae2]" : "bg-[#0b141a]"
+              }`}
+            >
+              {/* WhatsApp Header Bar */}
+              <div className="bg-[#008069] text-white px-4 py-3.5 pt-4 flex items-center justify-between shadow-md shrink-0 z-20">
                 <div className="flex items-center gap-3">
-                  <button className="hover:bg-white/10 p-1 rounded-full transition-colors -ml-2">
-                    <ChevronRight className="w-6 h-6 rotate-180" />
-                  </button>
                   <div className="relative">
-                    <img src="https://i.pravatar.cc/150?img=32" alt="Avatar" className="w-10 h-10 rounded-full border border-white/20" />
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#008069] rounded-full"></span>
+                    <div className="w-10 h-10 rounded-full bg-white p-0.5 shadow-md">
+                      <img
+                        src="/nexus-logo.png"
+                        alt="Nexus"
+                        className="w-full h-full object-contain rounded-full bg-stone-950 p-1"
+                      />
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#008069] rounded-full animate-pulse" />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[15px] leading-tight">Nexus Assistente</span>
-                    {isTyping ? (
-                      <span className="text-xs text-white/80 font-medium">digitando...</span>
-                    ) : (
-                      <span className="text-xs text-white/80">online</span>
-                    )}
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white leading-tight">{scenarioInfo.title}</h4>
+                    <p className="text-[10px] text-emerald-100 font-medium">
+                      {isTyping ? (
+                        <span className="font-mono text-white animate-pulse">digitando...</span>
+                      ) : (
+                        <span>online • resposta em &lt; 2s</span>
+                      )}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <Video className="w-5 h-5 cursor-pointer hover:text-white/80" />
-                  <Phone className="w-5 h-5 cursor-pointer hover:text-white/80" />
-                  <MoreVertical className="w-5 h-5 cursor-pointer hover:text-white/80" />
-                </div>
+
+                <button
+                  onClick={() => setMessages(scenarioInfo.initialMessages)}
+                  className="p-2 rounded-xl hover:bg-white/10 text-white/90 transition-all"
+                  title="Reiniciar Chat"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Chat Area */}
-              <div 
+              {/* Chat Scroll Container */}
+              <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-3 pb-32"
-                style={{ backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')", backgroundSize: 'contain', backgroundRepeat: 'repeat' }}
+                className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 font-sans text-xs relative z-10 scrollbar-none"
               >
-                <div className="text-center mb-6">
-                  <span className="bg-[#E1F3FB] text-slate-500 text-[11px] font-medium px-3 py-1 rounded-lg uppercase shadow-sm">Hoje</span>
+                <div className="text-center my-1">
+                  <span
+                    className={`text-[10px] font-mono px-3 py-1 rounded-md uppercase border shadow-sm ${
+                      phoneTheme === "light"
+                        ? "bg-white/90 text-stone-500 border-stone-200"
+                        : "bg-[#182229] text-slate-400 border-white/5"
+                    }`}
+                  >
+                    Hoje
+                  </span>
                 </div>
 
-                <div className="bg-[#FFEECD] text-slate-600 text-xs text-center p-2 rounded-lg mb-4 shadow-sm font-medium">
-                  🔒 Mensagens protegidas com a tecnologia Nexus.
+                <div
+                  className={`text-[10px] text-center p-2 rounded-xl font-medium shadow-sm ${
+                    phoneTheme === "light"
+                      ? "bg-[#ffeecd] text-stone-700 border border-amber-200"
+                      : "bg-[#182229] text-emerald-300 border border-emerald-500/20 font-mono"
+                  }`}
+                >
+                  🔒 Mensagens protegidas com tecnologia Nexus.
                 </div>
-
-                {isAutoPlaying && messages.length === 0 && (
-                  <div className="text-center mt-10 animate-pulse text-slate-500 text-xs bg-white/80 mx-auto w-fit px-3 py-1 rounded-full shadow-sm">
-                    Iniciando demonstração automática...
-                  </div>
-                )}
 
                 {messages.map((msg) => (
-                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} animate-fade-in-up`}>
-                    <div 
-                      className={`relative max-w-[85%] rounded-2xl p-2 px-3 shadow-sm ${msg.sender === 'user' ? 'bg-[#D9FDD3] rounded-tr-sm' : 'bg-white rounded-tl-sm'}`}
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"} animate-fade-in-up`}
+                  >
+                    <div
+                      className={`max-w-[88%] p-3 rounded-2xl shadow-sm ${
+                        msg.sender === "user"
+                          ? "bg-[#d9fdd3] text-stone-900 rounded-tr-xs"
+                          : phoneTheme === "light"
+                          ? "bg-white text-stone-900 rounded-tl-xs border border-stone-100"
+                          : "bg-[#202c33] text-slate-100 rounded-tl-xs border border-white/5"
+                      }`}
                     >
-                      <p className="text-[#111B21] text-[14.5px] whitespace-pre-wrap leading-snug break-words pr-2">
-                        {msg.text.split(/(✅|🎉|🚀|🔹|🏆|👋|💡|💰)/).map((part, i) => (
-                          <span key={i}>{part}</span>
-                        ))}
-                      </p>
+                      {msg.sender === "bot" && (
+                        <div className="flex items-center gap-1 text-[9px] text-emerald-700 font-bold uppercase tracking-wider mb-1">
+                          <Bot className="w-3.5 h-3.5 text-emerald-600" /> {scenarioInfo.title}
+                        </div>
+                      )}
+
+                      <p className="whitespace-pre-wrap leading-relaxed font-medium text-[13px]">{msg.text}</p>
+
+                      {/* Interactive Audio Note */}
+                      {msg.hasAudio && (
+                        <div
+                          className={`mt-2.5 p-2.5 rounded-xl border flex items-center gap-3 ${
+                            phoneTheme === "light"
+                              ? "bg-stone-50 border-stone-200"
+                              : "bg-[#111b21] border-emerald-500/30"
+                          }`}
+                        >
+                          <button
+                            onClick={() => setIsPlayingAudio(!isPlayingAudio)}
+                            className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white shrink-0 hover:scale-105 transition-transform"
+                          >
+                            <Play className="w-4 h-4 fill-current ml-0.5" />
+                          </button>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex justify-between text-[9px] text-emerald-700 font-bold font-mono">
+                              <span>Mensagem de Voz</span>
+                              <span>{msg.audioDuration || "0:24"}</span>
+                            </div>
+                            <div className="flex items-center gap-0.5 h-3">
+                              {[40, 70, 30, 90, 50, 80, 100, 40, 60, 85, 45, 95, 30, 70, 50, 90, 40].map((h, i) => (
+                                <div
+                                  key={i}
+                                  className={`flex-1 rounded-full ${
+                                    isPlayingAudio ? "bg-emerald-500 animate-pulse" : "bg-emerald-600/60"
+                                  }`}
+                                  style={{ height: `${h}%` }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interactive Pix QR Code Card */}
+                      {msg.hasPix && (
+                        <div
+                          className={`mt-2.5 p-3 rounded-xl border text-center space-y-2 ${
+                            phoneTheme === "light"
+                              ? "bg-emerald-50/80 border-emerald-200"
+                              : "bg-[#111b21] border-emerald-500/40"
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-1.5 text-emerald-700 font-extrabold text-xs">
+                            <QrCode className="w-4 h-4" /> Chave Pix Gerada
+                          </div>
+                          <div
+                            className={`p-2 rounded-lg text-[9px] font-mono truncate border ${
+                              phoneTheme === "light"
+                                ? "bg-white text-stone-700 border-stone-200"
+                                : "bg-[#1f2c34] text-slate-300 border-white/10"
+                            }`}
+                          >
+                            {msg.pixCode}
+                          </div>
+                          <button
+                            onClick={() => copyPixKey(msg.id, msg.pixCode || "")}
+                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                          >
+                            {copiedPixId === msg.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" /> Chave Copiada!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" /> Copiar Chave Pix
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-end gap-1 mt-1">
-                        <span className="text-[10px] text-slate-400">{msg.time}</span>
-                        {msg.sender === 'user' && <CheckCheck className="w-3.5 h-3.5 text-[#53BDEB]" />}
+                        <span className="text-[9px] text-stone-400 font-mono">{msg.time}</span>
+                        {msg.sender === "user" && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
                       </div>
                     </div>
+
+                    {/* Quick Options Pills */}
+                    {msg.options && (
+                      <div className="flex flex-wrap gap-1.5 mt-2 max-w-[95%]">
+                        {msg.options.map((opt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => processUserMessage(opt)}
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all active:scale-95 text-left shadow-sm ${
+                              phoneTheme === "light"
+                                ? "bg-white border-stone-300 text-emerald-800 hover:bg-emerald-50"
+                                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
-                
+
                 {isTyping && (
-                  <div className="flex flex-col items-start animate-fade-in-up">
-                    <div className="bg-white rounded-2xl rounded-tl-sm p-3 px-4 shadow-sm flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
-                    </div>
+                  <div
+                    className={`flex items-center gap-2 p-3 rounded-2xl rounded-tl-xs max-w-[45%] border animate-fade-in ${
+                      phoneTheme === "light"
+                        ? "bg-white border-stone-200 text-stone-500"
+                        : "bg-[#202c33] border-white/5 text-slate-400"
+                    }`}
+                  >
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" />
+                    <span className="text-[10px] text-emerald-600 font-mono font-bold ml-1">digitando...</span>
                   </div>
                 )}
               </div>
 
-              {/* Input Area */}
-              <div className="absolute bottom-0 inset-x-0 bg-transparent p-2 z-20 pb-6">
-                <form onSubmit={handleSend} className="flex items-center gap-2">
-                  <div className="flex-1 bg-white rounded-2xl flex items-center shadow-md overflow-hidden relative">
-                    <button type="button" className="p-3 text-slate-400 hover:text-slate-600 transition-colors">
-                      <Smile className="w-6 h-6" />
-                    </button>
+              {/* Input Bar */}
+              <div
+                className={`p-2.5 border-t shrink-0 ${
+                  phoneTheme === "light" ? "bg-[#f0f2f5] border-stone-200" : "bg-[#1f2c34] border-slate-800"
+                }`}
+              >
+                <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                  <div
+                    className={`flex-1 rounded-2xl flex items-center px-3 py-1.5 border ${
+                      phoneTheme === "light"
+                        ? "bg-white border-stone-200 text-stone-900"
+                        : "bg-[#2a3942] border-white/5 text-white"
+                    }`}
+                  >
                     <input
                       type="text"
+                      placeholder="Digite para testar o atendimento..."
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
-                      onFocus={handleUserInteraction}
-                      placeholder={isAutoPlaying ? "Clique aqui para interagir..." : "Mensagem"}
-                      className="flex-1 bg-transparent py-3.5 px-2 outline-none text-[15px] text-zinc-900 font-medium placeholder-slate-400"
+                      className="w-full bg-transparent text-xs outline-none font-medium placeholder:text-stone-400"
                     />
-                    <button type="button" className="p-3 text-slate-400 hover:text-slate-600 transition-colors">
-                      <Paperclip className="w-5 h-5 -rotate-45" />
-                    </button>
                   </div>
-                  {inputText.trim() ? (
-                    <button type="submit" className="w-12 h-12 bg-[#00A884] rounded-full flex items-center justify-center shadow-md text-white shrink-0 hover:bg-[#008F6F] transition-colors">
-                      <Send className="w-5 h-5 ml-1" />
-                    </button>
-                  ) : (
-                    <button type="button" className="w-12 h-12 bg-[#00A884] rounded-full flex items-center justify-center shadow-md text-white shrink-0 hover:bg-[#008F6F] transition-colors">
-                      <Mic className="w-5 h-5" />
-                    </button>
-                  )}
+
+                  <button
+                    type="submit"
+                    className="w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#008f6f] text-white flex items-center justify-center font-bold transition-all shrink-0 shadow-md"
+                  >
+                    <Send className="w-4 h-4 fill-current ml-0.5" />
+                  </button>
                 </form>
               </div>
             </div>
           </div>
         </div>
+      </main>
 
-      </div>
-      
-      {/* Return Button */}
-      <Link href="/" className="fixed bottom-6 left-6 z-50 px-4 py-2 bg-white text-slate-900 rounded-full text-sm font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2 border border-slate-200">
-        <ChevronRight className="w-4 h-4 rotate-180" /> Voltar
-      </Link>
+      {/* Footer Info */}
+      <footer className="border-t border-stone-200 bg-stone-100 py-6 text-center text-xs text-stone-500 font-medium">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <span>&copy; {new Date().getFullYear()} Nexus AI Bot Engine. Atendimento Automático 24h.</span>
+          <Link href="/" className="text-emerald-700 font-bold hover:underline">
+            ← Voltar para a Nexus AI SaaS
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

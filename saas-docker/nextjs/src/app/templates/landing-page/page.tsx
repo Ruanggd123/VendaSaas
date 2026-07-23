@@ -2,7 +2,29 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, ChevronRight, CheckCircle2, Play, Star, BarChart3, Zap, Shield, Globe, Users, ArrowUpRight } from "lucide-react";
+import {
+  Scissors,
+  Calendar,
+  Clock,
+  MapPin,
+  Phone,
+  MessageSquare,
+  Star,
+  CheckCircle2,
+  ChevronRight,
+  ArrowRight,
+  Sparkles,
+  ShieldCheck,
+  ChevronDown,
+  Award,
+  Coffee,
+  Check,
+  User,
+  X,
+  Sun,
+  Sunset,
+  Moon,
+} from "lucide-react";
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -11,7 +33,12 @@ function useScrollReveal() {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.unobserve(el); } },
+      ([e]) => {
+        if (e.isIntersecting) {
+          setVisible(true);
+          obs.unobserve(el);
+        }
+      },
       { threshold: 0.1 }
     );
     obs.observe(el);
@@ -23,293 +50,686 @@ function useScrollReveal() {
 function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const { ref, visible } = useScrollReveal();
   return (
-    <div ref={ref} className={className} style={{
-      opacity: visible ? 1 : 0,
-      transform: visible ? "none" : "translateY(30px)",
-      transition: `all 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
-    }}>
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "none" : "translateY(24px)",
+        transition: `opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
+      }}
+    >
       {children}
     </div>
   );
 }
 
-export default function LightLandingPageDemo() {
+interface ServiceItem {
+  id: string;
+  name: string;
+  desc: string;
+  time: string;
+  price: number;
+  popular?: boolean;
+}
+
+export default function OnePageBarberLandingPageDemo() {
+  const [selectedServices, setSelectedServices] = useState<string[]>(["corte_barba"]);
+  const [selectedDate, setSelectedDate] = useState("23/07 (Hoje)");
+  const [customDate, setCustomDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("16:00");
+  const [selectedBarber, setSelectedBarber] = useState("Qualquer Barbeiro Livre");
+
+  const servicesList: ServiceItem[] = [
+    {
+      id: "corte_barba",
+      name: "Combo Imperial (Corte + Barba Terapia)",
+      desc: "Nosso serviço mais pedido. Corte completo à sua escolha + barba alinhada com toalha quente e massagem.",
+      time: "50 min",
+      price: 89,
+      popular: true,
+    },
+    {
+      id: "corte_cabelo",
+      name: "Corte Masculino (Fade / Tesoura / Degradê)",
+      desc: "Lavagem especial com shampoo mentolado, corte de precisão e finalização com pomada modeladora.",
+      time: "35 min",
+      price: 55,
+    },
+    {
+      id: "barba_terapia",
+      name: "Barba Terapia com Toalha Quente",
+      desc: "Modelagem de barba com navalhete, óleo de hidratação, bálsamo pós-barba e compressa morna.",
+      time: "30 min",
+      price: 45,
+    },
+    {
+      id: "pigmentacao",
+      name: "Pigmentação / Alinhamento de Fios",
+      desc: "Preenchimento de falhas na barba ou cabelo com tinta especial hipoalergênica de aspecto natural.",
+      time: "25 min",
+      price: 40,
+    },
+  ];
+
+  const dateOptions = [
+    { label: "Hoje", date: "Qua, 23/07" },
+    { label: "Amanhã", date: "Qui, 24/07" },
+    { label: "Sexta", date: "Sex, 25/07" },
+    { label: "Sábado", date: "Sáb, 26/07" },
+    { label: "Segunda", date: "Seg, 28/07" },
+  ];
+
+  const timeSlots = {
+    manha: ["09:00", "10:00", "11:00"],
+    tarde: ["13:30", "14:30", "16:00", "17:30"],
+    noite: ["18:30", "19:00", "19:30"],
+  };
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? (prev.length > 1 ? prev.filter((s) => s !== id) : prev) : [...prev, id]
+    );
+  };
+
+  const calculateTotal = () => {
+    return selectedServices.reduce((acc, id) => {
+      const item = servicesList.find((s) => s.id === id);
+      return acc + (item ? item.price : 0);
+    }, 0);
+  };
+
+  const getSelectedNames = () => {
+    return selectedServices
+      .map((id) => servicesList.find((s) => s.id === id)?.name)
+      .filter(Boolean)
+      .join(" + ");
+  };
+
+  const finalDateDisplay = customDate
+    ? new Date(customDate + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })
+    : selectedDate;
+
+  const handleBookingWhatsApp = () => {
+    const total = calculateTotal();
+    const services = getSelectedNames();
+    const text = encodeURIComponent(
+      `Olá! Vim pelo site e gostaria de agendar:\n\n✂️ *Serviço:* ${services}\n📅 *Data:* ${finalDateDisplay}\n⏰ *Horário:* ${selectedTime}\n💈 *Profissional:* ${selectedBarber}\n💰 *Valor total:* R$ ${total},00\n\nPoderia me confirmar se este horário está disponível?`
+    );
+    window.open(`https://wa.me/5588981885499?text=${text}`, "_blank");
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 overflow-x-hidden">
-      
-      {/* Navbar */}
-      <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b border-slate-200 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+    <div className="min-h-screen bg-[#fcfbf9] text-stone-900 font-sans selection:bg-amber-100 overflow-x-hidden relative">
+      {/* Top Demo Banner */}
+      <div className="bg-stone-900 text-stone-200 text-xs font-bold py-2.5 px-4 sticky top-0 z-50 shadow-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-md">
-              <Zap className="w-5 h-5 text-white fill-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900">TaskFlow.</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-white font-extrabold">Modelo de Site de Página Única (One-Page)</span>
+            <span className="hidden sm:inline text-stone-400 font-normal">| Exemplo: Barbearia &amp; Salão de Serviços</span>
           </div>
-          <div className="hidden md:flex items-center gap-8 font-medium text-sm text-slate-600">
-            <a href="#recursos" className="hover:text-blue-600 transition-colors">Recursos</a>
-            <a href="#depoimentos" className="hover:text-blue-600 transition-colors">Depoimentos</a>
-            <a href="#planos" className="hover:text-blue-600 transition-colors">Planos</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="hidden md:block text-slate-600 font-medium hover:text-slate-900">Login</button>
-            <button className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-full text-sm font-semibold transition-colors shadow-lg shadow-slate-900/20">
-              Começar Grátis
-            </button>
-          </div>
+          <Link
+            href="/"
+            className="px-3.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-full text-[11px] font-black transition-all flex items-center gap-1 shrink-0 shadow-sm"
+          >
+            <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Voltar ao Painel Nexus
+          </Link>
         </div>
-      </nav>
+      </div>
+
+      {/* Main Header / Nav */}
+      <header className="border-b border-stone-200/80 bg-white/90 backdrop-blur-md sticky top-9 z-40">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-600/20">
+              <Scissors className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="font-black text-2xl tracking-tight text-stone-900">ROYAL BARBER</span>
+              <span className="text-[9px] block text-amber-700 font-mono tracking-widest uppercase font-bold">
+                Club &amp; Grooming
+              </span>
+            </div>
+          </div>
+
+          <div className="hidden md:flex items-center gap-8 text-xs font-bold text-stone-600">
+            <a href="#servicos" className="hover:text-amber-600 transition-colors">Serviços &amp; Preços</a>
+            <a href="#experiencia" className="hover:text-amber-600 transition-colors">A Barbearia</a>
+            <a href="#depoimentos" className="hover:text-amber-600 transition-colors">Avaliações</a>
+            <a href="#localizacao" className="hover:text-amber-600 transition-colors">Endereço</a>
+          </div>
+
+          <a
+            href="https://wa.me/5588981885499"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-3 bg-stone-900 hover:bg-stone-800 text-white rounded-2xl text-xs font-black transition-all hover:scale-105 shadow-md flex items-center gap-2"
+          >
+            <MessageSquare className="w-4 h-4 text-amber-400" /> Agendar no WhatsApp
+          </a>
+        </div>
+      </header>
 
       {/* Hero Section */}
-      <section className="relative pt-36 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-        {/* Soft Background Gradients */}
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-blue-100/50 blur-[120px] rounded-full -z-10" />
-        <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-purple-100/50 blur-[100px] rounded-full -z-10" />
+      <section className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden bg-gradient-to-b from-stone-100/60 to-[#fcfbf9]">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7 space-y-7 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100/80 border border-amber-200 rounded-full text-amber-900 text-xs font-bold shadow-sm">
+              <Star className="w-3.5 h-3.5 fill-amber-600 text-amber-600" />
+              <span>A Barbearia #1 em Atendimento com Hora Marcada</span>
+            </div>
 
-        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-          <div className="max-w-2xl">
-            <Reveal>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-sm font-semibold mb-6 shadow-sm">
-                <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
-                Novo: Inteligência Artificial Integrada
-              </div>
-            </Reveal>
-            <Reveal delay={100}>
-              <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.1] mb-6">
-                Organize sua equipe, <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                  multiplique resultados.
-                </span>
-              </h1>
-            </Reveal>
-            <Reveal delay={200}>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed max-w-lg">
-                O TaskFlow é a plataforma de gestão que une tarefas, comunicação e automação de forma simples e incrivelmente rápida.
-              </p>
-            </Reveal>
-            <Reveal delay={300} className="flex flex-col sm:flex-row items-center gap-4">
-              <button className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-base transition-all shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2">
-                Comece seu teste de 14 dias <ArrowRight className="w-4 h-4" />
-              </button>
-              <button className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-full font-bold text-base transition-all shadow-sm flex items-center justify-center gap-2">
-                <Play className="w-4 h-4 fill-current" /> Ver demonstração
-              </button>
-            </Reveal>
-            
-            <Reveal delay={400} className="mt-10 flex items-center gap-4 text-sm text-slate-500 font-medium">
-              <div className="flex -space-x-2">
-                <img src="https://i.pravatar.cc/100?img=1" alt="User" className="w-8 h-8 rounded-full border-2 border-slate-50" />
-                <img src="https://i.pravatar.cc/100?img=2" alt="User" className="w-8 h-8 rounded-full border-2 border-slate-50" />
-                <img src="https://i.pravatar.cc/100?img=3" alt="User" className="w-8 h-8 rounded-full border-2 border-slate-50" />
-              </div>
-              <p>Mais de 10.000 equipes confiam no TaskFlow.</p>
-            </Reveal>
-          </div>
+            <h1 className="text-4xl sm:text-6xl font-black text-stone-900 tracking-tight leading-[1.1]">
+              Estilo impecável, café passado e <span className="text-amber-600">zero fila de espera.</span>
+            </h1>
 
-          {/* Hero Image / Dashboard Mockup */}
-          <Reveal delay={400} className="relative lg:ml-10">
-            <div className="relative rounded-2xl bg-white p-2 shadow-2xl shadow-slate-200/50 border border-slate-200 transform lg:rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
-              <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000" alt="Dashboard" className="w-full rounded-xl" />
-              
-              {/* Floating Element */}
-              <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-xl shadow-xl border border-slate-100 flex items-center gap-4 animate-bounce [animation-duration:3s]">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">Projeto Entregue</p>
-                  <p className="text-xs text-slate-500">Há 2 minutos</p>
-                </div>
+            <p className="text-base sm:text-lg text-stone-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
+              Escolha seus serviços, selecione a data e horário desejados e confirme em 1 clique pelo WhatsApp. Atendimento com pontualidade britânica.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
+              <a
+                href="#agendamento"
+                className="px-8 py-4.5 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-2xl shadow-xl shadow-amber-600/25 transition-all duration-300 hover:scale-[1.02] flex items-center justify-center gap-3 text-base"
+              >
+                <Calendar className="w-5 h-5" /> Selecionar Dia e Horário
+                <ArrowRight className="w-5 h-5" />
+              </a>
+              <a
+                href="https://wa.me/5588981885499"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-7 py-4.5 bg-white hover:bg-stone-50 border border-stone-300 rounded-2xl text-stone-800 font-bold transition-all shadow-sm flex items-center justify-center gap-2 text-base"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" /> Falar no WhatsApp
+              </a>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 pt-4 text-xs font-bold text-stone-600 border-t border-stone-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-amber-600" /> Atendimento sem Atrasos
+              </div>
+              <div className="flex items-center gap-2">
+                <Coffee className="w-4 h-4 text-amber-600" /> Bebida Cortesia da Casa
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-amber-600" /> Estacione na Porta
               </div>
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </div>
 
-      {/* Logos Section */}
-      <section className="py-10 border-y border-slate-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-6">Empresas que confiam na nossa tecnologia</p>
-          <div className="flex flex-wrap justify-center gap-10 md:gap-20 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-             {/* Fake Logos using icons/text */}
-             <div className="flex items-center gap-2 font-black text-xl text-slate-800"><Globe className="w-6 h-6"/> GlobalTech</div>
-             <div className="flex items-center gap-2 font-black text-xl text-slate-800"><Shield className="w-6 h-6"/> SecurIt</div>
-             <div className="flex items-center gap-2 font-black text-xl text-slate-800"><BarChart3 className="w-6 h-6"/> DataCorp</div>
-             <div className="flex items-center gap-2 font-black text-xl text-slate-800"><Users className="w-6 h-6"/> Synergy</div>
+          <div className="lg:col-span-5 relative">
+            <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white bg-stone-900 text-white">
+              <img
+                src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&q=80&w=1000"
+                alt="Barbearia Royal Barber"
+                className="w-full h-[420px] object-cover opacity-85"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/40 to-transparent p-7 flex flex-col justify-end">
+                <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-extrabold uppercase rounded-md w-max mb-2">
+                  Ambiente Premium
+                </span>
+                <h3 className="text-xl font-black text-white">Experiência Completa de Grooming</h3>
+                <p className="text-xs text-stone-300 font-medium mt-1">
+                  Toalha quente com óleos essenciais, navalha afiada e corte de precisão feito por barbeiros mestres.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="recursos" className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <Reveal className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">Tudo que você precisa em um só lugar</h2>
-            <p className="text-lg text-slate-600">Chega de usar 5 aplicativos diferentes para gerenciar sua empresa. O TaskFlow centraliza tudo com elegância.</p>
-          </Reveal>
-          
-          <div className="grid md:grid-cols-3 gap-8">
-            <Reveal delay={100} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-shadow">
-              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
-                <BarChart3 className="w-7 h-7 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Relatórios Precisos</h3>
-              <p className="text-slate-600 leading-relaxed">Acompanhe a produtividade da sua equipe em tempo real com gráficos visuais fáceis de entender.</p>
-            </Reveal>
-            
-            <Reveal delay={200} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-shadow">
-              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6">
-                <Zap className="w-7 h-7 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Automação Rápida</h3>
-              <p className="text-slate-600 leading-relaxed">Crie regras automáticas para mover tarefas, enviar e-mails e notificar clientes sem trabalho manual.</p>
-            </Reveal>
-            
-            <Reveal delay={300} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-shadow">
-              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mb-6">
-                <Shield className="w-7 h-7 text-green-600" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Segurança Bancária</h3>
-              <p className="text-slate-600 leading-relaxed">Seus dados estão protegidos com criptografia de ponta a ponta e backups diários automáticos.</p>
-            </Reveal>
-          </div>
-        </div>
-      </section>
+      {/* Interactive Booking & Services Section */}
+      <section id="servicos" className="max-w-7xl mx-auto px-6 py-20 border-t border-stone-200">
+        <Reveal className="text-center space-y-3 mb-12">
+          <span className="inline-block px-4 py-1.5 bg-amber-100 text-amber-900 rounded-full text-xs font-mono font-bold uppercase tracking-widest">
+            Menu de Serviços &amp; Agenda
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-black text-stone-900 tracking-tight">
+            Monte seu Agendamento Personalizado
+          </h2>
+          <p className="text-sm text-stone-600 max-w-xl mx-auto font-medium">
+            Selecione os serviços desejados na esquerda e escolha o dia e horário exatos no painel à direita.
+          </p>
+        </Reveal>
 
-      {/* Showcase / Alternating layout */}
-      <section className="py-24 bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <Reveal className="order-2 lg:order-1 relative">
-               <div className="absolute inset-0 bg-blue-100/50 rounded-3xl transform rotate-3 scale-105 -z-10"></div>
-               <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&q=80&w=1000" alt="Equipe trabalhando" className="rounded-3xl shadow-lg border border-slate-100 w-full object-cover" />
-            </Reveal>
-            <Reveal delay={200} className="order-1 lg:order-2">
-              <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-6">Feito para equipes que não gostam de perder tempo.</h2>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                Nossa interface foi desenhada para ser invisível. Menos cliques, menos confusão e muito mais foco no que realmente importa: o crescimento do seu negócio.
-              </p>
-              <ul className="space-y-4">
-                {["Sem curva de aprendizado complexa", "Integração nativa com Slack e Google Drive", "Suporte humano 24 horas por dia"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-700 font-medium">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600" /> {item}
-                  </li>
-                ))}
-              </ul>
-              <button className="mt-10 flex items-center gap-2 text-blue-600 font-bold hover:text-blue-700 transition-colors">
-                Ver todas as integrações <ArrowUpRight className="w-4 h-4" />
+        <div id="agendamento" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Services Selector (Left) */}
+          <div className="lg:col-span-6 space-y-4">
+            <h3 className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-2 mb-2">
+              <Scissors className="w-4 h-4 text-amber-600" /> 1. Escolha os Serviços:
+            </h3>
+
+            {servicesList.map((service) => {
+              const isSelected = selectedServices.includes(service.id);
+              return (
+                <div
+                  key={service.id}
+                  onClick={() => toggleService(service.id)}
+                  className={`p-5 sm:p-6 rounded-3xl border-2 transition-all duration-300 cursor-pointer ${
+                    isSelected
+                      ? "border-amber-600 bg-white shadow-xl shadow-amber-600/10 ring-1 ring-amber-600"
+                      : "border-stone-200 bg-white hover:border-amber-300"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex gap-3">
+                      <div
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center mt-1 shrink-0 ${
+                          isSelected ? "bg-amber-600 text-white" : "border-2 border-stone-300"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-base font-black text-stone-900">{service.name}</h4>
+                          {service.popular && (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black uppercase rounded-md">
+                              🔥 Mais Pedido
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-stone-500 mt-1 leading-relaxed font-medium">{service.desc}</p>
+                        <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 font-mono mt-2 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" /> Duração: {service.time}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-lg sm:text-xl font-black text-stone-900">R$ {service.price}</span>
+                      <span className="block text-[10px] text-stone-400 font-bold uppercase">valor fixo</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Booking Summary Box (Right Panel) */}
+          <div className="lg:col-span-6 sticky top-28">
+            <div className="p-6 sm:p-8 rounded-[2.5rem] bg-stone-900 text-white shadow-2xl space-y-6 border border-stone-800">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <div>
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold block">
+                    Agenda em Tempo Real
+                  </span>
+                  <h3 className="text-xl font-black text-white">Escolha a Data &amp; Horário Exatos</h3>
+                </div>
+                <div className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-emerald-400 text-[10px] font-bold">
+                  ✓ Livre
+                </div>
+              </div>
+
+              {/* 1. Date Selector (Pills + Date Input) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-amber-500" /> 2. Selecione a Data:
+                  </label>
+                  <span className="text-[11px] text-amber-400 font-mono font-bold">{finalDateDisplay}</span>
+                </div>
+
+                {/* Date Pills Slider */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+                  {dateOptions.map((item) => {
+                    const isActive = !customDate && selectedDate === item.date;
+                    return (
+                      <button
+                        key={item.date}
+                        onClick={() => {
+                          setCustomDate("");
+                          setSelectedDate(item.date);
+                        }}
+                        className={`px-3.5 py-2 rounded-2xl text-xs font-bold shrink-0 border transition-all duration-200 flex flex-col items-center min-w-[75px] ${
+                          isActive
+                            ? "bg-amber-600 border-amber-500 text-white shadow-lg shadow-amber-600/30"
+                            : "bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700 hover:text-white"
+                        }`}
+                      >
+                        <span className="text-[10px] opacity-80 uppercase">{item.label}</span>
+                        <span className="font-mono text-xs">{item.date.split(", ")[1]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Date Input Option */}
+                <div className="pt-1 flex items-center gap-2">
+                  <span className="text-[11px] text-stone-400 font-medium">Ou escolha outra data exata:</span>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => {
+                      setCustomDate(e.target.value);
+                    }}
+                    className="bg-stone-950 border border-stone-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-amber-500 font-mono"
+                  />
+                  {customDate && (
+                    <button
+                      onClick={() => setCustomDate("")}
+                      className="text-stone-400 hover:text-white text-xs underline font-medium"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Barber Selector */}
+              <div className="space-y-2 pt-1 border-t border-stone-800/60">
+                <label className="text-xs font-bold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-amber-500" /> 3. Profissional de Preferência:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    "Qualquer Barbeiro Livre",
+                    "Carlos (Mestre Fade)",
+                    "Henrique (Barba & Visagismo)",
+                  ].map((barber) => (
+                    <button
+                      key={barber}
+                      onClick={() => setSelectedBarber(barber)}
+                      className={`p-2.5 rounded-xl text-[11px] font-bold border transition-all text-left truncate ${
+                        selectedBarber === barber
+                          ? "bg-amber-600/30 border-amber-500 text-amber-300"
+                          : "bg-stone-800/60 border-stone-700 text-stone-400 hover:text-white"
+                      }`}
+                    >
+                      ✓ {barber.split(" (")[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Time Slot Selector (Grouped by Period) */}
+              <div className="space-y-3 pt-1 border-t border-stone-800/60">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-500" /> 4. Horários Disponíveis:
+                  </label>
+                  <span className="text-[11px] text-amber-400 font-mono font-bold">Horário: {selectedTime}</span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Manhã */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono text-stone-400 flex items-center gap-1">
+                      <Sun className="w-3 h-3 text-amber-400" /> MANHÃ
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {timeSlots.manha.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTime(t)}
+                          className={`py-1.5 px-3 rounded-xl text-xs font-mono font-bold border transition-all ${
+                            selectedTime === t
+                              ? "bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-600/30"
+                              : "bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tarde */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono text-stone-400 flex items-center gap-1">
+                      <Sunset className="w-3 h-3 text-orange-400" /> TARDE
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {timeSlots.tarde.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTime(t)}
+                          className={`py-1.5 px-3 rounded-xl text-xs font-mono font-bold border transition-all ${
+                            selectedTime === t
+                              ? "bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-600/30"
+                              : "bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Noite */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono text-stone-400 flex items-center gap-1">
+                      <Moon className="w-3 h-3 text-indigo-400" /> NOITE
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {timeSlots.noite.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTime(t)}
+                          className={`py-1.5 px-3 rounded-xl text-xs font-mono font-bold border transition-all ${
+                            selectedTime === t
+                              ? "bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-600/30"
+                              : "bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Calculation & Itemized List */}
+              <div className="p-4 bg-stone-950 rounded-2xl border border-stone-800 space-y-3">
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs text-stone-400">
+                    <span>Itens Selecionados ({selectedServices.length}):</span>
+                    <span className="text-amber-400 font-bold font-mono">{finalDateDisplay} às {selectedTime}</span>
+                  </div>
+                  <div className="text-[11px] text-stone-300 font-medium">
+                    {getSelectedNames()}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-baseline border-t border-stone-800/80 pt-2">
+                  <span className="text-xs font-bold text-stone-300">Total Estimado:</span>
+                  <span className="text-3xl font-black text-amber-400">R$ {calculateTotal()},00</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleBookingWhatsApp}
+                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 rounded-2xl text-white font-black text-sm transition-all shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 group"
+              >
+                <MessageSquare className="w-5 h-5 fill-current" /> Confirmar e Enviar no WhatsApp
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </button>
+
+              <p className="text-[11px] text-stone-400 text-center font-medium">
+                ✓ Sem cobrança antecipada. Pagamento realizado diretamente na barbearia!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Experience Showcase */}
+      <section id="experiencia" className="py-20 bg-stone-100 border-t border-stone-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal className="text-center space-y-3 mb-14">
+            <span className="inline-block px-4 py-1.5 bg-white border border-stone-200 text-stone-800 rounded-full text-xs font-mono font-bold uppercase tracking-widest">
+              Diferenciais da Casa
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-stone-900 tracking-tight">
+              Mais que um corte, um momento de pausa
+            </h2>
+          </Reveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Reveal delay={100} className="bg-white p-8 rounded-3xl shadow-md border border-stone-200">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mb-6">
+                <Coffee className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-stone-900 mb-2">Bar &amp; Lounge Exclusivo</h3>
+              <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                Chegue alguns minutos antes e aproveite nosso espaço com café expresso grátis, cerveja trincando e sinuca.
+              </p>
+            </Reveal>
+
+            <Reveal delay={200} className="bg-white p-8 rounded-3xl shadow-md border border-stone-200">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mb-6">
+                <Scissors className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-stone-900 mb-2">Barbeiros Especialistas</h3>
+              <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                Equipe qualificada constantemente atualizada com as últimas tendências em degradê, tesoura e visagismo.
+              </p>
+            </Reveal>
+
+            <Reveal delay={300} className="bg-white p-8 rounded-3xl shadow-md border border-stone-200">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mb-6">
+                <Award className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-stone-900 mb-2">Produtos Premium</h3>
+              <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                Utilizamos e vendemos as melhores pomadas, óleos e balms importados para manter seu cabelo e barba perfeitos.
+              </p>
             </Reveal>
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section id="depoimentos" className="py-24 bg-slate-50 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <Reveal className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">O que dizem sobre nós</h2>
-          </Reveal>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            <Reveal delay={100} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex gap-1 text-yellow-400 mb-4"><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/></div>
-              <p className="text-slate-700 mb-6 font-medium leading-relaxed">"O TaskFlow mudou a forma como nossa agência opera. Economizamos cerca de 10 horas semanais em processos que antes eram manuais."</p>
-              <div className="flex items-center gap-3">
-                <img src="https://i.pravatar.cc/150?img=32" alt="Foto" className="w-10 h-10 rounded-full" />
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Mariana Silva</h4>
-                  <p className="text-xs text-slate-500">CEO, DigitalGrowth</p>
+      <section id="depoimentos" className="max-w-7xl mx-auto px-6 py-20 border-t border-stone-200">
+        <Reveal className="text-center space-y-3 mb-14">
+          <span className="inline-block px-4 py-1.5 bg-amber-100 text-amber-900 rounded-full text-xs font-mono font-bold uppercase tracking-widest">
+            Clientes Frequentes
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-black text-stone-900 tracking-tight">O que nossos clientes dizem</h2>
+        </Reveal>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            {
+              name: "Marcelo Fonseca",
+              text: "Atendimento sensacional! Cheguei no horário agendado, fui atendido imediatamente e o degradê ficou impecável.",
+              stars: 5,
+            },
+            {
+              name: "Gabriel Ramos",
+              text: "A barba terapia com toalha quente é relaxante demais. Sem falar da cerveja gelada enquanto você aguarda!",
+              stars: 5,
+            },
+            {
+              name: "Felipe Nogueira",
+              text: "Corto o cabelo aqui há mais de 2 anos. Praticidade incrível para agendar pelo WhatsApp em 10 segundos.",
+              stars: 5,
+            },
+          ].map((t, idx) => (
+            <Reveal key={idx} delay={idx * 150} className="p-8 rounded-3xl bg-white border border-stone-200 shadow-sm space-y-4">
+              <div className="flex gap-1 text-amber-500">
+                {[...Array(t.stars)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-current" />
+                ))}
+              </div>
+              <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-medium">&ldquo;{t.text}&rdquo;</p>
+              <div className="pt-3 border-t border-stone-100 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-stone-900 text-white flex items-center justify-center text-xs font-black">
+                  {t.name.substring(0, 2).toUpperCase()}
                 </div>
+                <span className="text-xs font-bold text-stone-900">{t.name}</span>
               </div>
             </Reveal>
-            <Reveal delay={200} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex gap-1 text-yellow-400 mb-4"><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/></div>
-              <p className="text-slate-700 mb-6 font-medium leading-relaxed">"A melhor ferramenta de gestão que já usei. A curva de aprendizado é quase nula e a equipe aderiu no primeiro dia."</p>
+          ))}
+        </div>
+      </section>
+
+      {/* Location & Contact */}
+      <section id="localizacao" className="bg-stone-900 text-white py-20">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-6 space-y-6">
+            <span className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black uppercase rounded-md">
+              Onde Estamos
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Venha tomar um café conosco</h2>
+            <p className="text-xs sm:text-sm text-stone-400 font-medium leading-relaxed">
+              Estamos localizados no coração da cidade, com ambiente climatizado e fácil acesso.
+            </p>
+
+            <div className="space-y-4 text-xs font-medium text-stone-300">
               <div className="flex items-center gap-3">
-                <img src="https://i.pravatar.cc/150?img=11" alt="Foto" className="w-10 h-10 rounded-full" />
+                <div className="w-9 h-9 rounded-xl bg-stone-800 flex items-center justify-center text-amber-400">
+                  <MapPin className="w-4 h-4" />
+                </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Roberto Almeida</h4>
-                  <p className="text-xs text-slate-500">Diretor de Operações</p>
+                  <span className="font-bold text-white block">Endereço Principal</span>
+                  <span>Av. Central, nº 1250 — Centro (Estac. Gratuito)</span>
                 </div>
               </div>
-            </Reveal>
-            <Reveal delay={300} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex gap-1 text-yellow-400 mb-4"><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/><Star className="w-5 h-5 fill-current"/></div>
-              <p className="text-slate-700 mb-6 font-medium leading-relaxed">"O suporte é fenomenal e as novas atualizações de inteligência artificial colocaram a ferramenta em outro nível."</p>
+
               <div className="flex items-center gap-3">
-                <img src="https://i.pravatar.cc/150?img=5" alt="Foto" className="w-10 h-10 rounded-full" />
+                <div className="w-9 h-9 rounded-xl bg-stone-800 flex items-center justify-center text-amber-400">
+                  <Clock className="w-4 h-4" />
+                </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Carolina Torres</h4>
-                  <p className="text-xs text-slate-500">Tech Lead</p>
+                  <span className="font-bold text-white block">Horário de Atendimento</span>
+                  <span>Segunda a Sábado: 09:00 às 20:00</span>
                 </div>
               </div>
-            </Reveal>
+
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-stone-800 flex items-center justify-center text-amber-400">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-white block">Telefone / WhatsApp</span>
+                  <span>(88) 98188-5499</span>
+                </div>
+              </div>
+            </div>
+
+            <a
+              href="https://wa.me/5588981885499"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-amber-600 hover:bg-amber-500 text-white font-black text-xs rounded-2xl transition-all shadow-lg"
+            >
+              <MessageSquare className="w-4 h-4" /> Falar com Atendente
+            </a>
+          </div>
+
+          <div className="lg:col-span-6 rounded-3xl overflow-hidden border border-stone-800 bg-stone-950 p-4 text-center space-y-4">
+            <div className="aspect-[16/9] w-full rounded-2xl bg-stone-900 border border-stone-800 flex flex-col items-center justify-center p-6 space-y-2">
+              <MapPin className="w-8 h-8 text-amber-500 animate-bounce" />
+              <span className="font-bold text-sm text-white">Royal Barber Club</span>
+              <span className="text-xs text-stone-400 font-mono">Av. Central, 1250 — Centro</span>
+              <span className="text-[10px] text-emerald-400 font-bold pt-2">✓ Mapa Interativo Sincronizado</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="planos" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <Reveal className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">Preços simples e transparentes</h2>
-            <p className="text-lg text-slate-600">Sem taxas ocultas, cancele a qualquer momento.</p>
-          </Reveal>
-          
-          <div className="grid md:grid-cols-2 lg:w-2/3 mx-auto gap-8">
-            <Reveal delay={100} className="bg-white border border-slate-200 rounded-3xl p-8 hover:border-blue-200 hover:shadow-xl transition-all">
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Básico</h3>
-              <p className="text-slate-500 mb-6 text-sm">Perfeito para pequenas equipes.</p>
-              <div className="mb-6">
-                <span className="text-4xl font-extrabold text-slate-900">R$ 49</span><span className="text-slate-500">/mês</span>
-              </div>
-              <button className="w-full py-3 bg-blue-50 text-blue-600 font-bold rounded-xl mb-6 hover:bg-blue-100 transition-colors">Testar Grátis</button>
-              <ul className="space-y-3 text-sm text-slate-600 font-medium">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500" /> Até 5 usuários</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500" /> Projetos ilimitados</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500" /> Suporte por email</li>
-              </ul>
-            </Reveal>
-
-            <Reveal delay={200} className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative transform md:-translate-y-4">
-              <div className="absolute top-0 right-6 transform -translate-y-1/2 bg-blue-600 text-white text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-                Mais Popular
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
-              <p className="text-slate-400 mb-6 text-sm">Para times que precisam escalar.</p>
-              <div className="mb-6">
-                <span className="text-4xl font-extrabold text-white">R$ 99</span><span className="text-slate-400">/mês</span>
-              </div>
-              <button className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl mb-6 hover:bg-blue-500 transition-colors">Assinar Agora</button>
-              <ul className="space-y-3 text-sm text-slate-300 font-medium">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-400" /> Usuários ilimitados</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-400" /> Automações de IA</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-400" /> Suporte 24/7 (Prioritário)</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-blue-400" /> Relatórios avançados</li>
-              </ul>
-            </Reveal>
-          </div>
+      {/* Footer */}
+      <footer className="border-t border-stone-200 bg-stone-100 py-8 text-center text-xs text-stone-500 font-medium">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <span>&copy; {new Date().getFullYear()} Royal Barber Club. Todos os direitos reservados.</span>
+          <Link href="/" className="text-amber-700 font-bold hover:underline">
+            ← Voltar para a Nexus AI SaaS
+          </Link>
         </div>
-      </section>
+      </footer>
 
-      {/* CTA Final */}
-      <section className="py-24 bg-blue-600">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <Reveal>
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6 leading-tight">Pronto para transformar a gestão da sua equipe?</h2>
-            <p className="text-xl text-blue-100 mb-10">Junte-se a milhares de empresas que já aumentaram sua produtividade.</p>
-            <button className="px-10 py-5 bg-white text-blue-900 rounded-full font-extrabold text-lg transition-transform shadow-xl shadow-blue-900/20 hover:scale-105">
-              Criar conta gratuita
-            </button>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Return Button */}
-      <Link href="/" className="fixed bottom-6 right-6 z-50 px-4 py-2 bg-slate-900 text-white rounded-full text-sm font-bold shadow-2xl hover:scale-105 transition-transform flex items-center gap-2">
-        <ChevronRight className="w-4 h-4 rotate-180" /> Voltar ao Nexus
-      </Link>
+      {/* Floating WhatsApp Action Pill */}
+      <a
+        href="https://wa.me/5588981885499"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-full text-xs font-black shadow-2xl hover:scale-105 transition-all flex items-center gap-2 border border-white/20"
+      >
+        <MessageSquare className="w-4 h-4 fill-current" /> Agendar no WhatsApp
+      </a>
     </div>
   );
 }
