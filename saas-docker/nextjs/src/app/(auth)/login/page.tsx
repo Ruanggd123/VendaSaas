@@ -31,8 +31,7 @@ function LoginForm() {
         throw new Error(data.error || "Credenciais inválidas");
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message);
     } finally {

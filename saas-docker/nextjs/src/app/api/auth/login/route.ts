@@ -13,7 +13,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Preencha todos os campos' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
     if (user) {
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     // Se não encontrou como User, tenta como Partner
-    const partner = await prisma.partner.findFirst({ where: { email } });
+    const partner = await prisma.partner.findFirst({ where: { email: normalizedEmail } });
     if (!partner || !partner.password_hash) {
       return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
     }
