@@ -78,7 +78,9 @@ export async function POST(req: Request) {
             qrcode: true,
           }),
         });
+      }
 
+      if (connectRes.ok) {
         try {
           await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
             method: "POST",
@@ -92,8 +94,9 @@ export async function POST(req: Request) {
               },
             }),
           });
+          console.log(`✅ Webhook reconfigurado para ${instanceName} durante reconexão (URL: ${webhookTargetUrl})`);
         } catch (e) {
-          console.error("Erro ao configurar webhook na recriação", e);
+          console.error("Erro ao configurar webhook na reconexão", e);
         }
       }
 

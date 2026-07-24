@@ -44,15 +44,6 @@ export default function NativeWhatsAppDashboard() {
       
       if (res.ok && data.instances) {
         setInstances(data.instances);
-        
-        // Se houver uma instância conectando e não tivermos o activeInstanceName setado,
-        // (por exemplo, ao carregar a tela), pegamos ela para voltar a exibir o QR
-        if (!activeInstanceName) {
-          const connectingInstance = data.instances.find((i: WhatsappInstance) => i.status === "connecting");
-          if (connectingInstance && !qrCode) {
-            handleConnect(connectingInstance.name);
-          }
-        }
       }
     } catch (err) {
       console.error(err);
@@ -64,13 +55,20 @@ export default function NativeWhatsAppDashboard() {
   useEffect(() => {
     fetchInstances();
 
-    // Polling a cada 5 segundos para verificar o status geral
     const interval = setInterval(() => {
       fetchInstances();
     }, 5000);
 
     return () => clearInterval(interval);
   }, [activeInstanceName]);
+
+  // Keep-alive para evitar cold start da Evolution API no Render (free tier dorme após 15min)
+  useEffect(() => {
+    const warm = () => { fetch("/api/warm/evolution").catch(() => {}); };
+    warm();
+    const interval = setInterval(warm, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Efeito do Timer do QR Code
   useEffect(() => {
@@ -102,6 +100,15 @@ export default function NativeWhatsAppDashboard() {
     setCountdown(40);
 
     try {
+      // Aquecer Evolution API se estiver em cold start (Render free tier)
+      const warmRes = await fetch("/api/warm/evolution");
+      const warmData = await warmRes.json().catch(() => ({}));
+      if (warmData.status === "cold_booting") {
+        alert("O servidor de WhatsApp está inicializando. Aguarde 30 segundos e tente novamente.");
+        setIsProcessing(false);
+        return;
+      }
+
       const res = await fetch("/api/whatsapp/connect", { 
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
