@@ -736,38 +736,38 @@ export default function WorkflowPage() {
                   </div>
                 </div>
 
-                {/* LISTA HIERÁRQUICA COM BUSCA */}
-                {(settings.custom_rules_nodes || [])
-                  .filter((n: any) => !n.parentId)
-                  .filter((rootNode: any) => {
-                    if (!nodeSearchQuery) return true;
-                    const q = nodeSearchQuery.toLowerCase();
-                    return rootNode.title?.toLowerCase().includes(q) || rootNode.keyword?.toLowerCase().includes(q) || rootNode.textContent?.toLowerCase().includes(q);
-                  })
-                  .map((rootNode: any) => {
-                    const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === rootNode.id);
-                    const rootIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === rootNode.id);
-                    const isExpanded = expandedParents[rootNode.id] !== false;
+                {/* LISTA HIERÁRQUICA RECURSIVA COM BUSCA */}
+                {(() => {
+                  const renderNodeItem = (node: any, depth = 0): React.ReactNode => {
+                    const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === node.id);
+                    const nodeIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === node.id);
+                    const isExpanded = expandedParents[node.id] !== false;
 
                     return (
-                      <div key={rootNode.id} className="space-y-2">
-                        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-2 text-xs shadow-sm">
-                          <div className="flex items-center gap-2">
+                      <div key={node.id} className="space-y-2 w-full max-w-full min-w-0">
+                        <div className={`p-3 rounded-2xl space-y-2 text-xs shadow-sm w-full max-w-full min-w-0 border transition-all ${
+                          depth === 0
+                            ? "bg-slate-50 dark:bg-slate-950 border-indigo-200 dark:border-indigo-500/30"
+                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10"
+                        }`}>
+                          {/* LINHA DE TÍTULO E GATILHO */}
+                          <div className="flex items-center gap-1.5 w-full min-w-0">
                             <button
-                              onClick={() => setExpandedParents({ ...expandedParents, [rootNode.id]: !isExpanded })}
-                              className="text-slate-400 hover:text-indigo-600 p-0.5 font-bold text-xs"
+                              onClick={() => setExpandedParents({ ...expandedParents, [node.id]: !isExpanded })}
+                              className="text-slate-400 hover:text-indigo-600 p-0.5 font-bold text-xs shrink-0"
+                              title={isExpanded ? "Recolher sub-opções" : "Expandir sub-opções"}
                             >
                               {children.length > 0 ? (isExpanded ? "▼" : "▶") : "•"}
                             </button>
 
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5">
+                            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-1.5 py-0.5 shrink-0">
                               <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
                               <input
                                 type="text"
-                                value={rootNode.keyword || ""}
+                                value={node.keyword || ""}
                                 onChange={(e) => {
                                   const newNodes = [...(settings.custom_rules_nodes || [])];
-                                  newNodes[rootIdx].keyword = e.target.value;
+                                  newNodes[nodeIdx].keyword = e.target.value;
                                   updateField("custom_rules_nodes", newNodes);
                                 }}
                                 className="w-5 bg-transparent font-black text-center text-indigo-600 dark:text-indigo-400 text-xs focus:outline-none"
@@ -776,19 +776,25 @@ export default function WorkflowPage() {
 
                             <input
                               type="text"
-                              value={rootNode.title || ""}
+                              value={node.title || ""}
                               onChange={(e) => {
                                 const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes[rootIdx].title = e.target.value;
+                                newNodes[nodeIdx].title = e.target.value;
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-extrabold text-slate-900 dark:text-white text-xs"
-                              placeholder="Título do Menu"
+                              className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-extrabold text-slate-900 dark:text-white text-xs min-w-0"
+                              placeholder={depth === 0 ? "Título do Menu" : "Título da Sub-opção"}
                             />
 
                             <button
                               onClick={() => {
-                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
+                                const deleteIds = new Set<string>();
+                                const collectDelete = (id: string) => {
+                                  deleteIds.add(id);
+                                  (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === id).forEach((c: any) => collectDelete(c.id));
+                                };
+                                collectDelete(node.id);
+                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => !deleteIds.has(n.id));
                                 updateField("custom_rules_nodes", newNodes);
                               }}
                               className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
@@ -797,44 +803,68 @@ export default function WorkflowPage() {
                             </button>
                           </div>
 
+                          {/* TIPO DE AÇÃO DO NÓ */}
                           <select
-                            value={rootNode.actionType || "text"}
+                            value={node.actionType || "text"}
                             onChange={(e) => {
                               const newNodes = [...(settings.custom_rules_nodes || [])];
-                              newNodes[rootIdx].actionType = e.target.value;
+                              newNodes[nodeIdx].actionType = e.target.value;
                               updateField("custom_rules_nodes", newNodes);
                             }}
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
                           >
                             <option value="text">💬 Exibir Resposta de Texto</option>
                             <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                            <option value="checkout">💳 Pagamento / Checkout de Produto</option>
                             <option value="scheduling">📅 Abrir Agendamento de Horário</option>
                             <option value="human">👤 Transferir para Atendente Humano</option>
                           </select>
 
+                          {/* MOSTRA FORMA DE PAGAMENTO APENAS SE FOR PAGAMENTO OU CHECKOUT! */}
+                          {(node.actionType === "checkout" || node.actionType === "product") && (
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">💳 Forma de Pagamento:</label>
+                              <select
+                                value={node.paymentMode || "both"}
+                                onChange={(e) => {
+                                  const newNodes = [...(settings.custom_rules_nodes || [])];
+                                  newNodes[nodeIdx].paymentMode = e.target.value;
+                                  updateField("custom_rules_nodes", newNodes);
+                                }}
+                                className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
+                              >
+                                <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
+                                <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
+                                <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {/* RESPOSTA DO ROBÔ */}
                           <textarea
                             rows={2}
-                            value={rootNode.textContent || ""}
+                            value={node.textContent || ""}
                             onChange={(e) => {
                               const newNodes = [...(settings.custom_rules_nodes || [])];
-                              newNodes[rootIdx].textContent = e.target.value;
+                              newNodes[nodeIdx].textContent = e.target.value;
                               updateField("custom_rules_nodes", newNodes);
                             }}
-                            placeholder="Resposta enviada ao cliente..."
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
+                            placeholder="Resposta enviada ao cliente ao selecionar esta opção..."
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
                           />
 
-                          {rootNode.actionType === "catalog" && (
+                          {/* BOTÃO SINCRONIZAR PRODUTOS (SE FOR CATÁLOGO) */}
+                          {node.actionType === "catalog" && (
                             <button
                               onClick={() => {
                                 const newNodes = [...(settings.custom_rules_nodes || [])];
                                 const prods = settings.products || [];
                                 prods.forEach((prod: any, idx: number) => {
-                                  const exists = newNodes.some((n) => n.parentId === rootNode.id && n.keyword === String(idx + 1));
+                                  const exists = newNodes.some((n) => n.parentId === node.id && n.keyword === String(idx + 1));
                                   if (!exists) {
                                     newNodes.push({
                                       id: "prod_node_" + Math.random().toString(36).substr(2, 9),
-                                      parentId: rootNode.id,
+                                      parentId: node.id,
                                       keyword: String(idx + 1),
                                       title: `${prod.name} (R$ ${prod.price})`,
                                       actionType: "checkout",
@@ -844,27 +874,27 @@ export default function WorkflowPage() {
                                   }
                                 });
                                 updateField("custom_rules_nodes", newNodes);
-                                setAlert({ type: "success", msg: "Sub-nós de produtos gerados com sucesso no catálogo! 📦" });
+                                setAlert({ type: "success", msg: "Sub-nós de produtos gerados com sucesso! 📦" });
                               }}
-                              className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5"
+                              className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-2.5 py-1.5 text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
                             >
                               <Package className="w-3.5 h-3.5 text-emerald-500" />
-                              <span>✨ Sincronizar Produtos do Catálogo como Sub-nós</span>
+                              <span>✨ Gerar Sub-nós dos Produtos</span>
                             </button>
                           )}
 
+                          {/* RODAPÉ DO CARD DO NÓ: ADD SUB-OPÇÃO */}
                           <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
                             <button
                               onClick={() => {
                                 const newNodes = [...(settings.custom_rules_nodes || [])];
                                 newNodes.push({
                                   id: "node_" + Math.random().toString(36).substr(2, 9),
-                                  parentId: rootNode.id,
+                                  parentId: node.id,
                                   keyword: String(children.length + 1),
                                   title: `Sub-opção ${children.length + 1}`,
                                   actionType: "text",
-                                  paymentMode: "both",
-                                  textContent: "Resposta desta sub-opção...",
+                                  textContent: "Digite a resposta desta sub-opção...",
                                 });
                                 updateField("custom_rules_nodes", newNodes);
                               }}
@@ -876,85 +906,25 @@ export default function WorkflowPage() {
                           </div>
                         </div>
 
-                        {/* SUB-NÓS */}
+                        {/* SUB-NÓS RECURSIVOS (SUBSEÇÃO DA SUBSEÇÃO...) */}
                         {isExpanded && children.length > 0 && (
-                          <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-3 ml-3 space-y-2 relative">
-                            {children.map((child: any) => {
-                              const childIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === child.id);
-                              return (
-                                <div key={child.id} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5">
-                                      <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
-                                      <input
-                                        type="text"
-                                        value={child.keyword || ""}
-                                        onChange={(e) => {
-                                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                                          newNodes[childIdx].keyword = e.target.value;
-                                          updateField("custom_rules_nodes", newNodes);
-                                        }}
-                                        className="w-5 bg-transparent font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px] focus:outline-none"
-                                      />
-                                    </div>
-                                    <input
-                                      type="text"
-                                      value={child.title || ""}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].title = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-0.5 font-bold text-slate-900 dark:text-white text-[11px]"
-                                      placeholder="Sub-opção"
-                                    />
-                                    <button
-                                      onClick={() => {
-                                        const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== child.id);
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <label className="text-[9px] font-bold text-slate-500 block">💳 Forma de Pagamento / Ação:</label>
-                                    <select
-                                      value={child.paymentMode || "both"}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].paymentMode = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none"
-                                    >
-                                      <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
-                                      <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
-                                      <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
-                                    </select>
-                                  </div>
-
-                                  <textarea
-                                    rows={2}
-                                    value={child.textContent || ""}
-                                    onChange={(e) => {
-                                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                                      newNodes[childIdx].textContent = e.target.value;
-                                      updateField("custom_rules_nodes", newNodes);
-                                    }}
-                                    placeholder="Resposta enviada ao cliente ao selecionar este produto ou sub-opção..."
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
-                                  />
-                                </div>
-                              );
-                            })}
+                          <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-2.5 ml-2 space-y-2 relative">
+                            {children.map((child: any) => renderNodeItem(child, depth + 1))}
                           </div>
                         )}
                       </div>
                     );
-                  })}
+                  };
+
+                  const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
+                  const filteredRootNodes = rootNodes.filter((rootNode: any) => {
+                    if (!nodeSearchQuery) return true;
+                    const q = nodeSearchQuery.toLowerCase();
+                    return rootNode.title?.toLowerCase().includes(q) || rootNode.keyword?.toLowerCase().includes(q) || rootNode.textContent?.toLowerCase().includes(q);
+                  });
+
+                  return filteredRootNodes.map((rootNode: any) => renderNodeItem(rootNode, 0));
+                })()}
               </div>
             </div>
 
