@@ -138,6 +138,11 @@ export async function processMessageWithRules(
   // Handle "voltar" navigation
   if (["0", "voltar", "menu", "inicio", "olá", "ola", "oi", "bom dia", "boa tarde", "boa noite"].includes(cleanText)) {
     if (state.step === "main_menu") {
+      if (state.data.menu_sent) {
+        return "Já te mandei as opções acima! Digite *1*, *2*, *3* ou *4* para continuar, ou *0* para voltar.";
+      }
+      state.data.menu_sent = true;
+      await saveState(state);
       return getMainMenuMessage(settings);
     }
 
