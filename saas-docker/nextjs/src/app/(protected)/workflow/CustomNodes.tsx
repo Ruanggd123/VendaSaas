@@ -102,7 +102,7 @@ export const MenuNode = ({ data, selected }: any) => {
             {(data.products || []).length > 0 ? (
               (data.products || []).slice(0, 4).map((p: any, i: number) => (
                 <div key={i} className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                  <span className="truncate max-w-[130px] font-bold">*{i + 1}* - {p.name}</span>
+                  <span className="truncate max-w-[140px] font-bold">{i + 1}. {p.name}</span>
                   <span className="font-black text-emerald-600 dark:text-emerald-400">R$ {p.price}</span>
                 </div>
               ))

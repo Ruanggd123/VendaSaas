@@ -117,8 +117,10 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         const hasChildren = customNodes.some((n: any) => n.parentId === cn.id);
         const parentNode = customNodes.find((n: any) => n.id === cn.parentId);
         const level = levelMap.get(cn.id) || 1;
-        const xPos = xPositions.get(cn.id) || 450;
-        const yPos = 50 + level * 180;
+
+        // Se o nó possui posição arrastada pelo usuário, usa a posição salva!
+        const xPos = typeof cn.position?.x === "number" ? cn.position.x : (xPositions.get(cn.id) || 450);
+        const yPos = typeof cn.position?.y === "number" ? cn.position.y : (50 + level * 180);
 
         initialNodes.push({
           id: cn.id,
@@ -143,7 +145,7 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
 
     setNodes(initialNodes);
     setEdges(initialEdges);
-  }, [settings.welcome_message, settings.custom_rules_nodes]); // removed updateField to avoid loops
+  }, [settings.welcome_message, settings.custom_rules_nodes]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -163,6 +165,17 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
     [nodes]
   );
 
+  const onNodeDragStop = useCallback(
+    (_: any, node: Node) => {
+      setNodes((prevNodes) => {
+        const updated = prevNodes.map((n) => (n.id === node.id ? { ...n, position: node.position } : n));
+        syncGraphToBackend(updated, edges);
+        return updated;
+      });
+    },
+    [edges]
+  );
+
   const syncGraphToBackend = (currentNodes: Node[], currentEdges: Edge[]) => {
     const custom_rules_nodes: any[] = [];
     currentNodes.forEach(node => {
@@ -179,6 +192,7 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         title: node.data.title || 'Nova Opção',
         actionType: node.data.actionType || 'text',
         textContent: node.data.textContent || '',
+        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
         variableName: node.data.variableName || '',
         productId: node.data.productId || '',
         productPrice: node.data.productPrice || '',
@@ -218,9 +232,10 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
-        className="bg-[#09090b]"
+        className="bg-slate-100 dark:bg-slate-950"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
         <Controls className="bg-zinc-900 border-zinc-800 fill-white text-white [&_button]:hover:bg-zinc-700 [&_button]:border-zinc-700" />
