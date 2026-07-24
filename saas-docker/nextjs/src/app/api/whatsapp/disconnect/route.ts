@@ -38,21 +38,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    // Exclui do banco de dados PRIMEIRO para garantir que a UI atualize rápido
-    // e o usuário não fique preso se a Evolution API estiver lenta.
+    // Exclui do banco de dados
     await prisma.whatsappInstance.delete({
       where: { name: instanceName }
     });
 
-    // Chama DELETE na Evolution API em background (fire and forget)
-    // Não damos await para não prender a resposta.
-    fetch(`${evolutionUrl}/instance/delete/${instanceName}`, {
-      method: "DELETE",
-      headers: {
-        'apikey': evolutionKey,
-        'ngrok-skip-browser-warning': 'true'
-      }
-    }).catch(err => console.error("Erro ao deletar na Evolution API:", err));
+    // Tenta excluir da Evolution API (await real, com fallback)
+    try {
+      await fetch(`${evolutionUrl}/instance/delete/${instanceName}`, {
+        method: "DELETE",
+        headers: {
+          'apikey': evolutionKey,
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+    } catch (err) {
+      console.warn("Evolution API indisponivel ao deletar instancia, removida apenas do banco:", err);
+    }
 
     return NextResponse.json({ success: true });
 

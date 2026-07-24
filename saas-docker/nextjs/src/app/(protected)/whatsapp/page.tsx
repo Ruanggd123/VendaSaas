@@ -154,9 +154,15 @@ export default function NativeWhatsAppDashboard() {
           setQrCode(null);
         }
         fetchInstances();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert("Erro ao excluir: " + (data.error || "Erro desconhecido"));
+        fetchInstances();
       }
     } catch (err) {
       console.error(err);
+      alert("Erro de conexão ao excluir instância.");
+      fetchInstances();
     }
   };
 

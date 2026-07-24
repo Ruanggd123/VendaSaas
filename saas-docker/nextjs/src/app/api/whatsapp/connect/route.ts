@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { instanceId, connectionName } = await req.json();
+    const { instanceName: requestedInstanceName, connectionName } = await req.json();
 
     const evolutionUrl = process.env.EVOLUTION_URL || "http://evolution:8080";
     const evolutionKey = process.env.EVOLUTION_API_KEY;
@@ -51,10 +51,10 @@ export async function POST(req: Request) {
     let instanceName: string;
     let dbInstance: any;
 
-    if (instanceId) {
+    if (requestedInstanceName) {
       // Reconectar instância existente
       dbInstance = await prisma.whatsappInstance.findUnique({
-        where: { id: instanceId },
+        where: { name: requestedInstanceName },
       });
 
       if (!dbInstance || dbInstance.tenant_id !== session.tenant_id) {
@@ -79,7 +79,6 @@ export async function POST(req: Request) {
           }),
         });
 
-        // Garantir que o webhook seja configurado
         try {
           await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
             method: "POST",
@@ -164,7 +163,6 @@ export async function POST(req: Request) {
 
       const createData = await createRes.json();
 
-      // Configurar webhook automaticamente
       try {
         const webhookRes = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
           method: "POST",
@@ -183,8 +181,8 @@ export async function POST(req: Request) {
         } else {
           console.log(`✅ Webhook auto-configurado com URL ${webhookTargetUrl} para ${instanceName}`);
         }
-      } catch (e) {
-        console.error("Erro ao configurar webhook", e);
+      } catch (error) {
+        console.error("Falha ao configurar webhook:", error);
       }
 
       return NextResponse.json({
@@ -194,8 +192,8 @@ export async function POST(req: Request) {
         dbInstance,
       });
     }
-  } catch (err: any) {
-    console.error("POST /api/whatsapp/connect:", err);
-    return NextResponse.json({ error: err.message || "Erro ao conectar WhatsApp" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Erro na rota /api/whatsapp/connect:", error);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
