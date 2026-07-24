@@ -1036,67 +1036,108 @@ export default function Home() {
 
           {/* SECTION 2: COMBOS */}
           {pricingTab === "combo" && (
-            <div className="animate-fade-in space-y-6">
+            <div className="animate-fade-in space-y-8">
+              {/* Tabela comparativa */}
+              <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
+                        <th className="text-left p-4 font-bold text-slate-600 dark:text-slate-400">Comparativo</th>
+                        <th className="p-4 text-center font-black text-indigo-700 dark:text-indigo-300">Site Grátis</th>
+                        <th className="p-4 text-center font-black text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-500/5">CRM Grátis</th>
+                        <th className="p-4 text-center font-black text-emerald-700 dark:text-emerald-300">Loja Grátis</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">Preço</td><td className="p-4 text-center font-black text-indigo-600 dark:text-indigo-400">R$ 97/mês</td><td className="p-4 text-center font-black text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 197/mês</td><td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400">R$ 397/mês</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎁 Bônus Grátis</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400 font-bold">Site Institucional</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-500/5">Plataforma + CRM</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400 font-bold">Loja Virtual</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💰 Economia</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400">R$ 497</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 997</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400">R$ 1.997</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">📱 WhatsApp</td><td className="p-4 text-center">1</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">1</td><td className="p-4 text-center font-bold">Até 3</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💬 Atendimentos</td><td className="p-4 text-center">1.000/mês</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">ILIMITADO</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">ILIMITADO</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">👥 Multi-Atendente</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">Até 2 humanos</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Ilimitado</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">📦 Catálogo + Pix</td><td className="p-4 text-center">✅</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">✅</td><td className="p-4 text-center">✅</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎯 Disparo em Massa</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ Ilimitado</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🧠 Base Conhecimento</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🔧 API Dedicada</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Cards dos Planos */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                   {
-                    id: "combo_start",
-                    name: "Plano Start",
-                    price: "R$ 197",
-                    period: "/mês",
-                    desc: "Para pequenos negócios e autônomos",
-                    setupWaived: "Economia de R$ 497 de Setup",
+                    id: "site_gratis",
+                    name: "Site Grátis",
+                    price: "R$ 97",
+                    tagline: "Site institucional grátis + bot IA",
+                    desc: "Para autônomos, MEI e profissionais liberais",
+                    bonus: "🎉 Site Institucional 100% GRÁTIS",
+                    bonusValue: "R$ 497",
+                    color: "border-indigo-500/30",
                     features: [
-                      "🎉 Site Institucional 100% GRÁTIS",
-                      "Atendimento Automático no WhatsApp 24h",
-                      "Até 1.000 Atendimentos/mês",
-                      "Respostas com Áudio de Voz",
-                      "Suporte via WhatsApp",
+                      "Site Institucional Grátis (economia de R$ 497)",
+                      "1 Número de WhatsApp",
+                      "1.000 atendimentos/mês",
+                      "Bot IA + Regras + Áudio",
+                      "Catálogo e Agendamento",
                     ],
+                    limits: ["Sem CRM", "Sem Multi-Atendente", "Sem Disparo em Massa"],
+                    popular: false,
                   },
                   {
-                    id: "combo_pro",
-                    name: "Plano Pro",
-                    price: "R$ 397",
-                    period: "/mês",
-                    popular: true,
-                    desc: "Para empresas em crescimento que querem vender mais",
-                    setupWaived: "Economia de R$ 997 de Setup",
+                    id: "crm_gratis",
+                    name: "CRM Grátis",
+                    price: "R$ 197",
+                    tagline: "Plataforma CRM grátis + atendimento ilimitado",
+                    desc: "Para empresas e equipes de vendas",
+                    bonus: "🎉 Plataforma + CRM 100% GRÁTIS",
+                    bonusValue: "R$ 997",
+                    color: "border-amber-500",
                     features: [
-                      "🎉 Plataforma Web + CRM 100% GRÁTIS",
-                      "Atendimento Automático no WhatsApp 24h",
+                      "Plataforma + CRM Grátis (economia de R$ 997)",
+                      "1 Número de WhatsApp",
                       "Atendimentos ILIMITADOS",
-                      "Envio de Chave Pix no Chat",
-                      "Multi-Atendentes no mesmo número",
+                      "Multi-Atendente (até 2 humanos)",
+                      "Painel de Vendas + Pix no Chat",
                       "Suporte Prioritário VIP",
                     ],
+                    limits: ["Sem Loja Virtual", "Sem Disparo em Massa"],
+                    popular: true,
                   },
                   {
-                    id: "combo_scale",
-                    name: "Plano E-Commerce",
-                    price: "R$ 697",
-                    period: "/mês",
-                    desc: "Para marcas e lojas que querem vender produtos 24h",
-                    setupWaived: "Economia de R$ 1.997 de Setup",
+                    id: "loja_gratis",
+                    name: "Loja Grátis",
+                    price: "R$ 397",
+                    tagline: "Loja virtual grátis + 3 WhatsApp + disparo",
+                    desc: "Para marcas, lojas e operações grandes",
+                    bonus: "🎉 Loja Virtual E-Commerce 100% GRÁTIS",
+                    bonusValue: "R$ 1.997",
+                    color: "border-emerald-500/30",
                     features: [
-                      "🎉 Loja Virtual E-Commerce 100% GRÁTIS",
-                      "Atendimento + Robô de Vendas",
-                      "Catálogo Ilimitado de Produtos",
-                      "Sem Comissões por Venda Realizada",
-                      "Gerenciador de Estoque em Tempo Real",
+                      "Loja Virtual Grátis (economia de R$ 1.997)",
+                      "Até 3 Números de WhatsApp",
+                      "Atendimentos ILIMITADOS",
+                      "Multi-Atendente Ilimitado",
+                      "Disparo em Massa (Campanhas)",
+                      "Base de Conhecimento + API",
                     ],
+                    limits: [],
+                    popular: false,
                   },
                 ].map((plan) => (
                   <div
                     key={plan.id}
-                    className={`relative rounded-3xl p-8 border-2 transition-all duration-300 flex flex-col justify-between ${
+                    className={`relative rounded-3xl p-6 sm:p-8 border-2 transition-all duration-300 flex flex-col justify-between bg-white dark:bg-slate-900/90 shadow-xl ${
                       plan.popular
-                        ? "bg-white dark:bg-slate-900/90 border-amber-500 shadow-2xl shadow-amber-500/10 ring-2 ring-amber-500/50 -translate-y-2"
-                        : "bg-white dark:bg-slate-900/90 border-slate-200 dark:border-white/10 shadow-xl"
+                        ? "border-amber-500 shadow-2xl shadow-amber-500/10 ring-2 ring-amber-500/50 -translate-y-2"
+                        : "border-slate-200 dark:border-white/10"
                     }`}
                   >
                     {plan.popular && (
-                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-md">
+                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-md whitespace-nowrap">
                         🔥 Mais Vendido
                       </span>
                     )}
@@ -1104,37 +1145,62 @@ export default function Home() {
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-xl font-black text-slate-900 dark:text-white">{plan.name}</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{plan.desc}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">{plan.tagline}</p>
                       </div>
 
                       <div className="pt-2">
                         <div className="flex items-baseline gap-1">
                           <span className="text-4xl font-black text-slate-900 dark:text-white">{plan.price}</span>
-                          <span className="text-xs text-slate-500 font-bold">{plan.period}</span>
+                          <span className="text-xs text-slate-500 font-bold">/mês</span>
                         </div>
                         <span className="inline-block mt-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold rounded-lg border border-emerald-200 dark:border-emerald-500/30 font-mono">
-                          {plan.setupWaived}
+                          {plan.bonusValue} de economia
                         </span>
                       </div>
 
-                      <ul className="space-y-3 pt-4 border-t border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
+                        <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 leading-relaxed">
+                          {plan.bonus}
+                        </p>
+                      </div>
+
+                      <ul className="space-y-2.5 pt-2 text-xs">
                         {plan.features.map((f, idx) => (
                           <li key={idx} className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300 font-medium">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> {f}
                           </li>
                         ))}
                       </ul>
+
+                      {plan.limits.length > 0 && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/10">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Não inclui:</p>
+                          <ul className="space-y-1">
+                            {plan.limits.map((l, idx) => (
+                              <li key={idx} className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+                                <span className="w-3.5 h-3.5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] shrink-0">✕</span> {l}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 italic font-medium">
+                        📌 {plan.desc}
+                      </p>
                     </div>
 
                     <button
                       onClick={handleCheckoutWhatsApp}
-                      className={`w-full mt-8 py-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${
+                      className={`w-full mt-6 py-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${
                         plan.popular
                           ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-amber-500/25"
+                          : plan.id === "loja_gratis"
+                          ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25"
                           : "bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white"
                       }`}
                     >
-                      <Zap className="w-4 h-4" /> Assinar Agora com Site Grátis
+                      <Zap className="w-4 h-4" /> Assinar Agora
                     </button>
                   </div>
                 ))}

@@ -120,18 +120,15 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
 O cliente atual está testando a ferramenta para conhecer a qualidade da nossa IA.
 SEU OBJETIVO: Mostrar inteligência e fechar negócios utilizando o nosso catálogo oficial da NEXUS:
 
-SITES (Pagamento Único):
-- Presença Digital (R$ 997): Landing page de alta conversão.
-- Secretária Inteligente (R$ 1.997): Site com agendador online automático.
-- Enterprise (R$ 3.497): Loja virtual completa.
+SISTEMAS AVULSOS (Pagamento Único — código fonte entregue, hospedagem por conta do cliente):
+- Site Institucional (R$ 497): Landing page de alta conversão, 100% responsiva, SEO otimizado.
+- Plataforma Completa (R$ 997): Sistema web com CRM, painel de vendas, agendador de horários.
+- E-Commerce Avulso (R$ 1.997): Loja virtual completa, catálogo ilimitado, Pix, gestão de pedidos.
 
-BOTS WHATSAPP (Assinatura Mensal):
-- Bot Starter (R$ 97/mês): Automação com botões.
-- Bot Pro IA (R$ 197/mês): IA que atende e vende por áudio e texto 24h.
-- Bot Equipe (R$ 397/mês): Conecta até 3 números com painel multiatendente.
-
-COMBOS:
-- Motor de Vendas (R$ 1.997 único + R$ 157/mês): Site Secretária + Bot Pro IA integrado.
+PLANOS ASSINATURA (Site Grátis incluso — hospedagem, suporte e bot IA inclusos):
+- Plano Site Grátis (R$ 97/mês): Site Institucional grátis + bot IA. 1 WhatsApp, 1.000 atendimentos/mês. Ideal para autônomos.
+- Plano CRM Grátis (R$ 197/mês): Plataforma + CRM grátis + bot IA. Atendimentos ILIMITADOS, Multi-Atendente, Pix no chat. Ideal para empresas.
+- Plano Loja Grátis (R$ 397/mês): Loja Virtual grátis + bot IA. Até 3 WhatsApp, disparo em massa, base de conhecimento. Ideal para lojas e marcas.
 
 Seja breve, muito carismático(a), com emojis, e mostre que funciona perfeitamente! Nunca revele que é um teste, faça a venda real. Termine perguntando qual solução se encaixa melhor no negócio do cliente.
 

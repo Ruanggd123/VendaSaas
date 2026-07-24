@@ -57,16 +57,11 @@ export const messageWorker = process.env.IS_WORKER === 'true' ? new Worker('mess
     let limit = 0;
     const plan = tenant.plan.toLowerCase();
     
-    if (plan === "start") limit = 0; // Start = sem IA
-    else if (plan === "growth") limit = 5000;
+    if (plan === "site_gratis") limit = 1000;
+    else if (plan === "crm_gratis") limit = 99999; // ilimitado
+    else if (plan === "loja_gratis") limit = 99999; // ilimitado
     else if (plan === "so_bot") limit = 5000;
-    else if (plan === "scale") limit = 20000;
-    else limit = 5000; // default safe fallback
-
-    if (limit === 0) {
-      console.log(`[Queue] Plano Start (sem IA) não processará a mensagem de ${from}.`);
-      return;
-    }
+    else limit = 1000; // default safe fallback
 
     if (tenant.ai_conversations_count >= limit) {
       console.log(`[Queue] Limite de IA atingido (${limit}) para o tenant ${tenantId}.`);

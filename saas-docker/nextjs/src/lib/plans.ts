@@ -1,60 +1,109 @@
 export type Plan = {
   id: string;
   name: string;
-  description: string;
+  tagline: string;
   price: number;
   maxUsers: number;
   maxWhatsappInstances: number;
+  maxConversations: number;
+  bonus: string;
+  bonusValue: string;
+  idealFor: string;
   features: string[];
+  limits: string[];
 };
 
 export const PLANS: Record<string, Plan> = {
-  solo: {
-    id: 'solo',
-    name: 'Solo',
-    description: 'Ideal para profissionais independentes e pequenos negócios.',
+  site_gratis: {
+    id: 'site_gratis',
+    name: 'Site Grátis',
+    tagline: 'Site institucional grátis + atendimento IA',
     price: 97,
     maxUsers: 1,
     maxWhatsappInstances: 1,
+    maxConversations: 1000,
+    bonus: 'Site Institucional Grátis',
+    bonusValue: 'R$ 497',
+    idealFor: 'Autônomos, MEI e profissionais liberais',
     features: [
-      '1 Conexão de WhatsApp',
-      '1 Usuário no sistema',
-      'Atendimento básico com IA',
-      'Gestão de Leads'
-    ]
+      'Site Institucional 100% GRÁTIS (economia de R$ 497)',
+      '1 Número de WhatsApp',
+      'Até 1.000 atendimentos/mês',
+      'Bot Inteligente (IA + Regras)',
+      'Respostas com Áudio de Voz',
+      'Catálogo de Produtos',
+      'Agendamento de Horários',
+      'Suporte via WhatsApp',
+    ],
+    limits: [
+      '❌ Sem CRM / Painel de Vendas',
+      '❌ Sem Multi-Atendente',
+      '❌ Sem E-commerce / Loja Virtual',
+      '❌ Limitado a 1.000 atendimentos/mês',
+    ],
   },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
-    description: 'Para empresas em crescimento que precisam escalar o atendimento.',
+  crm_gratis: {
+    id: 'crm_gratis',
+    name: 'CRM Grátis',
+    tagline: 'Plataforma CRM grátis + atendimento ilimitado',
     price: 197,
     maxUsers: 5,
-    maxWhatsappInstances: 3,
+    maxWhatsappInstances: 1,
+    maxConversations: 99999,
+    bonus: 'Plataforma + CRM Grátis',
+    bonusValue: 'R$ 997',
+    idealFor: 'Pequenas empresas e equipes de vendas',
     features: [
-      'Até 3 Conexões de WhatsApp',
-      'Até 5 Usuários no sistema',
-      'Atendimento avançado com IA',
-      'Dashboard Completo de Vendas',
-      'Suporte via WhatsApp'
-    ]
+      'Plataforma Web + CRM 100% GRÁTIS (economia de R$ 997)',
+      '1 Número de WhatsApp',
+      'Atendimentos ILIMITADOS',
+      'Multi-Atendente (até 2 atendentes humanos)',
+      'Painel de Vendas completo',
+      'Envio de Pix no Chat',
+      'Catálogo de Produtos',
+      'Notificações de Vendas em Tempo Real',
+      'Suporte Prioritário VIP',
+    ],
+    limits: [
+      '❌ Sem Loja Virtual / E-commerce',
+      '❌ Sem Disparo em Massa',
+      '❌ Limitado a 1 WhatsApp',
+      '✅ Atendimento ILIMITADO',
+    ],
   },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Enterprise',
-    description: 'Operações grandes que exigem volume e customização máxima.',
-    price: 497,
-    maxUsers: 999, // Represents unlimited in UI
-    maxWhatsappInstances: 999,
+  loja_gratis: {
+    id: 'loja_gratis',
+    name: 'Loja Grátis',
+    tagline: 'Loja virtual grátis + 3 WhatsApp + disparo em massa',
+    price: 397,
+    maxUsers: 999,
+    maxWhatsappInstances: 3,
+    maxConversations: 99999,
+    bonus: 'Loja Virtual Grátis',
+    bonusValue: 'R$ 1.997',
+    idealFor: 'Marcas, e-commerces e operações em crescimento',
     features: [
-      'WhatsApp Ilimitado',
-      'Usuários Ilimitados',
-      'Treinamento de IA Personalizado',
-      'Múltiplos Módulos Ativos',
-      'Gerente de Contas Dedicado'
-    ]
-  }
+      'Loja Virtual E-Commerce 100% GRÁTIS (economia de R$ 1.997)',
+      'Até 3 Números de WhatsApp',
+      'Atendimentos ILIMITADOS',
+      'Multi-Atendente ILIMITADO',
+      'Disparo em Massa (Campanhas)',
+      'Base de Conhecimento (RAG)',
+      'Catálogo Ilimitado + Pix',
+      'Gestão de Estoque em Tempo Real',
+      'Sem Comissões por Venda',
+      'API Dedicada',
+      'Gerente de Contas',
+    ],
+    limits: [
+      '✅ TUDO incluso',
+      '✅ 3 WhatsApp',
+      '✅ Atendimento ILIMITADO',
+      '✅ Disparo em Massa',
+    ],
+  },
 };
 
 export const getPlanDetails = (planId: string): Plan => {
-  return PLANS[planId] || PLANS['solo'];
+  return PLANS[planId] || PLANS['site_gratis'];
 };
