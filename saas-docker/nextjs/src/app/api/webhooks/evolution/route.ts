@@ -417,44 +417,47 @@ export async function POST(req: Request) {
             console.log(`⏸️ IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
           }
         } else {
-          // Processamento Síncrono direto no Webhook (pois a Vercel não roda o worker do BullMQ)
-          console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
-          const { processMessageWithAI } = await import('@/lib/ai/engine');
-          const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself);
-          
-          if (iaResponse) {
-             const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
-             const evolutionKey = process.env.EVOLUTION_API_KEY || '';
-             
-             try {
-               await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-                 method: "POST",
-                 headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ 
-                   number: contactNumber,
-                   text: iaResponse,
-                   delay: 1200
-                 })
-               });
-               console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
+          // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
+          try {
+            console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
+            const { processMessageWithAI } = await import('@/lib/ai/engine');
+            const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself);
+            
+            if (iaResponse) {
+               const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
+               const evolutionKey = process.env.EVOLUTION_API_KEY || '';
+               
+               try {
+                 await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+                   method: "POST",
+                   headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ 
+                     number: contactNumber,
+                     text: iaResponse,
+                     delay: 1200
+                   })
+                 });
+                 console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
 
-               // Salvar a resposta da IA no banco de dados para aparecer na interface
-               await prisma.message.create({
-                 data: {
-                   tenant_id: tenantId,
-                   conversation_id: conversation.id,
-                   direction: "outbound",
-                   content: iaResponse,
-                   ai_generated: true,
-                 }
-               });
-               await prisma.conversation.update({
-                 where: { id: conversation.id },
-                 data: { last_message_at: new Date() }
-               });
-             } catch (e) {
-               console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
-             }
+                 await prisma.message.create({
+                   data: {
+                     tenant_id: tenantId,
+                     conversation_id: conversation.id,
+                     direction: "outbound",
+                     content: iaResponse,
+                     ai_generated: true,
+                   }
+                 });
+                 await prisma.conversation.update({
+                   where: { id: conversation.id },
+                   data: { last_message_at: new Date() }
+                 });
+               } catch (e) {
+                 console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
+               }
+            }
+          } catch (aiErr) {
+            console.error("[Webhook] Erro ao processar IA (mensagem salva no banco mesmo assim):", aiErr);
           }
         }
       }
@@ -492,8 +495,9 @@ export async function POST(req: Request) {
 
     console.log(`[Webhook] Processado em ${Date.now() - ts}ms`);
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("❌ [Webhook Evolution] Erro:", err);
-    return NextResponse.json({ error: "Erro interno no webhook" }, { status: 500 });
+  } catch (err: any) {
+    console.error("❌ [Webhook Evolution] ERRO:", err?.message || err);
+    console.error("❌ [Webhook Evolution] STACK:", err?.stack || "");
+    return NextResponse.json({ success: false, error: String(err?.message || err) }, { status: 200 });
   }
 }
