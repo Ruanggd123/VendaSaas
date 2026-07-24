@@ -910,7 +910,12 @@ export default function WorkflowPage() {
               </div>
             </div>
 
-            <SmartphoneSimulator settings={settings} />
+            <SmartphoneSimulator
+              settings={settings}
+              onActiveNodeChange={(nodeId) => {
+                if (nodeId) setSelectedNodeId(nodeId);
+              }}
+            />
           </div>
         )}
       </div>
