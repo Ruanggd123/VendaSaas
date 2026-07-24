@@ -72,7 +72,11 @@ export async function POST(req: Request) {
           }
         }
 
-        const contactNumber = remoteJid.replace("@s.whatsapp.net", "");
+        const effectiveJid = (messageData.key.remoteJidAlt || messageData.key.remoteJid || "").toString();
+        const contactNumber = effectiveJid
+          .replace("@s.whatsapp.net", "")
+          .replace("@g.us", "")
+          .replace("@lid", "");
         const contactName = messageData.pushName || contactNumber;
         const fromMe = messageData.key.fromMe || false;
 
