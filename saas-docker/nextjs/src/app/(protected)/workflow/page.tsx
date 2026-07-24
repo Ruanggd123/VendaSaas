@@ -714,23 +714,51 @@ export default function WorkflowPage() {
                   <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Árvore de Nós ({ (settings.custom_rules_nodes || []).length })
                   </span>
-                  <button
-                    onClick={() => {
-                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                      newNodes.push({
-                        id: "node_" + Math.random().toString(36).substr(2, 9),
-                        parentId: null,
-                        keyword: String(newNodes.filter((n) => !n.parentId).length + 1),
-                        title: "Nova Opção",
-                        actionType: "text",
-                        textContent: "Digite aqui a resposta deste nó...",
-                      });
-                      updateField("custom_rules_nodes", newNodes);
-                    }}
-                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Add Nó
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        let rootCounter = 1;
+                        const rootMap = new Map<string, number>();
+
+                        const renumbered = newNodes.map((n: any) => {
+                          if (!n.parentId) {
+                            const kw = String(rootCounter++);
+                            return { ...n, keyword: kw };
+                          } else {
+                            const currentCount = (rootMap.get(n.parentId) || 0) + 1;
+                            rootMap.set(n.parentId, currentCount);
+                            return { ...n, keyword: String(currentCount) };
+                          }
+                        });
+
+                        updateField("custom_rules_nodes", renumbered);
+                      }}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      title="Auto-ajustar números dos gatilhos (1, 2, 3...)"
+                    >
+                      ✨ Auto-Numerar
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        const nextNum = newNodes.filter((n) => !n.parentId).length + 1;
+                        newNodes.push({
+                          id: "node_" + Math.random().toString(36).substr(2, 9),
+                          parentId: null,
+                          keyword: String(nextNum),
+                          title: `Opção ${nextNum}`,
+                          actionType: "text",
+                          textContent: "Digite aqui a resposta deste nó...",
+                        });
+                        updateField("custom_rules_nodes", newNodes);
+                      }}
+                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Nó
+                    </button>
+                  </div>
                 </div>
 
                 {/* LISTA HIERÁRQUICA COM BUSCA E ACORDEÃO PARA GRANDES QUANTIDADES DE REGRAS */}
@@ -752,27 +780,33 @@ export default function WorkflowPage() {
 
                     return (
                       <div key={rootNode.id} className="space-y-2">
-                        {/* NÓ PAI */}
-                        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-2 text-xs shadow-sm">
+                        {/* NÓ PAI CARD REDESENHADO E ESPAÇOSO */}
+                        <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-3 text-xs shadow-sm">
+                          {/* LINHA 1: GATILHO + TÍTULO + CONTROLES */}
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setExpandedParents({ ...expandedParents, [rootNode.id]: !isExpanded })}
-                              className="text-slate-400 hover:text-indigo-600 p-0.5"
+                              className="text-slate-400 hover:text-indigo-600 p-1 font-bold text-xs"
                               title={isExpanded ? "Recolher sub-nós" : "Expandir sub-nós"}
                             >
-                              {children.length > 0 && (isExpanded ? "▼" : "▶")}
+                              {children.length > 0 ? (isExpanded ? "▼" : "▶") : "•"}
                             </button>
-                            <input
-                              type="text"
-                              value={rootNode.keyword || ""}
-                              onChange={(e) => {
-                                const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes[rootIdx].keyword = e.target.value;
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="w-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-1.5 py-1 font-bold text-center text-indigo-600 dark:text-indigo-400"
-                              title="Gatilho"
-                            />
+
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 shadow-xs">
+                              <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
+                              <input
+                                type="text"
+                                value={rootNode.keyword || ""}
+                                onChange={(e) => {
+                                  const newNodes = [...(settings.custom_rules_nodes || [])];
+                                  newNodes[rootIdx].keyword = e.target.value;
+                                  updateField("custom_rules_nodes", newNodes);
+                                }}
+                                className="w-6 bg-transparent font-black text-center text-indigo-600 dark:text-indigo-400 text-xs focus:outline-none"
+                                title="Gatilho de Ativação (ex: 1, 2, pix)"
+                              />
+                            </div>
+
                             <input
                               type="text"
                               value={rootNode.title || ""}
@@ -781,9 +815,26 @@ export default function WorkflowPage() {
                                 newNodes[rootIdx].title = e.target.value;
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-slate-900 dark:text-white"
-                              placeholder="Título do Nó"
+                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-extrabold text-slate-900 dark:text-white text-xs"
+                              placeholder="Título do Menu (ex: Catálogo)"
                             />
+
+                            <button
+                              onClick={() => {
+                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+
+                          {/* LINHA 2: TIPO DE AÇÃO DO NÓ */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+                              O que acontece ao escolher a opção &quot;{rootNode.title}&quot;?
+                            </label>
                             <select
                               value={rootNode.actionType || "text"}
                               onChange={(e) => {
@@ -791,16 +842,20 @@ export default function WorkflowPage() {
                                 newNodes[rootIdx].actionType = e.target.value;
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-1.5 py-1 font-bold text-[10px] text-slate-700 dark:text-slate-200"
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
                             >
-                              <option value="text">💬 Texto</option>
-                              <option value="catalog">📋 Catálogo</option>
-                              <option value="scheduling">📅 Agenda</option>
-                              <option value="human">👤 Humano</option>
+                              <option value="text">💬 Exibir Resposta de Texto</option>
+                              <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                              <option value="scheduling">📅 Abrir Agendamento de Horário</option>
+                              <option value="human">👤 Transferir para Atendente Humano</option>
                             </select>
                           </div>
 
-                          {rootNode.actionType === "text" && (
+                          {/* LINHA 3: TEXTO DA RESPOSTA SE FOR MENSAGEM OU APRESENTAÇÃO */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+                              Mensagem enviada pelo robô ao cliente:
+                            </label>
                             <textarea
                               rows={2}
                               value={rootNode.textContent || ""}
@@ -809,12 +864,21 @@ export default function WorkflowPage() {
                                 newNodes[rootIdx].textContent = e.target.value;
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              placeholder="Resposta do robô..."
+                              placeholder={
+                                rootNode.actionType === "catalog"
+                                  ? "Digite a introdução do seu catálogo..."
+                                  : rootNode.actionType === "scheduling"
+                                  ? "Digite a mensagem do agendamento..."
+                                  : rootNode.actionType === "human"
+                                  ? "Digite a mensagem de transferência para atendente..."
+                                  : "Digite o texto de resposta enviado..."
+                              }
                               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
                             />
-                          )}
+                          </div>
 
-                          <div className="flex items-center justify-between pt-1">
+                          {/* BOTÃO PARA ADD SUB-NÓ */}
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
                             <button
                               onClick={() => {
                                 const newNodes = [...(settings.custom_rules_nodes || [])];
@@ -822,26 +886,20 @@ export default function WorkflowPage() {
                                   id: "node_" + Math.random().toString(36).substr(2, 9),
                                   parentId: rootNode.id,
                                   keyword: String(children.length + 1),
-                                  title: "Sub-opção",
+                                  title: `Sub-opção ${children.length + 1}`,
                                   actionType: "text",
-                                  textContent: "Responda a esta sub-opção...",
+                                  textContent: "Digite a resposta desta sub-opção...",
                                 });
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                             >
-                              <Plus className="w-3 h-3" /> Add Sub-nó
+                              <Plus className="w-3.5 h-3.5" /> Add Sub-opção
                             </button>
 
-                            <button
-                              onClick={() => {
-                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="text-[10px] font-bold text-rose-500 hover:underline"
-                            >
-                              Excluir
-                            </button>
+                            <span className="text-[9px] text-slate-400 font-medium">
+                              {children.length} sub-opção(ões) vinculada(s)
+                            </span>
                           </div>
                         </div>
 
@@ -851,21 +909,25 @@ export default function WorkflowPage() {
                             {children.map((child: any) => {
                               const childIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === child.id);
                               return (
-                                <div key={child.id} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
+                                <div key={child.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
                                   <div className="absolute -left-[17px] top-4 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
 
                                   <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="text"
-                                      value={child.keyword || ""}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].keyword = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="w-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-1 py-0.5 font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px]"
-                                      title="Gatilho"
-                                    />
+                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5">
+                                      <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
+                                      <input
+                                        type="text"
+                                        value={child.keyword || ""}
+                                        onChange={(e) => {
+                                          const newNodes = [...(settings.custom_rules_nodes || [])];
+                                          newNodes[childIdx].keyword = e.target.value;
+                                          updateField("custom_rules_nodes", newNodes);
+                                        }}
+                                        className="w-5 bg-transparent font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px] focus:outline-none"
+                                        title="Gatilho do Sub-nó"
+                                      />
+                                    </div>
+
                                     <input
                                       type="text"
                                       value={child.title || ""}
@@ -874,53 +936,47 @@ export default function WorkflowPage() {
                                         newNodes[childIdx].title = e.target.value;
                                         updateField("custom_rules_nodes", newNodes);
                                       }}
-                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-0.5 font-bold text-slate-900 dark:text-white text-[11px]"
+                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-slate-900 dark:text-white text-[11px]"
                                       placeholder="Título da Sub-opção"
                                     />
-                                    <select
-                                      value={child.actionType || "text"}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].actionType = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-1 py-0.5 font-bold text-[9px] text-slate-700 dark:text-slate-200"
-                                    >
-                                      <option value="text">💬 Texto</option>
-                                      <option value="catalog">📋 Catálogo</option>
-                                      <option value="scheduling">📅 Agenda</option>
-                                      <option value="human">👤 Humano</option>
-                                    </select>
-                                  </div>
 
-                                  {child.actionType === "text" && (
-                                    <textarea
-                                      rows={2}
-                                      value={child.textContent || ""}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].textContent = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      placeholder="Resposta da sub-opção..."
-                                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                                    />
-                                  )}
-
-                                  <div className="flex items-center justify-between pt-0.5">
-                                    <span className="text-[9px] text-slate-400 font-medium">
-                                      Pai: <strong>{rootNode.title}</strong>
-                                    </span>
                                     <button
                                       onClick={() => {
                                         const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== child.id);
                                         updateField("custom_rules_nodes", newNodes);
                                       }}
-                                      className="text-[9px] font-bold text-rose-500 hover:underline"
+                                      className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
                                     >
                                       Excluir
                                     </button>
                                   </div>
+
+                                  <select
+                                    value={child.actionType || "text"}
+                                    onChange={(e) => {
+                                      const newNodes = [...(settings.custom_rules_nodes || [])];
+                                      newNodes[childIdx].actionType = e.target.value;
+                                      updateField("custom_rules_nodes", newNodes);
+                                    }}
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-[10px] text-slate-700 dark:text-slate-200 focus:outline-none"
+                                  >
+                                    <option value="text">💬 Exibir Resposta de Texto</option>
+                                    <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                                    <option value="scheduling">📅 Abrir Agendamento de Horário</option>
+                                    <option value="human">👤 Transferir para Atendente Humano</option>
+                                  </select>
+
+                                  <textarea
+                                    rows={2}
+                                    value={child.textContent || ""}
+                                    onChange={(e) => {
+                                      const newNodes = [...(settings.custom_rules_nodes || [])];
+                                      newNodes[childIdx].textContent = e.target.value;
+                                      updateField("custom_rules_nodes", newNodes);
+                                    }}
+                                    placeholder="Resposta enviada pelo robô ao ativar esta sub-opção..."
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                                  />
                                 </div>
                               );
                             })}
