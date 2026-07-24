@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getSession } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { apiKey, tenantId, environment = "sandbox" } = body;
 
     if (!apiKey) {
       return NextResponse.json({ error: "Chave de API do Asaas não fornecida." }, { status: 400 });
+    }
+
+    const targetTenantId = tenantId || session.tenant_id;
+    if (!targetTenantId) {
+      return NextResponse.json({ error: "Tenant não identificado" }, { status: 400 });
     }
 
     // 1. Validar a Chave de API batendo no Asaas
@@ -72,45 +83,24 @@ export async function POST(req: Request) {
     }
 
     // 3. Salvar no Banco de Dados (Supabase via Prisma)
-    const targetTenantId = tenantId;
-    if (targetTenantId) {
-      const tenant = await prisma.tenant.findUnique({ where: { id: targetTenantId } });
-      if (tenant) {
-        let settings = {};
-        try { settings = JSON.parse(tenant.settings || "{}"); } catch(e) {}
-        settings = { 
-          ...settings, 
-          asaasApiKey: apiKey, 
-          asaasEnvironment: environment,
-          asaasWebhookConfigured: true,
-          asaasWebhookUrl: webhookUrl,
-          asaasConnectedAt: new Date().toISOString()
-        };
-        await prisma.tenant.update({
-          where: { id: targetTenantId },
-          data: { settings: JSON.stringify(settings) }
-        });
-      }
-    } else {
-      // Fallback: atualizar o primeiro tenant (para demo)
-      const firstTenant = await prisma.tenant.findFirst();
-      if (firstTenant) {
-        let settings = {};
-        try { settings = JSON.parse(firstTenant.settings || "{}"); } catch(e) {}
-        settings = { 
-          ...settings, 
-          asaasApiKey: apiKey, 
-          asaasEnvironment: environment,
-          asaasWebhookConfigured: true,
-          asaasWebhookUrl: webhookUrl,
-          asaasConnectedAt: new Date().toISOString()
-        };
-        await prisma.tenant.update({
-          where: { id: firstTenant.id },
-          data: { settings: JSON.stringify(settings) }
-        });
-      }
+    const tenant = await prisma.tenant.findUnique({ where: { id: targetTenantId } });
+    if (!tenant) {
+      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 });
     }
+    let settings = {};
+    try { settings = JSON.parse(tenant.settings || "{}"); } catch(e) {}
+    settings = { 
+      ...settings, 
+      asaasApiKey: apiKey, 
+      asaasEnvironment: environment,
+      asaasWebhookConfigured: true,
+      asaasWebhookUrl: webhookUrl,
+      asaasConnectedAt: new Date().toISOString()
+    };
+    await prisma.tenant.update({
+      where: { id: targetTenantId },
+      data: { settings: JSON.stringify(settings) }
+    });
 
     return NextResponse.json({ 
       success: true, 

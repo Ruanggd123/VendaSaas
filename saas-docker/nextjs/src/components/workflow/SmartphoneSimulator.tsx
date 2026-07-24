@@ -252,7 +252,12 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       if (clean.startsWith("open_link_")) {
         const urlToOpen = userText.replace("open_link_", "").trim();
         if (typeof window !== "undefined") {
-          window.open(urlToOpen, "_blank");
+          try {
+            const parsed = new URL(urlToOpen);
+            if (parsed.origin === window.location.origin || parsed.protocol === 'https:') {
+              window.open(urlToOpen, "_blank", "noopener,noreferrer");
+            }
+          } catch { /* invalid URL, silently ignore */ }
         }
         botResponseText = `🚀 Redirecionando para a aba de checkout seguro em nova janela!\n\nApós efetuar o pagamento via Pix, Cartão ou Boleto, sua conta será ativada automaticamente! ✅`;
         botButtons = [{ label: "🏠 Ir para o Menu Principal", value: "0" }];

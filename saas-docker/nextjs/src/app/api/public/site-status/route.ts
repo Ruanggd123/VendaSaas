@@ -45,7 +45,7 @@ export async function GET(req: Request) {
           <div style="width:64px;height:64px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;">⚠️</div>
           <h1 style="font-size:22px;font-weight:700;margin-bottom:12px;">Site Temporariamente Suspenso</h1>
           <p style="font-size:14px;color:#a1a1aa;line-height:1.6;margin-bottom:24px;">Este site encontra-se suspenso devido a pendências na mensalidade de hospedagem. Se você é o proprietário, realize a quitação da sua fatura para restabelecer o acesso instantaneamente.</p>
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-six-olive.vercel.app'}/checkout/${tenantId}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:14px;padding:14px 28px;border-radius:14px;text-decoration:none;box-shadow:0 10px 20px rgba(99,102,241,0.3);">Regularizar Pagamento via Pix</a>
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-six-olive.vercel.app'}/checkout/${tenant.id}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:14px;padding:14px 28px;border-radius:14px;text-decoration:none;box-shadow:0 10px 20px rgba(99,102,241,0.3);">Regularizar Pagamento via Pix</a>
         </div>
       </div>
     \`;

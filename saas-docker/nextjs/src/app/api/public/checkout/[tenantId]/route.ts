@@ -41,12 +41,6 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
     });
 
     if (!tenant) {
-      tenant = await prisma.tenant.findFirst({
-        select: { id: true, name: true, settings: true }
-      });
-    }
-
-    if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
     let settings: any = {};
@@ -83,9 +77,6 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     }
 
     let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) {
-      tenant = await prisma.tenant.findFirst();
-    }
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
@@ -177,6 +168,11 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         leadId: lead.id,
         paymentLink,
         paymentId: pref.id,
+        paymentMethod: 'MP',
+        pixQrCodeUrl: '',
+        pixCopiaECola: '',
+        bankSlipUrl: '',
+        invoiceUrl: '',
       });
     }
 
@@ -213,6 +209,10 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     let paymentLink = '';
     let paymentId = '';
     let paymentMethod = billingType || 'PIX';
+    let pixQrCodeUrl = '';
+    let pixCopiaECola = '';
+    let bankSlipUrl = '';
+    let invoiceUrl = '';
 
     const safeDescription = cleanDescription(productName);
 
@@ -234,6 +234,10 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         if (firstPay.id) {
           paymentLink = firstPay.invoiceUrl || firstPay.bankSlipUrl || firstPay.pixQrCodeUrl || '';
           paymentId = firstPay.id;
+          pixQrCodeUrl = firstPay.pixQrCodeUrl || '';
+          pixCopiaECola = firstPay.pixCopiaECola || '';
+          bankSlipUrl = firstPay.bankSlipUrl || '';
+          invoiceUrl = firstPay.invoiceUrl || '';
         }
 
         // Create subscription for month 2 onwards (nextDueDate = 30 days from first payment)
@@ -281,6 +285,10 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
             const fp = paymentsRes.data[0];
             paymentLink = fp.invoiceUrl || fp.bankSlipUrl || fp.pixQrCodeUrl || '';
             paymentId = fp.id;
+            pixQrCodeUrl = fp.pixQrCodeUrl || '';
+            pixCopiaECola = fp.pixCopiaECola || '';
+            bankSlipUrl = fp.bankSlipUrl || '';
+            invoiceUrl = fp.invoiceUrl || '';
           }
           await prisma.sale.update({
             where: { id: sale.id },
@@ -304,6 +312,10 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       if (pay.id) {
         paymentLink = pay.invoiceUrl || pay.bankSlipUrl || pay.pixQrCodeUrl || '';
         paymentId = pay.id;
+        pixQrCodeUrl = pay.pixQrCodeUrl || '';
+        pixCopiaECola = pay.pixCopiaECola || '';
+        bankSlipUrl = pay.bankSlipUrl || '';
+        invoiceUrl = pay.invoiceUrl || '';
       } else {
         const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao gerar pagamento no gateway';
         return NextResponse.json({ error: errMsg }, { status: 400 });
@@ -321,6 +333,11 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       leadId: lead.id,
       paymentLink,
       paymentId,
+      paymentMethod,
+      pixQrCodeUrl,
+      pixCopiaECola,
+      bankSlipUrl,
+      invoiceUrl,
     });
   } catch (error: any) {
     console.error('[Checkout API Error]', error);

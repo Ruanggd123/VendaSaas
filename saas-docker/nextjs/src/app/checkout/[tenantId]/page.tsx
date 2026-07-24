@@ -85,6 +85,10 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
   const [error, setError] = useState('');
   const [paymentLink, setPaymentLink] = useState('');
   const [done, setDone] = useState(false);
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState('');
+  const [pixCopiaECola, setPixCopiaECola] = useState('');
+  const [bankSlipUrl, setBankSlipUrl] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -256,8 +260,11 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
       const data = await res.json();
       if (data.paymentLink) {
         setPaymentLink(data.paymentLink);
+        setPixQrCodeUrl(data.pixQrCodeUrl || '');
+        setPixCopiaECola(data.pixCopiaECola || '');
+        setBankSlipUrl(data.bankSlipUrl || '');
+        setPaymentMethod(data.paymentMethod || '');
         setDone(true);
-        window.location.href = data.paymentLink;
       } else {
         setError(data.error || 'Erro ao gerar pagamento');
       }

@@ -11,11 +11,14 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams;
-  const tenantId = searchParams.get('tenantId') || session.tenant_id;
+  const requestedTenantId = searchParams.get('tenantId');
 
   try {
-    const tenant = await prisma.tenant.findFirst({
-        where: { OR: [{ id: tenantId }, { whatsapp_instance: tenantId }] }
+    // Apenas superadmin pode consultar stats de outro tenant
+    const effectiveTenantId = (session.role === 'superadmin' && requestedTenantId) ? requestedTenantId : session.tenant_id;
+
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: effectiveTenantId }
     });
 
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
