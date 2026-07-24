@@ -41,12 +41,6 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
     });
 
     if (!tenant) {
-      tenant = await prisma.tenant.findFirst({
-        select: { id: true, name: true, settings: true }
-      });
-    }
-
-    if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
     let settings: any = {};
@@ -54,7 +48,7 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
 
     const appointments = await prisma.appointment.findMany({
       where: {
-        tenant_id: tenantId,
+        tenant_id: tenant.id,
         scheduled_at: { gte: new Date(Date.now() - 86400000) },
         status: { notIn: ['canceled', 'refused'] }
       },
@@ -84,9 +78,6 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
 
     let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
-      tenant = await prisma.tenant.findFirst();
-    }
-    if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
     const realTenantId = tenant.id;
@@ -97,14 +88,14 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     let partnerId: string | undefined;
     if (referralCode) {
       const partner = await prisma.partner.findFirst({
-        where: { referralCode: referralCode.toUpperCase(), tenant_id: tenantId }
+        where: { referralCode: referralCode.toUpperCase(), tenant_id: realTenantId }
       });
       if (partner) partnerId = partner.id;
     }
 
     const lead = await prisma.lead.create({
       data: {
-        tenant_id: tenantId,
+        tenant_id: realTenantId,
         name,
         phone,
         email,
@@ -123,7 +114,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
 
     const sale = await prisma.sale.create({
       data: {
-        tenant_id: tenantId,
+        tenant_id: realTenantId,
         lead_id: lead.id,
         product_name: productName,
         amount: parseFloat(amount),
@@ -155,12 +146,12 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       const pref = await createPreference(
         mpToken,
         items,
-        `checkout_${tenantId}_${sale.id}`,
+        `checkout_${realTenantId}_${sale.id}`,
         `${baseUrl}/api/webhooks/mercadopago`,
         {
-          success: `${baseUrl}/checkout/${tenantId}?success=1`,
-          failure: `${baseUrl}/checkout/${tenantId}?failure=1`,
-          pending: `${baseUrl}/checkout/${tenantId}?pending=1`,
+          success: `${baseUrl}/checkout/${realTenantId}?success=1`,
+          failure: `${baseUrl}/checkout/${realTenantId}?failure=1`,
+          pending: `${baseUrl}/checkout/${realTenantId}?pending=1`,
         }
       );
 
@@ -229,7 +220,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
           value: totalAmount,
           dueDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
           description: cleanDescription(`Primeira mensalidade taxa - ${productName}`),
-          externalReference: `${tenantId}_${sale.id}`,
+          externalReference: `${realTenantId}_${sale.id}`,
         }, asaasKey, asaasUrl);
         if (firstPay.id) {
           paymentLink = firstPay.invoiceUrl || firstPay.bankSlipUrl || firstPay.pixQrCodeUrl || '';
@@ -246,7 +237,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
             period: 'MONTHLY',
             description: safeDescription,
           },
-          `${tenantId}_${sale.id}`,
+          `${realTenantId}_${sale.id}`,
           asaasKey,
           asaasUrl
         );
@@ -270,7 +261,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
             period: 'MONTHLY',
             description: safeDescription,
           },
-          `${tenantId}_${sale.id}`,
+          `${realTenantId}_${sale.id}`,
           asaasKey,
           asaasUrl
         );
@@ -298,7 +289,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         value: totalAmount,
         dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
         description: safeDescription,
-        externalReference: `${tenantId}_${sale.id}`,
+        externalReference: `${realTenantId}_${sale.id}`,
       }, asaasKey, asaasUrl);
 
       if (pay.id) {
@@ -324,6 +315,6 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     });
   } catch (error: any) {
     console.error('[Checkout API Error]', error);
-    return NextResponse.json({ error: error.message || 'Erro ao processar checkout' }, { status: 400 });
+    return NextResponse.json({ error: 'Erro ao processar checkout' }, { status: 400 });
   }
 }

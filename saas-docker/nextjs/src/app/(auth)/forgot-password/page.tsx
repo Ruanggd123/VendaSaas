@@ -30,17 +30,9 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (res.ok) {
-        if (data._debug_token) {
-          setToken(data._debug_token || "");
-          setCode(data._debug_code || "");
-          setStatus("idle");
-          if (data.sentViaEmail || data.sentViaWhatsApp) {
-            setStep("senha");
-          } else {
-            setStep("sent");
-            setStatus("success");
-            setMessage("Se o email estiver cadastrado, você receberá um código de recuperação no email ou WhatsApp da empresa.");
-          }
+        if (data.sentViaEmail || data.sentViaWhatsApp) {
+          setToken(data.token || "");
+          setStep("senha");
         } else {
           setStep("sent");
           setStatus("success");

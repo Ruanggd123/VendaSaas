@@ -53,9 +53,10 @@ export async function POST(request: Request) {
       return { tenant, user };
     });
 
-    return NextResponse.json({ success: true, user: result.user }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { password_hash, ...safeUser } = result.user;
+    return NextResponse.json({ success: true, user: safeUser }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
 
@@ -70,11 +71,14 @@ export async function GET(request: Request) {
       include: {
         users: { select: { id: true, name: true, email: true, role: true, created_at: true } },
         whatsapp_instances: true,
-        partners: { select: { id: true, name: true, email: true, pix_key: true, created_at: true } },
+        partners: { select: { id: true, name: true, email: true, created_at: true } },
         _count: { select: { users: true, leads: true, whatsapp_instances: true, sales: true } },
       },
       orderBy: { created_at: "desc" },
     });
+
+    // Remove settings (contém chaves de API) de cada tenant
+    const safeTenants = tenants.map(({ settings, ...rest }) => rest);
 
     const allUsers = await prisma.user.findMany({
       select: {
@@ -89,14 +93,18 @@ export async function GET(request: Request) {
     });
 
     const allPartners = await prisma.partner.findMany({
-      include: {
+      select: {
+        id: true, name: true, email: true, whatsappNumber: true,
+        referralCode: true, type: true, commissionRate: true,
+        trial_ends_at: true, access_expires_at: true,
+        created_at: true, updated_at: true,
         _count: { select: { leads: true, dev_services: true, withdrawals: true } },
       },
       orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json({ tenants, allUsers, allPartners }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ tenants: safeTenants, allUsers, allPartners }, { status: 200 });
+  } catch {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

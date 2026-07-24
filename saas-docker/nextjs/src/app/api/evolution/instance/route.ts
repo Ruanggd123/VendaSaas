@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from "@/lib/auth";
+import { verifyInstanceOwnership } from "@/lib/instance-ownership";
 
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
-const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
+const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
 // GET: busca configuração atual do webhook ou status/qrcode/config
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session?.tenant_id) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   const instance = req.nextUrl.searchParams.get('instance') || '';
+  if (!await verifyInstanceOwnership(session.tenant_id, instance)) {
+    return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
+  }
   const action = req.nextUrl.searchParams.get('action') || 'status';
 
   const endpoints: Record<string, string> = {
@@ -43,6 +47,9 @@ export async function POST(req: NextRequest) {
   if (!session?.tenant_id) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const instance = req.nextUrl.searchParams.get('instance') || '';
+  if (!await verifyInstanceOwnership(session.tenant_id, instance)) {
+    return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
+  }
   const action = req.nextUrl.searchParams.get('action') || '';
   const body = await req.json();
 
@@ -67,6 +74,6 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (e: unknown) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: 'Falha na requisição' }, { status: 500 });
   }
 }

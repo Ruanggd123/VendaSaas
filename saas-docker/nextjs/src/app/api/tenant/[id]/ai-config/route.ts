@@ -43,7 +43,7 @@ export async function PUT(
       data: { settings: JSON.stringify(mergedSettings) }
     });
 
-    return NextResponse.json({ message: 'Configurações atualizadas', tenant: updatedTenant });
+    return NextResponse.json({ message: 'Configurações atualizadas' });
   } catch (error) {
     console.error('Erro ao atualizar configurações:', error);
     return NextResponse.json(

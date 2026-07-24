@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from "@/lib/auth";
+import { verifyInstanceOwnership } from "@/lib/instance-ownership";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
 
-const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', 'ngrok-skip-browser-warning': 'true' };
+const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
 async function checkAuth() {
   const session = await getSession();
@@ -51,14 +52,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    // Extrair apenas campos permitidos para evitar mass assignment
+    const allowedFields = ['instanceName', 'qrcode', 'number'];
+    const safeBody: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) safeBody[field] = body[field];
+    }
+    safeBody.integration = 'WHATSAPP-BAILEYS';
     const res = await fetch(`${EVOLUTION_URL}/instance/create`, {
       method: 'POST', headers,
-      body: JSON.stringify({ ...body, integration: 'WHATSAPP-BAILEYS' }),
+      body: JSON.stringify(safeBody),
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (e: unknown) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: 'Falha na requisição' }, { status: 500 });
   }
 }
 
@@ -68,6 +76,9 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { instance } = await req.json();
+    if (!instance || !await verifyInstanceOwnership(session.tenant_id, instance)) {
+      return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
+    }
     const res = await fetch(`${EVOLUTION_URL}/instance/delete/${instance}`, { method: 'DELETE', headers });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });

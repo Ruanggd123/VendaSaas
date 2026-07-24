@@ -5,8 +5,12 @@ import { sendWhatsAppMessage } from "@/lib/evolution";
 import { sendEmail, getRecoveryEmailHtml } from "@/lib/email";
 
 const prisma = new PrismaClient();
-const secretKey = process.env.NEXTAUTH_SECRET || "MudeEstaChaveSecreta@2026";
-const key = new TextEncoder().encode(secretKey);
+const secretKey = process.env.NEXTAUTH_SECRET;
+if (!secretKey) {
+  console.warn("⚠️  NEXTAUTH_SECRET não configurado — tokens de reset de senha inseguros.");
+}
+const fallbackKey = secretKey || "dev-fallback-only";
+const key = new TextEncoder().encode(fallbackKey);
 
 async function sendRecoveryCode(
   email: string,
@@ -109,15 +113,12 @@ export async function POST(request: Request) {
       isPartner ? (partner as any).whatsappNumber : null
     );
 
-    console.log(`[RESET PASSWORD] Código para ${account.email}: ${code}`);
-
     return NextResponse.json({
       success: true,
       message: "Se o email estiver cadastrado, você receberá um código de recuperação.",
       sentViaEmail: sentViaEmail || false,
       sentViaWhatsApp: sentViaWhatsApp || false,
-      _debug_code: sentViaEmail || sentViaWhatsApp ? "" : code,
-      _debug_token: token,
+      token: token,
     });
   } catch (err) {
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from "@/lib/auth";
+import { verifyInstanceOwnership } from "@/lib/instance-ownership";
 
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
@@ -7,7 +8,10 @@ const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session?.tenant_id) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-  const instance = req.nextUrl.searchParams.get('instance') || 'joao_imobiliaria';
+  const instance = req.nextUrl.searchParams.get('instance') || '';
+  if (!await verifyInstanceOwnership(session.tenant_id, instance)) {
+    return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
+  }
   try {
     const res = await fetch(`${EVOLUTION_URL}/instance/connectionState/${instance}`, {
       headers: { apikey: EVOLUTION_KEY },

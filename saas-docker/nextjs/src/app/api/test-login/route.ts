@@ -5,6 +5,9 @@ import { login } from '@/lib/auth';
 const prisma = new PrismaClient();
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Não disponível em produção' }, { status: 403 });
+  }
   try {
     const user = await prisma.user.findFirst();
     if (!user) {
@@ -21,6 +24,6 @@ export async function GET() {
 
     return NextResponse.redirect(new URL(`/tenant/${user.tenant_id}`, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

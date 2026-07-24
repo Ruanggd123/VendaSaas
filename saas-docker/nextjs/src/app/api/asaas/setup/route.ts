@@ -120,7 +120,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("[Asaas Setup] Erro interno:", error);
-    return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

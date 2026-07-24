@@ -4,7 +4,11 @@ import bcrypt from "bcryptjs";
 import { jwtVerify } from "jose";
 
 const prisma = new PrismaClient();
-const secretKey = process.env.NEXTAUTH_SECRET || "MudeEstaChaveSecreta@2026";
+const rawSecret = process.env.NEXTAUTH_SECRET;
+if (!rawSecret) {
+  console.warn("⚠️ NEXTAUTH_SECRET não configurado — tokens de reset inseguros.");
+}
+const secretKey = rawSecret || "dev-fallback-only";
 const key = new TextEncoder().encode(secretKey);
 
 export async function POST(request: Request) {

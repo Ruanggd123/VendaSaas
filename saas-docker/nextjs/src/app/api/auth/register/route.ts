@@ -51,8 +51,9 @@ export async function POST(request: Request) {
       return { tenant, user };
     });
 
-    return NextResponse.json({ success: true, user: result.user }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { password_hash, ...safeUser } = result.user;
+    return NextResponse.json({ success: true, user: safeUser }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

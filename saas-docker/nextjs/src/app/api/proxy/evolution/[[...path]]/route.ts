@@ -128,7 +128,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: { path?: str
     }
 
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
 

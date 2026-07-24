@@ -6,9 +6,9 @@ import { sendWhatsAppMessage } from '@/lib/evolution';
 const prisma = new PrismaClient();
 
 function generatePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
   let pwd = '';
-  for (let i = 0; i < 8; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 16; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
   return pwd;
 }
 
@@ -17,6 +17,21 @@ const APP_URL = getAppBaseUrl();
 
 export async function POST(req: Request) {
   try {
+    // Validar token de acesso do Asaas se presente no header
+    const accessToken = req.headers.get('asaas-access-token');
+    if (accessToken) {
+      const tenantMatch = await prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { settings: { contains: accessToken } },
+          ]
+        }
+      });
+      if (!tenantMatch) {
+        return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+      }
+    }
+
     const body = await req.json();
     console.log("🔔 [Webhook Asaas] Recebido evento:", body.event);
 
@@ -436,7 +451,7 @@ export async function POST(req: Request) {
               }
             }
 
-            console.log(`✅ [Entrega Automática] Provisionamento concluído para ${clientName}. Senha: ${password}`);
+            console.log(`✅ [Entrega Automática] Provisionamento concluído para ${clientName}`);
           } catch (deliveryErr) {
             console.error("❌ [Entrega Automática] Erro ao provisionar:", deliveryErr);
           }

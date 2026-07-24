@@ -72,6 +72,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, processed: upcomingAppointments.length, autoCompleted: autoCompletedCount });
   } catch (error: any) {
     console.error("❌ [CRON HOURLY] Erro fatal:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

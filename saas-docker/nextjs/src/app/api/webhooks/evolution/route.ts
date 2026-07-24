@@ -8,6 +8,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // Validar se apikey está presente (quando configurada no Evolution)
+    const apiKey = req.headers.get('apikey');
+    if (apiKey && apiKey !== process.env.EVOLUTION_API_KEY) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
     const body = await req.json();
     
     // O evento da Evolution API geralmente vem no formato:
@@ -15,7 +21,7 @@ export async function POST(req: Request) {
     
     const rawEvent = (body.event || body.type || "").toString().toLowerCase().replace(/_/g, ".").replace(/-/g, ".");
     const instanceName = body.instance;
-    console.log("[Webhook Debug] Payload recebido:", JSON.stringify(body).substring(0, 500));
+    console.log("[Webhook Debug] Evento:", rawEvent, "| Instância:", instanceName);
     
     const isMessageEvent =
       rawEvent.includes("messages") ||
@@ -34,11 +40,7 @@ export async function POST(req: Request) {
         }
       });
       
-      // Fallback: se houver apenas 1 instância cadastrada no banco, associa a ela
-      if (!instance) {
-        instance = await prisma.whatsappInstance.findFirst();
-      }
-
+      // Fallback removido por segurança — não associar a primeira instância aleatória
       if (!instance) {
         console.warn(`[Webhook Evolution] Instância ${instanceName} não encontrada no banco.`);
         return NextResponse.json({ success: true, ignored: "Instância desconhecida" });

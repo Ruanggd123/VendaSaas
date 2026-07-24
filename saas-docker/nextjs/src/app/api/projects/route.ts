@@ -143,6 +143,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updatedProject);
   } catch (error: any) {
-    return NextResponse.json({ error: "Erro ao atualizar projeto: " + error.message }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao atualizar projeto" }, { status: 500 });
   }
 }

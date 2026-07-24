@@ -2,8 +2,11 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_URL || "http://evolution:8080";
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "429683C4C977415CAAFCCE10F7D57E11";
+const EVOLUTION_API_URL = process.env.EVOLUTION_URL;
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+  console.warn("⚠️  EVOLUTION_URL ou EVOLUTION_API_KEY não configurados. Mensagens WhatsApp não funcionarão.");
+}
 
 /**
  * Envia uma mensagem de texto via WhatsApp (Evolution API)

@@ -67,6 +67,6 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error('Error fetching metrics:', error);
-    return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

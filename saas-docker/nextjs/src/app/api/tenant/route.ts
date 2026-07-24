@@ -52,12 +52,23 @@ export async function GET(request: NextRequest) {
       console.warn("Falha ao ler o JSON de configurações do tenant", tenant.id);
     }
 
+    // Remove chaves secretas quando não há sessão (ex: n8n webhook)
+    const SECRET_KEYS = [
+      "openai_api_key","groq_api_key","gemini_api_key",
+      "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
+      "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"
+    ];
+    const safeSettings = { ...parsedSettings as Record<string, unknown> };
+    for (const key of SECRET_KEYS) {
+      delete safeSettings[key];
+    }
+
     // Retorna tudo mastigado para o n8n
     return NextResponse.json({
       tenant_id: tenant.id,
       name: tenant.name,
       plan: tenant.plan,
-      settings: parsedSettings,
+      settings: safeSettings,
     })
   } catch (error) {
     console.error("Erro na API do Tenant:", error);
@@ -84,7 +95,11 @@ export async function POST(request: NextRequest) {
     let parsedSettings = {};
     try { parsedSettings = JSON.parse(tenant.settings as string); } catch (e) {}
 
-    return NextResponse.json({ tenant_id: tenant.id, name: tenant.name, plan: tenant.plan, settings: parsedSettings });
+    const safeSettings = { ...parsedSettings as Record<string, unknown> };
+    for (const key of ["openai_api_key","groq_api_key","gemini_api_key","asaas_api_key","asaas_test_api_key","asaas_webhook_secret","mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"]) {
+      delete safeSettings[key];
+    }
+    return NextResponse.json({ tenant_id: tenant.id, name: tenant.name, plan: tenant.plan, settings: safeSettings });
   } catch (error) {
     return NextResponse.json({ error: "Erro interno." }, { status: 500 });
   }

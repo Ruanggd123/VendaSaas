@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json(leads);
   } catch (error: any) {
     console.error('Error fetching leads:', error);
-    return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -79,6 +79,6 @@ export async function POST(req: Request) {
     return NextResponse.json(lead, { status: 201 });
   } catch (error: any) {
     console.error('Error creating lead:', error);
-    return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

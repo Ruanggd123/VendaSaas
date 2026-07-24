@@ -19,10 +19,25 @@ export async function GET() {
 
     if (!partner) return NextResponse.json({ error: "Parceiro não encontrado" }, { status: 404 });
 
-    let settings = {};
+    let settings: Record<string, unknown> = {};
     try { settings = JSON.parse(partner.settings as string); } catch {}
 
-    return NextResponse.json({ settings });
+    const SECRET_KEYS = [
+      "openai_api_key","groq_api_key","gemini_api_key","openai_key",
+      "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
+      "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","asaasApiKey"
+    ];
+    const safeSettings = { ...settings };
+    for (const key of SECRET_KEYS) {
+      if (safeSettings[key]) {
+        const val = String(safeSettings[key]);
+        safeSettings[key] = val.length > 8
+          ? `${val.substring(0, 4)}${"•".repeat(val.length - 8)}${val.substring(val.length - 4)}`
+          : "••••••••";
+      }
+    }
+
+    return NextResponse.json({ settings: safeSettings });
   } catch (err) {
     console.error("GET /api/partner/settings:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
@@ -43,8 +58,21 @@ export async function PUT(req: Request) {
       select: { settings: true },
     });
 
-    let currentSettings = {};
+    let currentSettings: Record<string, unknown> = {};
     try { currentSettings = JSON.parse(partner?.settings as string ?? "{}"); } catch {}
+
+    const SECRET_KEYS = [
+      "openai_api_key","groq_api_key","gemini_api_key","openai_key",
+      "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
+      "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","asaasApiKey"
+    ];
+
+    // Restaura chaves mascaradas recebidas do frontend
+    for (const key of SECRET_KEYS) {
+      if (key in body && /^.{0,4}•+.{0,4}$/.test(String(body[key]))) {
+        body[key] = currentSettings[key] ?? "";
+      }
+    }
 
     const newSettings = { ...currentSettings, ...body };
 
@@ -53,7 +81,7 @@ export async function PUT(req: Request) {
       data: { settings: JSON.stringify(newSettings) },
     });
 
-    return NextResponse.json({ success: true, settings: newSettings });
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error("PUT /api/partner/settings:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });

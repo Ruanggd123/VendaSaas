@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { PLANS } from '@/lib/plans';
+import { getSession } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
@@ -9,6 +10,11 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const { id } = params;
     const body = await request.json();
     const { planId } = body;
@@ -19,34 +25,30 @@ export async function PUT(
 
     const plan = PLANS[planId];
 
-    // Atualiza o plano do Tenant
     const tenant = await prisma.tenant.update({
       where: { id },
       data: {
         plan: planId,
-        // Mock de expiração para 30 dias a partir de agora
         subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      },
+      select: {
+        id: true, name: true, plan: true, phone: true, status: true,
+        subscription_expires_at: true, created_at: true
       }
     });
 
-    // Como o Mercado Pago está desativado, vamos simular uma venda "paga" 
-    // para gerar os dados de métricas e comissões se houver parceiro.
     const sale = await prisma.sale.create({
       data: {
         tenant_id: id,
         product_name: `Assinatura Plano ${plan.name}`,
         amount: plan.price,
-        status: 'paid', // Simula como pago
+        status: 'paid',
         is_recurring: true,
         paid_at: new Date(),
         due_date: new Date(),
         notes: 'Assinatura via gestão interna (Mock Gateway)'
       }
     });
-
-    // Aqui seria a lógica de procurar se esse tenant foi indicado por um parceiro
-    // (Por exemplo, através de um campo referred_by_partner_id no Tenant,
-    // que não existe no schema atual, mas a Sale foi registrada para métricas).
 
     return NextResponse.json({
       success: true,

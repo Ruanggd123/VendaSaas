@@ -54,12 +54,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     const updatedTenant = await prisma.tenant.update({
       where: { id: tenantId },
-      data: updateData
+      data: updateData,
+      select: {
+        id: true, name: true, plan: true, phone: true, status: true,
+        subscription_expires_at: true, created_at: true, updated_at: true
+      }
     });
 
     return NextResponse.json({ success: true, tenant: updatedTenant }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
 
@@ -84,7 +88,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     });
 
     return NextResponse.json({ success: true, message: "Acesso suspenso" }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

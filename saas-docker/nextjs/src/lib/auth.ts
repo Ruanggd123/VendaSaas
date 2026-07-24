@@ -3,7 +3,11 @@ import { cookies } from "next/headers";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-const secretKey = process.env.NEXTAUTH_SECRET || "MudeEstaChaveSecreta@2026";
+const rawSecret = process.env.NEXTAUTH_SECRET;
+if (!rawSecret) {
+  console.warn("⚠️  AVISO CRÍTICO: NEXTAUTH_SECRET não configurado! Em produção, defina esta variável. Usando fallback inseguro para build local.");
+}
+const secretKey = rawSecret || "dev-fallback-only";
 const key = new TextEncoder().encode(secretKey);
 
 export async function encrypt(payload: any) {
@@ -34,7 +38,7 @@ export async function login(user: any) {
     accessExpiresAt: user.accessExpiresAt ?? null
   });
 
-  cookies().set("session", session, { expires, httpOnly: true, path: "/" });
+  cookies().set("session", session, { expires, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
 }
 
 export async function logout() {

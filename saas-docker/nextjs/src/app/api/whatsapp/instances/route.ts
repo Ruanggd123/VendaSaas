@@ -78,6 +78,6 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error("Erro na rota /api/whatsapp/instances:", error);
-    return NextResponse.json({ error: error.message || "Erro interno no servidor" }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
   }
 }

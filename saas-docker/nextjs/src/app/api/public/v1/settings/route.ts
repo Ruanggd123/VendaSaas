@@ -60,9 +60,19 @@ export async function POST(req: Request) {
       }
     });
 
+    const safeSettings = { ...currentSettings };
+    const SECRET_KEYS = [
+      "openai_api_key","groq_api_key","gemini_api_key","openai_key",
+      "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
+      "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","asaasApiKey"
+    ];
+    for (const key of SECRET_KEYS) {
+      delete safeSettings[key];
+    }
+
     return NextResponse.json({
       success: true,
-      settings: currentSettings
+      settings: safeSettings
     }, {
       headers: {
         'Access-Control-Allow-Origin': '*',
