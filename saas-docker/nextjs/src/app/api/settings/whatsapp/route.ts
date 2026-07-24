@@ -56,49 +56,64 @@ export async function GET() {
     if (!settings.products || settings.products.length === 0) {
       settings.products = [
         {
-          name: "Plano Solo (1 Conexão WhatsApp)",
-          price: "147.00",
-          description: "Atendimento inteligente automatizado para 1 número de WhatsApp com IA Vendedora e Agendamentos.",
-          duration_min: 30,
+          name: "Site Institucional",
+          price: "497",
+          description: "Landing page avulsa de alta conversão. Código Fonte Entregue, 100% Responsiva, SEO Otimizado.",
+          duration_min: 0,
           requires_payment: true,
           delivery_type: "virtual_instant",
-          digital_content: "Acesso liberado no painel Nexus SaaS para 1 instância."
+          digital_content: "Código fonte do site institucional."
         },
         {
-          name: "Plano Pro (3 Conexões WhatsApp)",
-          price: "297.00",
-          description: "Automação completa para até 3 números de WhatsApp, disparo em massa e suporte prioritário.",
-          duration_min: 30,
+          name: "Plataforma Completa",
+          price: "997",
+          description: "Sistema web com CRM avulso. Painel de Vendas, Agendador de Horários, Instalação no seu Servidor.",
+          duration_min: 0,
           requires_payment: true,
           delivery_type: "virtual_instant",
-          digital_content: "Acesso liberado para 3 instâncias com suporte VIP."
+          digital_content: "Código fonte da plataforma completa."
         },
         {
-          name: "Plano Enterprise (Conexões Ilimitadas)",
-          price: "497.00",
-          description: "Solução completa para grandes empresas com instâncias ilimitadas, API dedicada e gerente de conta.",
-          duration_min: 60,
+          name: "E-Commerce Avulso",
+          price: "1997",
+          description: "Loja virtual completa sem mensalidade. Catálogo Ilimitado + Pix, Painel de Pedidos.",
+          duration_min: 0,
           requires_payment: true,
           delivery_type: "virtual_instant",
-          digital_content: "Acesso Enterprise com onboarding individualizado."
+          digital_content: "Código fonte do e-commerce avulso."
         },
         {
-          name: "Módulo IA Vendedora Avançada",
-          price: "97.00",
-          description: "IA conversacional persuasiva com catálogo dinâmico e integração direta com fechamento de vendas.",
-          duration_min: 15,
+          name: "Plano Start",
+          price: "197",
+          description: "Site Institucional 100% GRÁTIS + Atendimento Automático no WhatsApp 24h. Até 1.000 Atendimentos/mês.",
+          duration_min: 0,
           requires_payment: true,
+          monthly: "197",
+          type: "plan",
           delivery_type: "virtual_instant",
-          digital_content: "Módulo ativado nas configurações da sua empresa."
+          digital_content: "Acesso liberado no painel. Site institucional incluso."
         },
         {
-          name: "Instância Adicional WhatsApp",
-          price: "49.90",
-          description: "Adicione mais 1 número de WhatsApp à sua automação conversacional.",
-          duration_min: 15,
+          name: "Plano Pro",
+          price: "397",
+          description: "Plataforma Web + CRM 100% GRÁTIS. Atendimento ILIMITADO, Multi-Atendentes, Envio de Pix no Chat.",
+          duration_min: 0,
           requires_payment: true,
+          monthly: "397",
+          type: "plan",
           delivery_type: "virtual_instant",
-          digital_content: "Nova instância liberada na aba Conexões WhatsApp."
+          digital_content: "Acesso liberado no painel. Plataforma completa inclusa."
+        },
+        {
+          name: "Plano E-Commerce",
+          price: "697",
+          description: "Loja Virtual E-Commerce 100% GRÁTIS. Catálogo Ilimitado, Sem Comissões, Estoque em Tempo Real.",
+          duration_min: 0,
+          requires_payment: true,
+          monthly: "697",
+          type: "plan",
+          delivery_type: "virtual_instant",
+          digital_content: "Acesso liberado no painel. E-commerce incluso."
         }
       ];
     }
