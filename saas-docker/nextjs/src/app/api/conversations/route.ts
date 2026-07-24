@@ -56,38 +56,43 @@ export async function GET(req: Request) {
     const activeInstanceName = instance_name && instance_name !== "all" ? instance_name : undefined;
     const assigned_to = searchParams.get("assigned_to");
 
-    const whereClause: any = { tenant_id: session.tenant_id };
+    const whereConditions: any[] = [{ tenant_id: session.tenant_id }];
+
     if (activeInstanceName) {
       const matched = instances.find((i) => i.name === activeInstanceName || i.connectionName === activeInstanceName);
       if (matched) {
-        whereClause.OR = [
-          { instance_name: matched.name },
-          { instance_name: matched.connectionName },
-          { instance_name: activeInstanceName },
-        ];
+        whereConditions.push({
+          OR: [
+            { instance_name: matched.name },
+            { instance_name: matched.connectionName },
+            { instance_name: activeInstanceName },
+          ],
+        });
       } else {
-        whereClause.instance_name = activeInstanceName;
+        whereConditions.push({ instance_name: activeInstanceName });
       }
     }
 
-    if (session.role === 'agent') {
-      whereClause.OR = [
-        { assigned_to: session.id },
-        { assigned_to: null }
-      ];
+    if (session.role === "agent") {
+      whereConditions.push({
+        OR: [{ assigned_to: session.id }, { assigned_to: null }],
+      });
     } else if (assigned_to && assigned_to !== "all") {
-      whereClause.assigned_to = assigned_to === "unassigned" ? null : assigned_to;
+      whereConditions.push({
+        assigned_to: assigned_to === "unassigned" ? null : assigned_to,
+      });
     }
 
-    // Parceiro vê só conversas dos próprios leads
-    if (session.role === 'partner') {
+    if (session.role === "partner") {
       const partnerLeadConversationIds = await prisma.lead.findMany({
         where: { partner_id: session.id, conversation_id: { not: null } },
         select: { conversation_id: true },
       });
-      const convIds = partnerLeadConversationIds.map(l => l.conversation_id).filter(Boolean);
-      whereClause.id = { in: convIds };
+      const convIds = partnerLeadConversationIds.map((l) => l.conversation_id).filter(Boolean);
+      whereConditions.push({ id: { in: convIds } });
     }
+
+    const whereClause = { AND: whereConditions };
 
     // Retorna lista de todas as conversas do tenant filtradas pela instância
     const conversations = await prisma.conversation.findMany({

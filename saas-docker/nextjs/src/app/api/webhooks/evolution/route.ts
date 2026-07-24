@@ -63,13 +63,13 @@ export async function POST(req: Request) {
         // 0. Busca o Tenant para verificar permissões de grupo e limites
         let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
 
-        // Verificação de Grupos
+        // Verificação de Grupos (só bloqueia se whitelisted_groups contiver grupos específicos configurados)
         if (remoteJid.includes("@g.us")) {
-           const groupId = remoteJid.replace("@g.us", "");
-           const allowedGroups = webhookTenant?.whitelisted_groups || "";
-           if (!allowedGroups.includes(groupId)) {
-             return NextResponse.json({ success: true, ignored: "Grupo não autorizado" });
-           }
+          const groupId = remoteJid.replace("@g.us", "");
+          const allowedGroups = webhookTenant?.whitelisted_groups?.trim() || "";
+          if (allowedGroups && !allowedGroups.includes(groupId)) {
+            return NextResponse.json({ success: true, ignored: "Grupo não autorizado" });
+          }
         }
 
         const contactNumber = remoteJid.replace("@s.whatsapp.net", "");
