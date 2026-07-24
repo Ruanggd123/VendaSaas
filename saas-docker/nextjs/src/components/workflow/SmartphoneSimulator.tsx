@@ -35,11 +35,12 @@ interface Message {
 
 interface SmartphoneSimulatorProps {
   settings: any;
+  tenantId?: string;
   onActiveNodeChange?: (nodeId: string | null) => void;
   onUpdateText?: (nodeId: string | null, newText: string, isWelcome?: boolean) => void;
 }
 
-export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText }: SmartphoneSimulatorProps) {
+export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, onUpdateText }: SmartphoneSimulatorProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -164,7 +165,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
 
         if (selectedProd) {
           const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
-          const checkoutLink = `${originUrl}/checkout/default?product=${encodeURIComponent(selectedProd.name)}`;
+          const checkoutLink = `${originUrl}/checkout/${tenantId || 'default'}?product=${encodeURIComponent(selectedProd.name)}`;
 
           // Procura se o usuário configurou um sub-nó específico para este produto
           const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");

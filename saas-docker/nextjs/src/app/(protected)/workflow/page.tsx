@@ -177,6 +177,7 @@ function sanitizeWelcomeText(msg: any): string {
 
 export default function WorkflowPage() {
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI);
+  const [tenantId, setTenantId] = useState<string>("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>("start");
   const [activeTab, setActiveTab] = useState<"canvas" | "simulator">("canvas");
   const [jsonText, setJsonText] = useState<string>("");
@@ -208,6 +209,7 @@ export default function WorkflowPage() {
         }
         setSettings(merged);
         setJsonText(JSON.stringify(merged, null, 2));
+        if (data.tenantId) setTenantId(data.tenantId);
       }
     } catch (e) {
       console.error("Erro ao buscar configurações:", e);
@@ -931,6 +933,7 @@ export default function WorkflowPage() {
             {/* CELULAR SMARTPHONE SIMULATOR */}
             <SmartphoneSimulator
               settings={settings}
+              tenantId={tenantId}
               onActiveNodeChange={(nodeId) => {
                 if (nodeId) setSelectedNodeId(nodeId);
               }}
