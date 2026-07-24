@@ -80,7 +80,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
         ];
 
     return {
-      id: "init_" + Date.now(),
+      id: "init_menu",
       sender: "bot",
       text: menuText,
       timestamp: getFormattedTime(),
@@ -89,10 +89,11 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
     };
   };
 
+  // Inicializa a mensagem inicial APENAS na primeira montagem (sem reinstanciar ao digitar)
   useEffect(() => {
     setMessages([generateBotInitialMenu()]);
     setCurrentParentId(null);
-  }, [settings?.welcome_message, JSON.stringify(settings?.custom_rules_nodes)]);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -179,9 +180,8 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
           const prods = settings?.products || [];
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
-            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número ou nome do produto para saber mais!";
+            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para saber mais!";
           botProducts = prods;
-          // CATÁLOGO: OS PRODUTOS SÃO AS OPÇÕES! NÃO REPETIR SUB-NÓS COMO LISTA DUPLICADA!
         } else if (matchedNode.actionType === "scheduling") {
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
@@ -241,7 +241,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
     <div className="w-[360px] h-[640px] bg-slate-950 rounded-[44px] p-3 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans">
       {/* BARRA DE STATUS SUPERIOR */}
       <div className="h-6 px-6 pt-1 flex items-center justify-between text-[11px] font-bold text-white z-20">
-        <span>10:50</span>
+        <span>11:14</span>
         <div className="w-16 h-4 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-center">
           <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
         </div>
