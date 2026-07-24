@@ -30,12 +30,18 @@ export async function POST(request: Request) {
       where: { name: instanceName }
     });
 
-    if (!dbInstance || dbInstance.tenant_id !== session.tenant_id) {
-      return NextResponse.json({ error: "Instância não encontrada ou acesso negado" }, { status: 404 });
+    if (!dbInstance) {
+      return NextResponse.json({ error: "Instância não encontrada" }, { status: 404 });
     }
 
-    if (session.role === 'partner' && dbInstance.partner_id !== session.id) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    // Super admin pode excluir qualquer instância
+    if (session.role !== 'superadmin') {
+      if (dbInstance.tenant_id !== session.tenant_id) {
+        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      }
+      if (session.role === 'partner' && dbInstance.partner_id !== session.id) {
+        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      }
     }
 
     // Exclui do banco de dados
