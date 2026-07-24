@@ -144,8 +144,13 @@ export async function PUT(req: Request) {
     // Whitelist de chaves permitidas para evitar mass assignment
     const ALLOWED_KEYS = new Set([
       "ai_name","ai_prompt","ia_prompt","prompt","bot_type",
-      "business_hours_start","business_hours_end","off_hours_message",
+      "ai_personality","ia_model",
+      "business_hours_start","business_hours_end","business_days",
+      "schedule_per_day","appointment_gap_min","blocked_dates",
+      "off_hours_message","welcome_message","hide_auto_catalog",
       "manager_phone","ignored_numbers","products",
+      "enable_groups","whitelisted_groups",
+      "custom_rules_nodes",
       ...SECRET_KEYS,
     ]);
     for (const key of Object.keys(body)) {
