@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
 import { sendWhatsAppMessage } from "@/lib/evolution";
 import { sendEmail, getRecoveryEmailHtml } from "@/lib/email";
+import { rateLimit } from "@/lib/ratelimit";
 
 const prisma = new PrismaClient();
 const secretKey = process.env.NEXTAUTH_SECRET;
@@ -47,6 +48,11 @@ async function sendRecoveryCode(
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    if (!rateLimit(`forgot:${ip}`, 5)) {
+      return NextResponse.json({ error: 'Muitas tentativas. Tente novamente em 1 minuto.' }, { status: 429 });
+    }
+
     const { email } = await request.json();
 
     if (!email) {

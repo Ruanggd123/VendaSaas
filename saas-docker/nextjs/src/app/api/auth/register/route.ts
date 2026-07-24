@@ -12,6 +12,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Preencha todos os campos' }, { status: 400 });
     }
 
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+    }
+
     // Verificar se usuário ou tenant já existe
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {

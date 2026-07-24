@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { jwtVerify } from "jose";
+import { rateLimit } from "@/lib/ratelimit";
 
 const prisma = new PrismaClient();
 const rawSecret = process.env.NEXTAUTH_SECRET;
@@ -13,6 +14,11 @@ const key = new TextEncoder().encode(secretKey);
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    if (!rateLimit(`reset:${ip}`, 5)) {
+      return NextResponse.json({ error: 'Muitas tentativas. Tente novamente em 1 minuto.' }, { status: 429 });
+    }
+
     const { token, code, newPassword } = await request.json();
 
     if (!token || !code || !newPassword) {

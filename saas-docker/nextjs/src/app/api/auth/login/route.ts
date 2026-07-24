@@ -2,11 +2,17 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { login } from '@/lib/auth';
+import { rateLimit } from '@/lib/ratelimit';
 
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    if (!rateLimit(`login:${ip}`, 10)) {
+      return NextResponse.json({ error: 'Muitas tentativas. Tente novamente em 1 minuto.' }, { status: 429 });
+    }
+
     const { email, password } = await request.json();
 
     if (!email || !password) {
