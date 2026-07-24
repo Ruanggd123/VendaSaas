@@ -129,17 +129,26 @@ export function SmartphoneSimulator({ settings, onClose }: SmartphoneSimulatorPr
             { name: "Plano Enterprise", price: "497.00", description: "Conexões ilimitadas + Suporte VIP" }
           ];
         } else if (matchedNode.actionType === "scheduling") {
-          botResponseText = "📅 *Agendamento de Horários*\n\nNossos horários disponíveis para hoje são:\n\n• 09:00\n• 10:30\n• 14:00\n• 16:30\n\nQual horário você prefere?";
+          botResponseText = "📅 *Agendamento de Atendimento*\n\nPor favor, escolha uma das datas disponíveis abaixo:\n\n1️⃣ Sexta-feira (24/07)\n2️⃣ Segunda-feira (27/07)\n3️⃣ Terça-feira (28/07)\n4️⃣ Quarta-feira (29/07)\n\nDigite o número ou a data desejada:";
           botButtons = [
-            { label: "09:00", value: "09:00" },
-            { label: "10:30", value: "10:30" },
-            { label: "14:00", value: "14:00" },
+            { label: "1 - Sex 24/07", value: "24/07" },
+            { label: "2 - Seg 27/07", value: "27/07" },
+            { label: "3 - Ter 28/07", value: "28/07" },
           ];
         } else if (matchedNode.actionType === "human") {
           botResponseText = "👤 *Transferindo para Atendente Humano*\n\nAguarde um instante! Um dos nossos consultores irá assumir a conversa para te atender pessoalmente. ⏳";
         } else {
           botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*. Como podemos te ajudar?`;
         }
+      } else if (clean === "24/07" || clean === "27/07" || clean === "28/07" || clean === "1" && messages[messages.length - 1]?.text.includes("Agendamento")) {
+        botResponseText = "🕒 *Horários Disponíveis para Agendamento*\n\nSelecione um dos horários livres:\n\n• 09:00\n• 10:30\n• 14:00\n• 16:30\n\nDigite o horário desejado (ex: 09:00):";
+        botButtons = [
+          { label: "09:00", value: "09:00" },
+          { label: "10:30", value: "10:30" },
+          { label: "14:00", value: "14:00" },
+        ];
+      } else if (clean === "09:00" || clean === "10:30" || clean === "14:00" || clean === "16:30") {
+        botResponseText = `✅ *Agendamento Confirmado!*\n\nSeu atendimento foi reservado com sucesso para às *${clean}*.\n\nEnviamos a confirmação para nossa equipe. Obrigado!`;
       } else if (clean === "1" || clean.includes("catalogo") || clean.includes("produto")) {
         const prods = settings?.products || [];
         botResponseText = "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo:";

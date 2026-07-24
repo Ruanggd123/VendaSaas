@@ -524,7 +524,9 @@ export default function WorkflowPage() {
                 {selectedNodeId && selectedNodeId !== "start" && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Dígito / Palavra-chave</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        🔑 Gatilho de Ativação (Dígito ou Palavra-chave)
+                      </label>
                       <input
                         type="text"
                         value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.keyword || ""}
@@ -536,8 +538,12 @@ export default function WorkflowPage() {
                             updateField("custom_rules_nodes", newNodes);
                           }
                         }}
+                        placeholder="Ex: 1, 2, pix, suporte"
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
                       />
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        Quando o cliente enviar este dígito ou palavra no WhatsApp, esta opção ou sub-menu será ativado.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -639,10 +645,13 @@ export default function WorkflowPage() {
         {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO */}
         {activeTab === "simulator" && (
           <div className="flex-1 h-full bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6 gap-8 overflow-y-auto">
-            <div className="w-80 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-5 hidden lg:block">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-white/10">
-                <Smartphone className="w-5 h-5 text-emerald-500" />
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Ajustes do Simulador</h3>
+            <div className="w-96 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto hidden lg:block">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-emerald-500" />
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Editar Textos &amp; Opções do Robô</h3>
+                </div>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">Ao Vivo</span>
               </div>
 
               <div className="space-y-2">
@@ -650,18 +659,75 @@ export default function WorkflowPage() {
                 <textarea
                   value={settings.welcome_message || ""}
                   onChange={(e) => updateField("welcome_message", e.target.value)}
-                  rows={4}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                  rows={3}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-2.5 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
                 />
               </div>
 
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl text-[11px] text-emerald-900 dark:text-emerald-300 space-y-1">
-                <p className="font-bold flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Como Testar:
-                </p>
-                <p className="leading-snug opacity-90">
-                  Digite opções numéricas no celular (ex: <strong>1</strong>, <strong>2</strong>, <strong>3</strong>, <strong>4</strong>) ou envie mensagens de teste. O simulador responde na hora!
-                </p>
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Opções &amp; Respostas dos Nós</span>
+                  <button
+                    onClick={() => {
+                      const newNodes = [...(settings.custom_rules_nodes || [])];
+                      newNodes.push({
+                        id: "node_" + Math.random().toString(36).substr(2, 9),
+                        parentId: null,
+                        keyword: String(newNodes.length + 1),
+                        title: "Nova Opção",
+                        actionType: "text",
+                        textContent: "Digite aqui a resposta deste nó...",
+                      });
+                      updateField("custom_rules_nodes", newNodes);
+                    }}
+                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    + Add Opção
+                  </button>
+                </div>
+
+                {(settings.custom_rules_nodes || []).map((node: any, idx: number) => (
+                  <div key={node.id} className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={node.keyword || ""}
+                        onChange={(e) => {
+                          const newNodes = [...(settings.custom_rules_nodes || [])];
+                          newNodes[idx].keyword = e.target.value;
+                          updateField("custom_rules_nodes", newNodes);
+                        }}
+                        className="w-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-center text-indigo-600 dark:text-indigo-400"
+                        title="Gatilho / Palavra-chave"
+                      />
+                      <input
+                        type="text"
+                        value={node.title || ""}
+                        onChange={(e) => {
+                          const newNodes = [...(settings.custom_rules_nodes || [])];
+                          newNodes[idx].title = e.target.value;
+                          updateField("custom_rules_nodes", newNodes);
+                        }}
+                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-slate-900 dark:text-white"
+                        placeholder="Título da opção"
+                      />
+                    </div>
+
+                    {node.actionType === "text" && (
+                      <textarea
+                        rows={2}
+                        value={node.textContent || ""}
+                        onChange={(e) => {
+                          const newNodes = [...(settings.custom_rules_nodes || [])];
+                          newNodes[idx].textContent = e.target.value;
+                          updateField("custom_rules_nodes", newNodes);
+                        }}
+                        placeholder="Resposta enviada pelo robô ao acionar o gatilho..."
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
