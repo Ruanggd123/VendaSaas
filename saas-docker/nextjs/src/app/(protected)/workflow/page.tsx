@@ -649,70 +649,188 @@ export default function WorkflowPage() {
                 />
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
+              <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-white/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Opções &amp; Respostas dos Nós</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Árvore de Nós &amp; Sub-nós
+                  </span>
                   <button
                     onClick={() => {
                       const newNodes = [...(settings.custom_rules_nodes || [])];
                       newNodes.push({
                         id: "node_" + Math.random().toString(36).substr(2, 9),
                         parentId: null,
-                        keyword: String(newNodes.length + 1),
+                        keyword: String(newNodes.filter((n) => !n.parentId).length + 1),
                         title: "Nova Opção",
                         actionType: "text",
                         textContent: "Digite aqui a resposta deste nó...",
                       });
                       updateField("custom_rules_nodes", newNodes);
                     }}
-                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                   >
-                    + Add Opção
+                    <Plus className="w-3 h-3" /> Add Nó Principal
                   </button>
                 </div>
 
-                {(settings.custom_rules_nodes || []).map((node: any, idx: number) => (
-                  <div key={node.id} className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={node.keyword || ""}
-                        onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          newNodes[idx].keyword = e.target.value;
-                          updateField("custom_rules_nodes", newNodes);
-                        }}
-                        className="w-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-center text-indigo-600 dark:text-indigo-400"
-                        title="Gatilho / Palavra-chave"
-                      />
-                      <input
-                        type="text"
-                        value={node.title || ""}
-                        onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          newNodes[idx].title = e.target.value;
-                          updateField("custom_rules_nodes", newNodes);
-                        }}
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-slate-900 dark:text-white"
-                        placeholder="Título da opção"
-                      />
-                    </div>
+                {/* ARVORE DE NÓS COM LINHAS FINAS CONECTORAS */}
+                {(settings.custom_rules_nodes || [])
+                  .filter((n: any) => !n.parentId)
+                  .map((rootNode: any) => {
+                    const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === rootNode.id);
+                    const rootIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === rootNode.id);
 
-                    {node.actionType === "text" && (
-                      <textarea
-                        rows={2}
-                        value={node.textContent || ""}
-                        onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          newNodes[idx].textContent = e.target.value;
-                          updateField("custom_rules_nodes", newNodes);
-                        }}
-                        placeholder="Resposta enviada pelo robô ao acionar o gatilho..."
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                      />
-                    )}
-                  </div>
-                ))}
+                    return (
+                      <div key={rootNode.id} className="space-y-2">
+                        {/* CARD DO NÓ PAI (NÍVEL 1) */}
+                        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-2 text-xs shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300 px-1.5 py-0.5 rounded-md">
+                              NÓ PAI
+                            </span>
+                            <input
+                              type="text"
+                              value={rootNode.keyword || ""}
+                              onChange={(e) => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes[rootIdx].keyword = e.target.value;
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="w-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-1.5 py-1 font-bold text-center text-indigo-600 dark:text-indigo-400"
+                              title="Gatilho do Nó Principal"
+                            />
+                            <input
+                              type="text"
+                              value={rootNode.title || ""}
+                              onChange={(e) => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes[rootIdx].title = e.target.value;
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-bold text-slate-900 dark:text-white"
+                              placeholder="Título do Nó"
+                            />
+                          </div>
+
+                          {rootNode.actionType === "text" && (
+                            <textarea
+                              rows={2}
+                              value={rootNode.textContent || ""}
+                              onChange={(e) => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes[rootIdx].textContent = e.target.value;
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              placeholder="Resposta enviada pelo robô..."
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                            />
+                          )}
+
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              onClick={() => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes.push({
+                                  id: "node_" + Math.random().toString(36).substr(2, 9),
+                                  parentId: rootNode.id,
+                                  keyword: String(children.length + 1),
+                                  title: "Sub-opção",
+                                  actionType: "text",
+                                  textContent: "Responda a esta sub-opção...",
+                                });
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" /> Add Sub-nó
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="text-[10px] font-bold text-rose-500 hover:underline"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* SUB-NÓS CONECTADOS COM LINHA FINA BRILHANTE (NÍVEL 2) */}
+                        {children.length > 0 && (
+                          <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-3 ml-3 space-y-2 relative">
+                            {children.map((child: any) => {
+                              const childIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === child.id);
+                              return (
+                                <div key={child.id} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
+                                  {/* PONTO CONECTOR NA LINHA FINA */}
+                                  <div className="absolute -left-[17px] top-4 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-mono font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 px-1 py-0.5 rounded">
+                                      SUB-NÓ
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={child.keyword || ""}
+                                      onChange={(e) => {
+                                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                                        newNodes[childIdx].keyword = e.target.value;
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="w-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-1 py-0.5 font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px]"
+                                      title="Gatilho de Ativação do Sub-nó"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={child.title || ""}
+                                      onChange={(e) => {
+                                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                                        newNodes[childIdx].title = e.target.value;
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-0.5 font-bold text-slate-900 dark:text-white text-[11px]"
+                                      placeholder="Título da Sub-opção"
+                                    />
+                                  </div>
+
+                                  {child.actionType === "text" && (
+                                    <textarea
+                                      rows={2}
+                                      value={child.textContent || ""}
+                                      onChange={(e) => {
+                                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                                        newNodes[childIdx].textContent = e.target.value;
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      placeholder="Resposta enviada ao ativar esta sub-opção..."
+                                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                                    />
+                                  )}
+
+                                  <div className="flex items-center justify-between pt-0.5">
+                                    <span className="text-[9px] text-slate-400 font-medium">
+                                      Gatilho: <strong>{child.keyword}</strong> no menu <strong>{rootNode.title}</strong>
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== child.id);
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="text-[9px] font-bold text-rose-500 hover:underline"
+                                    >
+                                      Excluir
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
 
