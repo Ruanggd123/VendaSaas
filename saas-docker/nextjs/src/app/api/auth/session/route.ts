@@ -9,7 +9,16 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
-    return NextResponse.json({ authenticated: true, user: session }, { status: 200 });
+    return NextResponse.json({
+    authenticated: true,
+    user: {
+      id: session.id,
+      name: session.name,
+      email: session.email,
+      role: session.role,
+      tenant_id: session.tenant_id,
+    }
+  }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ authenticated: false }, { status: 500 });
   }

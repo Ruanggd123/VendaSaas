@@ -23,18 +23,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Você atingiu o limite de 3 projetos simultâneos. Finalize um projeto para aceitar novos.' }, { status: 400 });
     }
 
-    // Checar se o projeto ainda está disponível
-    const project = await prisma.project.findUnique({
-      where: { id: project_id }
-    });
-
-    if (!project || project.status !== 'OPEN' || project.partner_id) {
-      return NextResponse.json({ error: 'Este projeto já foi assumido por outro desenvolvedor ou não está disponível.' }, { status: 400 });
-    }
-
-    // Assumir o projeto
-    const updatedProject = await prisma.project.update({
-      where: { id: project_id },
+    // Assumir o projeto atomicamente (evita condicao de corrida)
+    const updatedProject = await prisma.project.updateMany({
+      where: { id: project_id, status: 'OPEN', partner_id: null },
       data: {
         partner_id: session.id,
         status: 'IN_PROGRESS',
@@ -42,16 +33,20 @@ export async function POST(request: Request) {
       }
     });
 
+    if (updatedProject.count === 0) {
+      return NextResponse.json({ error: 'Este projeto já foi assumido por outro desenvolvedor ou não está disponível.' }, { status: 400 });
+    }
+
     await prisma.projectTimeline.create({
       data: {
-        project_id: project.id,
+        project_id: project_id,
         status_change: 'IN_PROGRESS',
         message: 'Projeto assumido por um desenvolvedor e em andamento.',
         author: 'SYSTEM'
       }
     });
 
-    return NextResponse.json({ success: true, project: updatedProject });
+    return NextResponse.json({ success: true, project_id });
   } catch (error: any) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }

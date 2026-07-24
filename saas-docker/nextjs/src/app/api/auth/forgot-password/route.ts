@@ -116,9 +116,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Se o email estiver cadastrado, você receberá um código de recuperação.",
-      sentViaEmail: sentViaEmail || false,
-      sentViaWhatsApp: sentViaWhatsApp || false,
-      token: token,
     });
   } catch (err) {
     return NextResponse.json(

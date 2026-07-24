@@ -23,6 +23,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Tenant não identificado" }, { status: 400 });
     }
 
+    // Apenas superadmin pode configurar Asaas para outro tenant
+    if (tenantId && tenantId !== session.tenant_id && session.role !== 'superadmin') {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
+
     // 1. Validar a Chave de API batendo no Asaas
     const asaasUrl = environment === "production"
       ? "https://api.asaas.com/v3"

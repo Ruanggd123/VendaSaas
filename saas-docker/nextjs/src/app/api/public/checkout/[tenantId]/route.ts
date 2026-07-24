@@ -76,6 +76,11 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       return NextResponse.json({ error: 'Nome, telefone, produto e valor são obrigatórios' }, { status: 400 });
     }
 
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: 'Valor inválido' }, { status: 400 });
+    }
+
     let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
@@ -101,7 +106,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         email,
         status: 'NEW',
         interested_product: productName,
-        value: parseFloat(amount),
+        value: parsedAmount,
         source: 'checkout',
         partner_id: partnerId,
         notes: cart ? JSON.stringify(cart) : null,
@@ -117,7 +122,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
         tenant_id: realTenantId,
         lead_id: lead.id,
         product_name: productName,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         notes: Object.keys(notesData).length > 0 ? JSON.stringify(notesData) : null,
         status: 'pending',
         due_date: new Date(Date.now() + (isSubscription ? 30 : 7) * 86400000),
@@ -128,7 +133,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
     const monthlyAmount = Array.isArray(cart)
       ? cart.filter((i: any) => i.type === 'subscription' && !i.isBonus).reduce((s: number, i: any) => s + (parseFloat(i.price) || 0), 0)
       : 0;
-    const totalAmount = parseFloat(amount) || 0;
+    const totalAmount = parsedAmount;
 
     // Try Mercado Pago first (one-time only - MP checkout doesn't support recurring)
     const mpToken = settings.mercadopago_access_token;

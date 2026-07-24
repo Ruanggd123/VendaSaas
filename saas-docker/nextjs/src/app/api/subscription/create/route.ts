@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createCustomer, createSubscription } from '@/lib/asaas';
+import { getSession } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
-  const { tenantId, planType, customerData } = await request.json();
-
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const { tenantId, planType, customerData } = await request.json();
+
+    // Apenas o proprio tenant ou superadmin pode criar assinatura
+    if (tenantId !== session.tenant_id && session.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    }
+
     // 1. Criar cliente no Asaas
     const asaasCustomer = await createCustomer(customerData);
 
