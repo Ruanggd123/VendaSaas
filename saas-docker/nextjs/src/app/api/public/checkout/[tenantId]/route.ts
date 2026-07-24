@@ -41,6 +41,12 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
     });
 
     if (!tenant) {
+      tenant = await prisma.tenant.findFirst({
+        select: { id: true, name: true, settings: true }
+      });
+    }
+
+    if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
     let settings: any = {};
