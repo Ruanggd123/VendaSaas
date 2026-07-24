@@ -76,8 +76,37 @@ export async function POST(req: Request) {
           (messageData.key.participant !== undefined && messageData.key.participant !== null && messageData.key.participant !== "");
 
         if (isGroupMessage) {
-          console.log(`[Webhook] Ignorando mensagem de grupo (${rJid}). O bot responde estritamente a conversas diretas 1x1.`);
-          return NextResponse.json({ success: true, ignored: "Mensagens de grupo desativadas" });
+          const settings = typeof webhookTenant?.settings === "string"
+            ? JSON.parse(webhookTenant?.settings || "{}")
+            : (webhookTenant?.settings || {});
+
+          const enableGroups = settings?.enable_groups === true;
+          const whitelistStr = (settings?.whitelisted_groups || webhookTenant?.whitelisted_groups || "").trim();
+
+          // 1. Se a opção de grupos estiver desativada (PADRÃO), ignora o grupo
+          if (!enableGroups) {
+            console.log(`[Webhook] Ignorando grupo (${rJid}): Respostas em grupos desativadas nas configurações.`);
+            return NextResponse.json({ success: true, ignored: "Respostas em grupos desativadas" });
+          }
+
+          // 2. Se a opção estiver ativada, valida se o grupo atual consta na lista de autorizados
+          const allowedList = whitelistStr.split(",").map((g: string) => g.trim().toLowerCase()).filter(Boolean);
+          const cleanGroupId = rJid.replace("@g.us", "").trim();
+
+          if (allowedList.length > 0) {
+            const pushName = (messageData.pushName || "").toLowerCase();
+            const isAllowed = allowedList.some((allowed: string) =>
+              cleanGroupId.includes(allowed) || rJid.includes(allowed) || pushName.includes(allowed)
+            );
+
+            if (!isAllowed) {
+              console.log(`[Webhook] Ignorando grupo (${rJid}): Grupo não está na lista de autorizados (${whitelistStr}).`);
+              return NextResponse.json({ success: true, ignored: "Grupo não autorizado na whitelist" });
+            }
+          } else {
+            console.log(`[Webhook] Ignorando grupo (${rJid}): Nenhum grupo cadastrado na lista de autorizados.`);
+            return NextResponse.json({ success: true, ignored: "Nenhum grupo cadastrado na lista" });
+          }
         }
 
         const effectiveJid = (messageData.key.remoteJidAlt || messageData.key.remoteJid || "").toString();

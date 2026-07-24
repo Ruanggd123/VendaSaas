@@ -9,10 +9,31 @@ const prisma = new PrismaClient();
 
 export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false) {
   try {
-    // Bloquear estritamente mensagens vindas de Grupos do WhatsApp
-    if (contactNumber.includes("@g.us") || contactNumber.includes("g.us") || contactNumber.length > 15) {
-      console.log(`[AI Engine] Bloqueado: contato ${contactNumber} é um grupo de WhatsApp. Respostas de IA desativadas.`);
-      return null;
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) return null;
+
+    const isGroup = contactNumber.includes("@g.us") || contactNumber.includes("g.us") || contactNumber.length > 15;
+    if (isGroup) {
+      let settings: any = {};
+      try {
+        settings = JSON.parse((tenant.settings as string) || "{}");
+      } catch {}
+
+      const enableGroups = settings?.enable_groups === true;
+      const whitelistStr = (settings?.whitelisted_groups || tenant.whitelisted_groups || "").trim();
+
+      if (!enableGroups) {
+        console.log(`[AI Engine] Bloqueado: respostas em grupos desativadas para tenant ${tenantId}.`);
+        return null;
+      }
+
+      const allowedList = whitelistStr.split(",").map((g: string) => g.trim().toLowerCase()).filter(Boolean);
+      const cleanContact = contactNumber.replace("@g.us", "").trim().toLowerCase();
+
+      if (allowedList.length === 0 || !allowedList.some((allowed: string) => cleanContact.includes(allowed))) {
+        console.log(`[AI Engine] Bloqueado: grupo ${contactNumber} não está na lista de autorizados.`);
+        return null;
+      }
     }
 
     if (!isMessageToMyself && !checkRateLimit(`${tenantId}:${contactNumber}`)) {
@@ -21,9 +42,6 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
     }
 
     const sanitizedMessage = sanitizeInput(userMessage);
-
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return null;
 
     // 1. Verificar status da Assinatura no Banco de Dados
     if (tenant.subscription_expires_at && tenant.subscription_expires_at < new Date()) {

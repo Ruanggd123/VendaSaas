@@ -21,6 +21,7 @@ import {
   Calendar,
   AlertCircle,
   FileText,
+  Users,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -42,6 +43,8 @@ interface AISettings {
   blocked_dates: string[];
   openai_api_key?: string;
   ia_model?: string;
+  enable_groups?: boolean;
+  whitelisted_groups?: string;
 }
 
 interface Product {
@@ -428,6 +431,49 @@ function AITab() {
             onChange={(e) => update("ai_prompt", e.target.value)}
             className="w-full rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-950 p-4 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono leading-relaxed"
           />
+        </div>
+
+        {/* ── CONTROLE DE ATENDIMENTO EM GRUPOS DO WHATSAPP ── */}
+        <div className="rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-900/90 p-5 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-500/20 border border-purple-200 dark:border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">Respostas em Grupos do WhatsApp</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Por padrão, o robô atende apenas mensagens diretas 1-x-1.</p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.enable_groups || false}
+                onChange={(e) => update("enable_groups", e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+
+          {settings.enable_groups && (
+            <div className="pt-3 border-t border-slate-100 dark:border-white/10 space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Grupos Autorizados (Nome do Grupo ou ID do WhatsApp)
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Digite o nome ou ID dos grupos autorizados separados por vírgula. O robô responderá <strong>apenas</strong> aos grupos que você cadastrar aqui.
+              </p>
+              <input
+                type="text"
+                value={settings.whitelisted_groups || ""}
+                onChange={(e) => update("whitelisted_groups", e.target.value)}
+                placeholder="Ex: Grupo Vendas VIP, 120363424279225343, Suporte Oficial"
+                className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 font-medium"
+              />
+            </div>
+          )}
         </div>
       </section>
 
