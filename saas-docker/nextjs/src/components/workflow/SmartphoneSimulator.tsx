@@ -166,13 +166,38 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
           const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
           const checkoutLink = `${originUrl}/checkout/default?product=${encodeURIComponent(selectedProd.name)}`;
 
-          botResponseText = `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Automação de alta performance para impulsionar suas vendas no WhatsApp."}\n\n👇 *Como você prefere realizar o pagamento?*\n\n• *Opção A:* Gerar chave Pix copia e cola direta no chat.\n• *Opção B:* Acessar o site em nova aba para pagar via Cartão de Crédito, Boleto ou Pix.\n🔗 Link do Site: ${checkoutLink}`;
-          botButtons = [
-            { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
-            { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
-            { label: "👤 Falar com Consultor", value: "4" },
-            { label: "⬅️ Voltar ao Catálogo", value: "1" },
-          ];
+          // Procura se o usuário configurou um sub-nó específico para este produto
+          const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
+          const customSubNode = catalogNode
+            ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(clean))
+            : null;
+
+          const pMode = customSubNode?.paymentMode || "both";
+          const customIntro = customSubNode?.textContent || `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Automação de alta performance para impulsionar suas vendas no WhatsApp."}`;
+
+          if (pMode === "pix") {
+            botResponseText = `${customIntro}\n\n👇 *Pagamento via Pix:* Clique abaixo para gerar o código Pix Copia e Cola instantâneo!`;
+            botButtons = [
+              { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
+              { label: "👤 Falar com Consultor", value: "4" },
+              { label: "⬅️ Voltar ao Catálogo", value: "1" },
+            ];
+          } else if (pMode === "link") {
+            botResponseText = `${customIntro}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):*\n${checkoutLink}`;
+            botButtons = [
+              { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
+              { label: "👤 Falar com Consultor", value: "4" },
+              { label: "⬅️ Voltar ao Catálogo", value: "1" },
+            ];
+          } else {
+            botResponseText = `${customIntro}\n\n👇 *Escolha a forma de pagamento:*`;
+            botButtons = [
+              { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
+              { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
+              { label: "👤 Falar com Consultor", value: "4" },
+              { label: "⬅️ Voltar ao Catálogo", value: "1" },
+            ];
+          }
 
           const botMsg: Message = {
             id: "bot_" + Date.now(),

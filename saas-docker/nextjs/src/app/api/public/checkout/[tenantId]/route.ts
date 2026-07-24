@@ -35,10 +35,17 @@ function cleanDescription(str: string): string {
 export async function GET(req: Request, { params }: { params: { tenantId: string } }) {
   try {
     const { tenantId } = params;
-    const tenant = await prisma.tenant.findUnique({
+    let tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { name: true, settings: true }
+      select: { id: true, name: true, settings: true }
     });
+
+    if (!tenant) {
+      tenant = await prisma.tenant.findFirst({
+        select: { id: true, name: true, settings: true }
+      });
+    }
+
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
@@ -75,10 +82,14 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       return NextResponse.json({ error: 'Nome, telefone, produto e valor são obrigatórios' }, { status: 400 });
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      tenant = await prisma.tenant.findFirst();
+    }
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
+    const realTenantId = tenant.id;
 
     let settings: any = {};
     try { settings = JSON.parse(tenant.settings as string); } catch {}

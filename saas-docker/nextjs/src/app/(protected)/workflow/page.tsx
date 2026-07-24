@@ -824,6 +824,35 @@ export default function WorkflowPage() {
                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
                           />
 
+                          {rootNode.actionType === "catalog" && (
+                            <button
+                              onClick={() => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                const prods = settings.products || [];
+                                prods.forEach((prod: any, idx: number) => {
+                                  const exists = newNodes.some((n) => n.parentId === rootNode.id && n.keyword === String(idx + 1));
+                                  if (!exists) {
+                                    newNodes.push({
+                                      id: "prod_node_" + Math.random().toString(36).substr(2, 9),
+                                      parentId: rootNode.id,
+                                      keyword: String(idx + 1),
+                                      title: `${prod.name} (R$ ${prod.price})`,
+                                      actionType: "checkout",
+                                      paymentMode: "both",
+                                      textContent: `Você selecionou *${prod.name}* (R$ ${prod.price}). Escolha como deseja realizar o pagamento abaixo:`,
+                                    });
+                                  }
+                                });
+                                updateField("custom_rules_nodes", newNodes);
+                                setAlert({ type: "success", msg: "Sub-nós de produtos gerados com sucesso no catálogo! 📦" });
+                              }}
+                              className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Package className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>✨ Sincronizar Produtos do Catálogo como Sub-nós</span>
+                            </button>
+                          )}
+
                           <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
                             <button
                               onClick={() => {
@@ -834,6 +863,7 @@ export default function WorkflowPage() {
                                   keyword: String(children.length + 1),
                                   title: `Sub-opção ${children.length + 1}`,
                                   actionType: "text",
+                                  paymentMode: "both",
                                   textContent: "Resposta desta sub-opção...",
                                 });
                                 updateField("custom_rules_nodes", newNodes);
@@ -888,6 +918,24 @@ export default function WorkflowPage() {
                                       Excluir
                                     </button>
                                   </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 block">💳 Forma de Pagamento / Ação:</label>
+                                    <select
+                                      value={child.paymentMode || "both"}
+                                      onChange={(e) => {
+                                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                                        newNodes[childIdx].paymentMode = e.target.value;
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none"
+                                    >
+                                      <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
+                                      <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
+                                      <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
+                                    </select>
+                                  </div>
+
                                   <textarea
                                     rows={2}
                                     value={child.textContent || ""}
@@ -896,7 +944,7 @@ export default function WorkflowPage() {
                                       newNodes[childIdx].textContent = e.target.value;
                                       updateField("custom_rules_nodes", newNodes);
                                     }}
-                                    placeholder="Resposta da sub-opção..."
+                                    placeholder="Resposta enviada ao cliente ao selecionar este produto ou sub-opção..."
                                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
                                   />
                                 </div>
