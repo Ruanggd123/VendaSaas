@@ -1,6 +1,7 @@
 "use client";
 
 import WorkflowCanvas from "./WorkflowCanvas";
+import { SmartphoneSimulator } from "@/components/workflow/SmartphoneSimulator";
 import { useState, useEffect } from "react";
 import {
   Settings,
@@ -13,7 +14,56 @@ import {
   Layers,
   Check,
   Copy,
+  Smartphone,
 } from "lucide-react";
+
+const DEFAULT_SAAS_PRODUCTS = [
+  {
+    name: "Plano Solo (1 Conexão WhatsApp)",
+    price: "147.00",
+    description: "Atendimento inteligente automatizado para 1 número de WhatsApp com IA Vendedora e Agendamentos.",
+    duration_min: 30,
+    requires_payment: true,
+    delivery_type: "virtual_instant",
+    digital_content: "Acesso liberado no painel Nexus SaaS para 1 instância."
+  },
+  {
+    name: "Plano Pro (3 Conexões WhatsApp)",
+    price: "297.00",
+    description: "Automação completa para até 3 números de WhatsApp, disparo em massa e suporte prioritário.",
+    duration_min: 30,
+    requires_payment: true,
+    delivery_type: "virtual_instant",
+    digital_content: "Acesso liberado para 3 instâncias com suporte VIP."
+  },
+  {
+    name: "Plano Enterprise (Conexões Ilimitadas)",
+    price: "497.00",
+    description: "Solução completa para grandes empresas com instâncias ilimitadas, API dedicada e gerente de conta.",
+    duration_min: 60,
+    requires_payment: true,
+    delivery_type: "virtual_instant",
+    digital_content: "Acesso Enterprise com onboarding individualizado."
+  },
+  {
+    name: "Módulo IA Vendedora Avançada",
+    price: "97.00",
+    description: "IA conversacional persuasiva com catálogo dinâmico e integração direta com fechamento de vendas.",
+    duration_min: 15,
+    requires_payment: true,
+    delivery_type: "virtual_instant",
+    digital_content: "Módulo ativado nas configurações da sua empresa."
+  },
+  {
+    name: "Instância Adicional WhatsApp",
+    price: "49.90",
+    description: "Adicione mais 1 número de WhatsApp à sua automação conversacional.",
+    duration_min: 15,
+    requires_payment: true,
+    delivery_type: "virtual_instant",
+    digital_content: "Nova instância liberada na aba Conexões WhatsApp."
+  }
+];
 
 interface AISettings {
   bot_type?: string;
@@ -58,7 +108,7 @@ const DEFAULT_AI: AISettings = {
   schedule_per_day: DEFAULT_SCHEDULE_PER_DAY,
   appointment_gap_min: 15,
   off_hours_message: "Olá! Estamos fora do horário de expediente. Deixe sua mensagem que responderemos assim que retornarmos!",
-  products: [],
+  products: DEFAULT_SAAS_PRODUCTS,
   manager_phone: "",
   blocked_dates: [],
   welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
@@ -111,6 +161,7 @@ export default function WorkflowPage() {
   const [saving, setSaving] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState(false);
+  const [showSimulator, setShowSimulator] = useState<boolean>(true);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [copied, setCopied] = useState(false);
 
@@ -124,6 +175,9 @@ export default function WorkflowPage() {
       const data = await res.json();
       if (data.settings) {
         const merged = { ...DEFAULT_AI, ...data.settings };
+        if (!merged.products || merged.products.length === 0) {
+          merged.products = DEFAULT_SAAS_PRODUCTS;
+        }
         setSettings(merged);
         setJsonText(JSON.stringify(merged, null, 2));
       }
@@ -162,6 +216,9 @@ export default function WorkflowPage() {
     try {
       const parsed = JSON.parse(jsonText);
       const merged = { ...DEFAULT_AI, ...parsed };
+      if (!merged.products || merged.products.length === 0) {
+        merged.products = DEFAULT_SAAS_PRODUCTS;
+      }
       setSettings(merged);
       saveConfig(merged);
       setShowJsonModal(false);
@@ -216,6 +273,19 @@ export default function WorkflowPage() {
               <X className="w-3.5 h-3.5" />
             </div>
           )}
+
+          <button
+            onClick={() => setShowSimulator(!showSimulator)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm ${
+              showSimulator
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
+            }`}
+          >
+            <Smartphone className="w-4 h-4" />
+            <span className="hidden sm:inline">Simulador ao Vivo</span>
+            {showSimulator && <span className="w-2 h-2 rounded-full bg-emerald-300 animate-ping"></span>}
+          </button>
 
           <button
             onClick={() => setShowAIPrompt(!showAIPrompt)}
@@ -467,6 +537,22 @@ export default function WorkflowPage() {
             </div>
           )}
         </aside>
+
+        {/* EXTREMA DIREITA: SIMULADOR DE SMARTPHONE AO VIVO */}
+        {showSimulator && (
+          <aside className="w-96 border-l border-slate-200/90 dark:border-white/10 bg-slate-50/60 dark:bg-slate-950/80 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 p-3 overflow-y-auto items-center">
+            <div className="flex items-center justify-between w-full pb-2 mb-2 border-b border-slate-200/80 dark:border-white/10 px-2">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Simulador WhatsApp</span>
+              </div>
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Ao Vivo
+              </span>
+            </div>
+            <SmartphoneSimulator settings={settings} />
+          </aside>
+        )}
       </div>
 
       {/* MODAL JSON CONFIG - COMPLETO COM COPIAR E IMPORTAR */}
