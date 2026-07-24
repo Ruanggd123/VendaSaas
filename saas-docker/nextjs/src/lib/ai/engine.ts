@@ -253,7 +253,7 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
     const catalog = settings.products || [];
     let catalogText = "NENHUM PRODUTO DISPONÍVEL (A loja não possui produtos).";
     if (catalog.length > 0) {
-      catalogText = catalog.map((p: any) => `${p.name}: R$ ${p.price}. ${p.description || ''} | Entrega: ${p.delivery_type || 'virtual_instant'} | Pagamento: ${p.requires_payment === true || p.requires_payment === "true" ? 'Online obrigatório' : 'Presencial'} | ${p.stock !== undefined && p.stock !== null ? 'Estoque: ' + p.stock : 'Ilimitado'} | Foto: ${p.image_url || 'Sem foto'}`).join("\n");
+      catalogText = catalog.map((p: any) => `${p.name}: R$ ${p.price}. ${p.description || ''} | Entrega: ${p.delivery_type || 'virtual_instant'} | Pagamento: ${p.requires_payment === true || p.requires_payment === "true" ? 'Online obrigatório' : 'Presencial'} | ${p.stock !== undefined && p.stock !== null ? 'Estoque: ' + p.stock : 'Ilimitado'} | Foto: ${p.image_url && p.send_photo !== false ? p.image_url : 'Sem foto'}`).join("\n");
     }
 
     const now = new Date();

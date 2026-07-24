@@ -268,7 +268,7 @@ export async function processMessageWithRules(
       if (prod) {
         if (prod.description) msg += `${prod.description}\n\n`;
         msg += `Valor: R$ ${prod.price}\n\n`;
-        if (prod.image_url) msg += `${prod.image_url}\n\n`;
+        if (prod.image_url && prod.send_photo !== false) msg += `${prod.image_url}\n\n`;
       }
       if (hasChildren) {
         msg += getSubmenuMessage(selectedProductNode, customNodes);
@@ -291,8 +291,8 @@ export async function processMessageWithRules(
     if (chosenService.description) response += `${chosenService.description}\n\n`;
     response += `Valor: R$ ${chosenService.price}\n\n`;
     
-    // Adicionar imagem, se existir, para que o queue processor envie como mídia
-    if (chosenService.image_url) {
+    // Adicionar imagem, se existir e estiver habilitada, para que o queue processor envie como mídia
+    if (chosenService.image_url && chosenService.send_photo !== false) {
       response += `${chosenService.image_url}\n\n`;
     }
 
@@ -640,7 +640,7 @@ export async function processMessageWithRules(
           const displayPrice = prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
           response = `📦 *${prod.name}* - R$ ${displayPrice}\n\n`;
           if (prod.description) response += `${prod.description}\n\n`;
-          if (prod.image_url) response += `${prod.image_url}\n\n`;
+          if (prod.image_url && prod.send_photo !== false) response += `${prod.image_url}\n\n`;
         }
         // Product node with children transitions to submenu (children define the flow)
         if (hasChildren) {
