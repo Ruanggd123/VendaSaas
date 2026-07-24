@@ -96,7 +96,7 @@ export async function GET() {
         {
           name: "Plano CRM Grátis",
           price: "197",
-          description: "Plataforma + CRM grátis incluso + bot IA. Atendimentos ILIMITADOS, Multi-Atendente, Pix no chat. Ideal para empresas.",
+          description: "Plataforma + CRM grátis incluso + bot IA. CRM = Sistema de Gestão de Clientes (cadastro, histórico, vendas). Atendimentos ILIMITADOS, Multi-Atendente, Pix no chat. Ideal para empresas.",
           duration_min: 0,
           requires_payment: true,
           monthly: "197",

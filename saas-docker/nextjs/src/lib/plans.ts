@@ -45,7 +45,7 @@ export const PLANS: Record<string, Plan> = {
   crm_gratis: {
     id: 'crm_gratis',
     name: 'CRM Grátis',
-    tagline: 'Plataforma CRM grátis + atendimento ilimitado',
+    tagline: 'CRM grátis (gestão de clientes) + atendimento ilimitado',
     price: 197,
     maxUsers: 5,
     maxWhatsappInstances: 1,

@@ -1051,7 +1051,7 @@ export default function Home() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">Preço</td><td className="p-4 text-center font-black text-indigo-600 dark:text-indigo-400">R$ 97/mês</td><td className="p-4 text-center font-black text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 197/mês</td><td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400">R$ 397/mês</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎁 Bônus Grátis</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400 font-bold">Site Institucional</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-500/5">Plataforma + CRM</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400 font-bold">Loja Virtual</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎁 Bônus Grátis</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400 font-bold">Site Institucional</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-500/5">Plataforma + CRM*</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400 font-bold">Loja Virtual</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💰 Economia</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400">R$ 497</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 997</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400">R$ 1.997</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">📱 WhatsApp</td><td className="p-4 text-center">1</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">1</td><td className="p-4 text-center font-bold">Até 3</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💬 Atendimentos</td><td className="p-4 text-center">1.000/mês</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">ILIMITADO</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">ILIMITADO</td></tr>
@@ -1063,6 +1063,9 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+                <p className="text-[11px] text-slate-400 text-center pt-2 px-4 italic">
+                  *CRM = Sistema de Gestão de Clientes. Cadastre clientes, veja histórico de conversas, controle vendas e agendamentos em um só lugar.
+                </p>
               </div>
 
               {/* Cards dos Planos */}
@@ -1091,13 +1094,14 @@ export default function Home() {
                     id: "crm_gratis",
                     name: "CRM Grátis",
                     price: "R$ 197",
-                    tagline: "Plataforma CRM grátis + atendimento ilimitado",
+                    tagline: "CRM grátis (gestão de clientes) + atendimento ilimitado",
                     desc: "Para empresas e equipes de vendas",
-                    bonus: "🎉 Plataforma + CRM 100% GRÁTIS",
+                    bonus: "🎉 Plataforma + CRM (Gestão de Clientes) 100% GRÁTIS",
                     bonusValue: "R$ 997",
                     color: "border-amber-500",
                     features: [
                       "Plataforma + CRM Grátis (economia de R$ 997)",
+                      "📌 CRM = Sistema de Gestão de Clientes: cadastro, histórico e vendas",
                       "1 Número de WhatsApp",
                       "Atendimentos ILIMITADOS",
                       "Multi-Atendente (até 2 humanos)",
