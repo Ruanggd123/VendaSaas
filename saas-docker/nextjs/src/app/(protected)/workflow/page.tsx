@@ -82,6 +82,7 @@ interface AISettings {
   schedule_per_day: Record<string, { enabled: boolean; start: string; end: string; max_appointments: number }>;
   appointment_gap_min: number;
   off_hours_message: string;
+  enable_off_hours_message?: boolean;
   products: any[];
   manager_phone: string;
   custom_rules_nodes?: any[];
@@ -676,15 +677,36 @@ export default function WorkflowPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">🌙 Fora do Expediente</label>
-                  <textarea
-                    value={settings.off_hours_message || ""}
-                    onChange={(e) => updateField("off_hours_message", e.target.value)}
-                    rows={2}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                  />
+                {/* TOGGLE 24H OU HORÁRIO COMERCIAL */}
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
+                  <div className="pr-2">
+                    <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block">🌙 Fora do Expediente</label>
+                    <span className="text-[9px] text-slate-400 block">
+                      {settings.enable_off_hours_message ? "Ativo (Bloqueia fora do horário)" : "Desativado (Bot Funciona 24h)"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateField("enable_off_hours_message", !settings.enable_off_hours_message)}
+                    className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-all shrink-0 ${
+                      settings.enable_off_hours_message ? "bg-emerald-500 justify-end" : "bg-slate-300 dark:bg-slate-700 justify-start"
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-white shadow-md"></div>
+                  </button>
                 </div>
+
+                {settings.enable_off_hours_message && (
+                  <div className="space-y-1 pt-1">
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">Mensagem Fora do Expediente</label>
+                    <textarea
+                      value={settings.off_hours_message || ""}
+                      onChange={(e) => updateField("off_hours_message", e.target.value)}
+                      rows={2}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
@@ -914,6 +936,18 @@ export default function WorkflowPage() {
               settings={settings}
               onActiveNodeChange={(nodeId) => {
                 if (nodeId) setSelectedNodeId(nodeId);
+              }}
+              onUpdateText={(nodeId, newText, isWelcome) => {
+                if (isWelcome) {
+                  updateField("welcome_message", newText);
+                } else if (nodeId) {
+                  const newNodes = [...(settings.custom_rules_nodes || [])];
+                  const idx = newNodes.findIndex((n) => n.id === nodeId);
+                  if (idx !== -1) {
+                    newNodes[idx].textContent = newText;
+                    updateField("custom_rules_nodes", newNodes);
+                  }
+                }
               }}
             />
           </div>
