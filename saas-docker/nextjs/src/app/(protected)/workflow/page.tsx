@@ -19,7 +19,6 @@ import {
   Bot,
   RotateCcw,
   Wand2,
-  Trash2,
   ChevronRight,
   ChevronLeft,
 } from "lucide-react";
@@ -173,7 +172,7 @@ function sanitizeWelcomeText(msg: any): string {
 export default function WorkflowPage() {
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>("start");
-  const [activeTab, setActiveTab] = useState<"canvas" | "simulator" | "prompt">("canvas");
+  const [activeTab, setActiveTab] = useState<"canvas" | "simulator">("canvas");
   const [jsonText, setJsonText] = useState<string>("");
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
   const [showProductsModal, setShowProductsModal] = useState<boolean>(false);
@@ -264,83 +263,73 @@ export default function WorkflowPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white -m-8 overflow-hidden font-sans">
-      {/* HEADER SUPERIOR CLEAN */}
-      <header className="h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-6 flex items-center justify-between z-20 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
-            <Layers className="w-5 h-5" />
+      {/* HEADER SUPERIOR ESPAÇOSO E SEM SOBREPOSIÇÕES */}
+      <header className="h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-5 flex items-center justify-between z-20 shadow-sm gap-4">
+        {/* ESQUERDA: TÍTULO E NAVEGAÇÃO DE ABAS */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                Fluxo do Bot
+              </h1>
+              <p className="text-[10px] text-slate-500 font-medium">Menus e automações do WhatsApp</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-              Configurador de Fluxo
-              <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">
-                CANVAS ULTRA CLEAN
-              </span>
-            </h1>
-            <p className="text-[11px] text-slate-500 font-medium">Crie, edite e organize seu atendimento com área de trabalho 100% livre</p>
+
+          <div className="h-6 w-[1px] bg-slate-200 dark:bg-white/10 mx-1 hidden sm:block"></div>
+
+          {/* ABAS DO BOT (FLUXO VISUAL vs SIMULADOR WHATSAPP) */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-white/10">
+            <button
+              onClick={() => setActiveTab("canvas")}
+              className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                activeTab === "canvas"
+                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Fluxo Visual</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("simulator")}
+              className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                activeTab === "simulator"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Simulador</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            </button>
           </div>
         </div>
 
-        {/* NAVEGAÇÃO PRINCIPAL DE ABAS (FLUXO VISUAL / SIMULADOR / PROMPT IA) */}
-        <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/10">
-          <button
-            onClick={() => setActiveTab("canvas")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
-              activeTab === "canvas"
-                ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-white/10"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>🎨 Fluxo Visual</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("simulator")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 relative ${
-              activeTab === "simulator"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>📱 Simulador WhatsApp</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("prompt")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
-              activeTab === "prompt"
-                ? "bg-purple-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>🤖 Prompt IA</span>
-          </button>
-        </div>
-
-        {/* FERRAMENTAS DO TOPO E BOTÕES DE AÇÃO */}
-        <div className="flex items-center gap-2">
+        {/* DIREITA: BOTÕES DE AÇÃO ORGANIZADOS */}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {alert && (
             <div
               onClick={() => setAlert(null)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
                 alert.type === "success"
                   ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
                   : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20"
               }`}
             >
               <span>{alert.msg}</span>
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </div>
           )}
 
           {activeTab === "canvas" && (
             <>
-              {/* SELETOR COMPACTO DE MODO DE RESPOSTA NO TOPO */}
-              <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-white/10 mr-2">
+              {/* TOGGLE MODO DE ATENDIMENTO */}
+              <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-white/10">
                 <button
                   onClick={() => updateField("bot_type", "regras")}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
@@ -363,39 +352,35 @@ export default function WorkflowPage() {
                 </button>
               </div>
 
-              {/* BOTÃO TEMPLATES PRONTOS */}
               <button
                 onClick={() => setShowTemplatesModal(true)}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
               >
                 <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="hidden sm:inline">Templates</span>
+                <span className="hidden lg:inline">Templates</span>
               </button>
 
-              {/* BOTÃO CATÁLOGO */}
               <button
                 onClick={() => setShowProductsModal(true)}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
               >
                 <Package className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="hidden sm:inline">Catálogo</span>
+                <span className="hidden lg:inline">Catálogo</span>
               </button>
 
-              {/* BOTÃO COMEÇAR DO ZERO */}
               <button
                 onClick={() => {
                   updateField("custom_rules_nodes", []);
                   setSelectedNodeId("start");
                   setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. 🧹" });
                 }}
-                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-500/20"
+                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-200 dark:border-rose-500/20"
                 title="Limpar todas as regras para criar do zero"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Limpar</span>
+                <span className="hidden lg:inline">Limpar</span>
               </button>
 
-              {/* BOTÃO + ADICIONAR NÓ */}
               <button
                 onClick={() => {
                   const newNodes = [...(settings.custom_rules_nodes || [])];
@@ -409,9 +394,9 @@ export default function WorkflowPage() {
                   });
                   updateField("custom_rules_nodes", newNodes);
                 }}
-                className="px-3 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-200 dark:border-indigo-500/20"
+                className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 border border-indigo-200 dark:border-indigo-500/20"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>+ Opção</span>
               </button>
             </>
@@ -422,16 +407,16 @@ export default function WorkflowPage() {
               setJsonText(JSON.stringify(settings, null, 2));
               setShowJsonModal(true);
             }}
-            className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
           >
-            <Download className="w-4 h-4 text-indigo-500" />
+            <Download className="w-3.5 h-3.5 text-indigo-500" />
             <span className="hidden sm:inline">JSON</span>
           </button>
 
           <button
             onClick={() => saveConfig()}
             disabled={saving}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95 ml-1"
+            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95"
           >
             {saving ? "Salvando..." : "Salvar"}
           </button>
@@ -440,7 +425,7 @@ export default function WorkflowPage() {
 
       {/* ÁREA PRINCIPAL TOTALMENTE ESPAÇOSA E LIVRE */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* ABA 1: CANVAS VISUAL ESPAÇOSO (SEM BARRA LATERAL ESQUERDA!) */}
+        {/* ABA 1: CANVAS VISUAL ESPAÇOSO */}
         {activeTab === "canvas" && (
           <main className="flex-1 h-full bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
             {isLoaded && (
@@ -732,45 +717,6 @@ export default function WorkflowPage() {
             </div>
 
             <SmartphoneSimulator settings={settings} />
-          </div>
-        )}
-
-        {/* ABA 3: PROMPT DA IA DEDICADO */}
-        {activeTab === "prompt" && (
-          <div className="flex-1 h-full bg-slate-50 dark:bg-slate-950 p-8 overflow-y-auto flex items-center justify-center">
-            <div className="max-w-3xl w-full bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/20 border border-purple-200 dark:border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                    <Bot className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-900 dark:text-white">Instruções de Personalidade da IA</h3>
-                    <p className="text-xs text-slate-500">Defina o tom de voz, regras de negócio e limites de atendimento da sua IA</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Prompt Principal de Treinamento</label>
-                <textarea
-                  value={settings.ai_prompt || ""}
-                  onChange={(e) => updateField("ai_prompt", e.target.value)}
-                  rows={14}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-purple-500 leading-relaxed resize-none shadow-inner"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => saveConfig()}
-                  disabled={saving}
-                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95"
-                >
-                  {saving ? "Salvando..." : "Salvar Prompt"}
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
