@@ -682,18 +682,6 @@ REGRAS:
       } catch (notifyErr) {
         console.error("Erro ao notificar o dono sobre a falha da IA:", notifyErr);
       }
-    } else {
-      try {
-        const tenantData = await prisma.tenant.findUnique({ where: { id: tenantId } });
-        const instances = await prisma.whatsappInstance.findMany({ where: { tenant_id: tenantId, status: "open" } });
-        const activeInstance = instances[0];
-        if (tenantData && tenantData.phone && activeInstance) {
-          const { sendWhatsAppMessage } = await import('../evolution');
-          await sendWhatsAppMessage(activeInstance.name, tenantData.phone, `⚠️ *Aviso do Sistema Nexus:*\nO bot de IA falhou ao responder o contato ${contactNumber}.\n*Detalhe do erro:* ${errorMsg}`);
-        }
-      } catch (notifyErr) {
-        console.error("Erro ao notificar o dono sobre a falha da IA:", notifyErr);
-      }
     }
     return null;
   }

@@ -421,52 +421,69 @@ export async function POST(req: Request) {
           try {
             console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
 
-            // Carregar settings específicas da instância (se houver)
-            let instanceSettings: any = null;
-            try {
-              const instSettingsRaw = instance?.settings;
-              if (instSettingsRaw && instSettingsRaw !== "{}") {
-                instanceSettings = JSON.parse(instSettingsRaw);
+            // Se for mídia sem texto legível (imagem/vídeo/documento sem legenda), responde direto sem chamar IA
+            if (mediaType && mediaType !== "audio" && !messageData.message?.imageMessage?.caption && !messageData.message?.videoMessage?.caption) {
+              const mediaReply = "📸 Não consigo visualizar imagens ou arquivos. Se preferir, me descreva o que precisa!";
+              const { sendWhatsAppMessage } = await import('@/lib/evolution');
+              await sendWhatsAppMessage(instanceName, contactNumber, mediaReply);
+              await prisma.message.create({
+                data: {
+                  tenant_id: tenantId,
+                  conversation_id: conversation.id,
+                  direction: "outbound",
+                  content: mediaReply,
+                  ai_generated: true,
+                }
+              });
+              console.log(`[Webhook] Resposta automática para mídia de ${contactNumber}`);
+            } else {
+              // Carregar settings específicas da instância (se houver)
+              let instanceSettings: any = null;
+              try {
+                const instSettingsRaw = instance?.settings;
+                if (instSettingsRaw && instSettingsRaw !== "{}") {
+                  instanceSettings = JSON.parse(instSettingsRaw);
+                }
+              } catch (e) {
+                console.warn("[Webhook] Erro ao parse settings da instância:", e);
               }
-            } catch (e) {
-              console.warn("[Webhook] Erro ao parse settings da instância:", e);
-            }
 
-            const { processMessageWithAI } = await import('@/lib/ai/engine');
-            const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
+              const { processMessageWithAI } = await import('@/lib/ai/engine');
+              const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
             
-            if (iaResponse) {
-               const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
-               const evolutionKey = process.env.EVOLUTION_API_KEY || '';
+              if (iaResponse) {
+                const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
+                const evolutionKey = process.env.EVOLUTION_API_KEY || '';
                
-               try {
-                 await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-                   method: "POST",
-                   headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
-                   body: JSON.stringify({ 
-                     number: contactNumber,
-                     text: iaResponse,
-                     delay: 1200
-                   })
-                 });
-                 console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
+                try {
+                  await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+                    method: "POST",
+                    headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      number: contactNumber,
+                      text: iaResponse,
+                      delay: 1200
+                    })
+                  });
+                  console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
 
-                 await prisma.message.create({
-                   data: {
-                     tenant_id: tenantId,
-                     conversation_id: conversation.id,
-                     direction: "outbound",
-                     content: iaResponse,
-                     ai_generated: true,
-                   }
-                 });
-                 await prisma.conversation.update({
-                   where: { id: conversation.id },
-                   data: { last_message_at: new Date() }
-                 });
-               } catch (e) {
-                 console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
-               }
+                  await prisma.message.create({
+                    data: {
+                      tenant_id: tenantId,
+                      conversation_id: conversation.id,
+                      direction: "outbound",
+                      content: iaResponse,
+                      ai_generated: true,
+                    }
+                  });
+                  await prisma.conversation.update({
+                    where: { id: conversation.id },
+                    data: { last_message_at: new Date() }
+                  });
+                } catch (e) {
+                  console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
+                }
+              }
             }
           } catch (aiErr) {
             console.error("[Webhook] Erro ao processar IA (mensagem salva no banco mesmo assim):", aiErr);
