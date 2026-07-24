@@ -14,8 +14,6 @@ interface WhatsappInstance {
   profilePic?: string | null;
 }
 
-// Dashboard layout removido daqui, centralizado no (protected)/layout.tsx
-
 export default function NativeWhatsAppDashboard() {
 
   const [instances, setInstances] = useState<WhatsappInstance[]>([]);
@@ -32,6 +30,13 @@ export default function NativeWhatsAppDashboard() {
   const [countdown, setCountdown] = useState(40);
 
   const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
+
+  // Bot config modal states
+  const [configModalInstance, setConfigModalInstance] = useState<string | null>(null);
+  const [configBotType, setConfigBotType] = useState("");
+  const [configAiPrompt, setConfigAiPrompt] = useState("");
+  const [configWelcomeMessage, setConfigWelcomeMessage] = useState("");
+  const [configSaving, setConfigSaving] = useState(false);
 
   const fetchInstances = async () => {
     try {
@@ -77,7 +82,6 @@ export default function NativeWhatsAppDashboard() {
     if (!activeInstanceName || !qrCode) return;
 
     if (countdown <= 0) {
-      // O código expirou. Vamos forçar a exclusão e recriação para gerar um novo!
       handleConnect(activeInstanceName);
       return;
     }
@@ -147,7 +151,6 @@ export default function NativeWhatsAppDashboard() {
   const handleDisconnect = async (instanceName: string) => {
     if (!confirm("Tem certeza que deseja excluir este WhatsApp? Você perderá a conexão.")) return;
     
-    // Mostra um estado de loading na instância específica
     setInstances(prev => prev.map(i => i.name === instanceName ? { ...i, status: "disconnected" } : i));
 
     try {
@@ -203,6 +206,50 @@ export default function NativeWhatsAppDashboard() {
       }
     } catch {
       setWebhookStatus("Erro ao verificar");
+    }
+  };
+
+  const openConfigModal = async (instanceName: string) => {
+    setConfigModalInstance(instanceName);
+    setConfigBotType("");
+    setConfigAiPrompt("");
+    setConfigWelcomeMessage("");
+    try {
+      const res = await fetch(`/api/whatsapp/instances/settings?instanceName=${encodeURIComponent(instanceName)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.settings || {};
+        setConfigBotType(s.bot_type || "");
+        setConfigAiPrompt(s.ai_prompt || s.ia_prompt || "");
+        setConfigWelcomeMessage(s.welcome_message || "");
+      }
+    } catch {}
+  };
+
+  const saveConfig = async () => {
+    if (!configModalInstance) return;
+    setConfigSaving(true);
+    try {
+      const settings: any = {};
+      if (configBotType) settings.bot_type = configBotType;
+      if (configAiPrompt) settings.ai_prompt = configAiPrompt;
+      if (configWelcomeMessage) settings.welcome_message = configWelcomeMessage;
+      const res = await fetch("/api/whatsapp/instances/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceName: configModalInstance, settings }),
+      });
+      if (res.ok) {
+        alert("Configurações salvas! O bot deste número agora usará suas próprias configurações.");
+        setConfigModalInstance(null);
+      } else {
+        const err = await res.json();
+        alert("Erro: " + (err.error || "Desconhecido"));
+      }
+    } catch {
+      alert("Erro ao salvar");
+    } finally {
+      setConfigSaving(false);
     }
   };
 
@@ -302,7 +349,6 @@ export default function NativeWhatsAppDashboard() {
 
           <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
             {isLoading ? (
-              // Skeletons
               [...Array(3)].map((_, i) => (
                 <div key={i} className="h-48 rounded-3xl border border-slate-200 dark:border-zinc-800/50 bg-white dark:bg-zinc-900/40 p-6 animate-pulse"></div>
               ))
@@ -379,6 +425,12 @@ export default function NativeWhatsAppDashboard() {
 
                     <div className="flex items-center gap-4">
                       <button 
+                        onClick={() => openConfigModal(instance.name)}
+                        className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        Configurar Bot
+                      </button>
+                      <button 
                         onClick={() => handleDisconnect(instance.name)}
                         className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
                       >
@@ -429,6 +481,81 @@ export default function NativeWhatsAppDashboard() {
             </div>
           </div>
         )}
+
+        {/* Modal Configurar Bot da Instância */}
+        {configModalInstance && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-2xl rounded-3xl border border-zinc-800/50 bg-zinc-900 p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Configurar Bot: {configModalInstance}</h2>
+                <button onClick={() => setConfigModalInstance(null)} className="text-zinc-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                <p className="text-sm text-zinc-400">
+                  Configure um bot <strong>exclusivo para este número</strong>. 
+                  Deixe os campos em branco para usar as configurações gerais do tenant.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Tipo de Bot</label>
+                  <select
+                    value={configBotType}
+                    onChange={(e) => setConfigBotType(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  >
+                    <option value="">Usar configuração geral do tenant</option>
+                    <option value="ia">IA (Inteligência Artificial)</option>
+                    <option value="regras">Regras (Botão/Menu)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Prompt da IA (opcional)</label>
+                  <textarea
+                    value={configAiPrompt}
+                    onChange={(e) => setConfigAiPrompt(e.target.value)}
+                    placeholder="Deixe em branco para usar o prompt geral do tenant"
+                    rows={6}
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all resize-y"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Mensagem de Boas-Vindas (opcional)</label>
+                  <textarea
+                    value={configWelcomeMessage}
+                    onChange={(e) => setConfigWelcomeMessage(e.target.value)}
+                    placeholder="Deixe em branco para usar a mensagem geral do tenant"
+                    rows={3}
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all resize-y"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    onClick={saveConfig}
+                    disabled={configSaving}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 font-medium text-white shadow-lg transition-all hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {configSaving ? "Salvando..." : "Salvar Configurações"}
+                  </button>
+                  <button
+                    onClick={() => setConfigModalInstance(null)}
+                    className="rounded-xl border border-zinc-700 px-6 py-3 font-medium text-zinc-300 transition-all hover:bg-zinc-800"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         </div>
     </>
   );

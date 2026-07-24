@@ -7,7 +7,7 @@ import { sanitizeInput, validateOutput, checkRateLimit } from "./guardian/securi
 
 const prisma = new PrismaClient();
 
-export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false) {
+export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false, instanceSettings?: any) {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return null;
@@ -53,6 +53,11 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
     try {
       settings = JSON.parse((tenant.settings as string) || "{}");
     } catch {}
+
+    // Merge instance-level settings (override tenant settings)
+    if (instanceSettings) {
+      settings = { ...settings, ...instanceSettings };
+    }
 
     // Buscar histórico de mensagens da conversa (as 30 mais recentes em ordem cronológica)
     const conversation = await prisma.conversation.findFirst({

@@ -45,10 +45,11 @@ model WhatsappInstance {
   id             String   @id @default(uuid())
   tenant_id      String
   partner_id     String?
-  name           String   @unique // Nome na Evolution API (ex: tenant_123_uuid)
-  connectionName String   // Nome dado pelo usuário (ex: "Atendimento Matriz")
-  status         String   @default("connecting") // connecting, open, etc.
-  phone_number   String?  // O número do WhatsApp quando conectado
+  name           String   @unique
+  connectionName String
+  status         String   @default("connecting")
+  phone_number   String?
+  settings       String   @default("{}")
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 

@@ -420,8 +420,20 @@ export async function POST(req: Request) {
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
             console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
+
+            // Carregar settings específicas da instância (se houver)
+            let instanceSettings: any = null;
+            try {
+              const instSettingsRaw = instance?.settings;
+              if (instSettingsRaw && instSettingsRaw !== "{}") {
+                instanceSettings = JSON.parse(instSettingsRaw);
+              }
+            } catch (e) {
+              console.warn("[Webhook] Erro ao parse settings da instância:", e);
+            }
+
             const { processMessageWithAI } = await import('@/lib/ai/engine');
-            const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself);
+            const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
             
             if (iaResponse) {
                const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
