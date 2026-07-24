@@ -107,7 +107,7 @@ const DEFAULT_SCHEDULE_PER_DAY = {
 };
 
 const DEFAULT_AI: AISettings = {
-  bot_type: "regras",
+  bot_type: "ia",
   ai_name: "Atendente Nexus",
   ai_personality: "profissional",
   ai_prompt: "Você é um Atendente de excelência...",
@@ -264,7 +264,6 @@ export default function WorkflowPage() {
       ...settings,
       welcome_message: tpl.welcome_message,
       enableScheduling: tpl.enableScheduling,
-      bot_type: "regras",
     };
     setSettings(updated);
     saveConfig(updated);
