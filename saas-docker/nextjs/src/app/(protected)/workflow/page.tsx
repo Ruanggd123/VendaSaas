@@ -645,364 +645,92 @@ export default function WorkflowPage() {
           </aside>
         )}
 
-        {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO */}
+        {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO DE TELA CHEIA */}
         {activeTab === "simulator" && (
-          <div className="flex-1 h-full bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6 gap-8 overflow-y-auto">
-            <div className="w-96 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto hidden lg:block">
+          <div className="flex-1 h-full bg-slate-900/90 backdrop-blur-xl flex flex-col lg:flex-row items-center justify-center p-6 gap-8 overflow-y-auto">
+            {/* PAINEL LATERAL COMPACTO DE CONTROLE DE TESTES */}
+            <div className="w-80 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Gerenciar Textos &amp; Regras</h3>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Testador ao Vivo</h3>
                 </div>
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">Ao Vivo</span>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">Ativo</span>
               </div>
 
-              {/* BARRA DE PESQUISA PARA LISTAS GRANDES DE REGRAS */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={nodeSearchQuery}
-                  onChange={(e) => setNodeSearchQuery(e.target.value)}
-                  placeholder="🔍 Buscar por título ou gatilho..."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500"
-                />
-                {nodeSearchQuery && (
-                  <button
-                    onClick={() => setNodeSearchQuery("")}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                Passe o mouse sobre qualquer mensagem no celular ao lado e clique no botão ✏️ para **editar o texto diretamente no balão**!
+              </p>
 
-              {/* MENSAGENS GERAIS DO SISTEMA */}
-              <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-white/10 rounded-2xl">
-                <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">
-                  Mensagens Automáticas do Sistema
-                </span>
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/10">
+                <button
+                  onClick={() => {
+                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                    let rootCounter = 1;
+                    const rootMap = new Map<string, number>();
 
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">👋 Boas-vindas (Entrada)</label>
-                  <textarea
-                    value={settings.welcome_message || ""}
-                    onChange={(e) => updateField("welcome_message", e.target.value)}
-                    rows={2}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                  />
-                </div>
+                    const renumbered = newNodes.map((n: any) => {
+                      if (!n.parentId) {
+                        return { ...n, keyword: String(rootCounter++) };
+                      } else {
+                        const currentCount = (rootMap.get(n.parentId) || 0) + 1;
+                        rootMap.set(n.parentId, currentCount);
+                        return { ...n, keyword: String(currentCount) };
+                      }
+                    });
 
-                {/* TOGGLE 24H OU HORÁRIO COMERCIAL */}
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                  <div className="pr-2">
-                    <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block">🌙 Fora do Expediente</label>
-                    <span className="text-[9px] text-slate-400 block">
-                      {settings.enable_off_hours_message ? "Ativo (Bloqueia fora do horário)" : "Desativado (Bot Funciona 24h)"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => updateField("enable_off_hours_message", !settings.enable_off_hours_message)}
-                    className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-all shrink-0 ${
-                      settings.enable_off_hours_message ? "bg-emerald-500 justify-end" : "bg-slate-300 dark:bg-slate-700 justify-start"
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full bg-white shadow-md"></div>
-                  </button>
-                </div>
+                    updateField("custom_rules_nodes", renumbered);
+                    setAlert({ type: "success", msg: "Gatilhos auto-numerados sequencialmente (1, 2, 3...) ✨" });
+                  }}
+                  className="w-full bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-indigo-500" />
+                  <span>✨ Auto-Numerar Regras (1, 2, 3...)</span>
+                </button>
 
-                {settings.enable_off_hours_message && (
-                  <div className="space-y-1 pt-1">
-                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400">Mensagem Fora do Expediente</label>
-                    <textarea
-                      value={settings.off_hours_message || ""}
-                      onChange={(e) => updateField("off_hours_message", e.target.value)}
-                      rows={2}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Árvore de Nós ({ (settings.custom_rules_nodes || []).length })
+                <button
+                  onClick={() => updateField("enable_off_hours_message", !settings.enable_off_hours_message)}
+                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
+                >
+                  <span>🌙 Trava de Expediente</span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${settings.enable_off_hours_message ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-700"}`}>
+                    {settings.enable_off_hours_message ? "Ligado" : "Desligado (24h)"}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        let rootCounter = 1;
-                        const rootMap = new Map<string, number>();
+                </button>
 
-                        const renumbered = newNodes.map((n: any) => {
-                          if (!n.parentId) {
-                            const kw = String(rootCounter++);
-                            return { ...n, keyword: kw };
-                          } else {
-                            const currentCount = (rootMap.get(n.parentId) || 0) + 1;
-                            rootMap.set(n.parentId, currentCount);
-                            return { ...n, keyword: String(currentCount) };
-                          }
-                        });
+                <button
+                  onClick={() => setShowProductsModal(true)}
+                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-indigo-500" />
+                    <span>Gerenciar Produtos</span>
+                  </span>
+                  <span className="text-[10px] font-black text-slate-400">
+                    {(settings.products || []).length} itens
+                  </span>
+                </button>
 
-                        updateField("custom_rules_nodes", renumbered);
-                      }}
-                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-                      title="Auto-ajustar números dos gatilhos (1, 2, 3...)"
-                    >
-                      ✨ Auto-Numerar
-                    </button>
+                <button
+                  onClick={() => setShowGroupsModal(true)}
+                  className="w-full bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-purple-500" />
+                    <span>Resposta em Grupos</span>
+                  </span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${settings.enable_groups ? "bg-purple-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    {settings.enable_groups ? "Ativo" : "Off"}
+                  </span>
+                </button>
+              </div>
 
-                    <button
-                      onClick={() => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        const nextNum = newNodes.filter((n) => !n.parentId).length + 1;
-                        newNodes.push({
-                          id: "node_" + Math.random().toString(36).substr(2, 9),
-                          parentId: null,
-                          keyword: String(nextNum),
-                          title: `Opção ${nextNum}`,
-                          actionType: "text",
-                          textContent: "Digite aqui a resposta deste nó...",
-                        });
-                        updateField("custom_rules_nodes", newNodes);
-                      }}
-                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" /> Add Nó
-                    </button>
-                  </div>
-                </div>
-
-                {/* LISTA HIERÁRQUICA COM BUSCA E ACORDEÃO PARA GRANDES QUANTIDADES DE REGRAS */}
-                {(settings.custom_rules_nodes || [])
-                  .filter((n: any) => !n.parentId)
-                  .filter((rootNode: any) => {
-                    if (!nodeSearchQuery) return true;
-                    const q = nodeSearchQuery.toLowerCase();
-                    const matchRoot = rootNode.title?.toLowerCase().includes(q) || rootNode.keyword?.toLowerCase().includes(q) || rootNode.textContent?.toLowerCase().includes(q);
-                    const matchChildren = (settings.custom_rules_nodes || []).some(
-                      (child: any) => child.parentId === rootNode.id && (child.title?.toLowerCase().includes(q) || child.keyword?.toLowerCase().includes(q) || child.textContent?.toLowerCase().includes(q))
-                    );
-                    return matchRoot || matchChildren;
-                  })
-                  .map((rootNode: any) => {
-                    const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === rootNode.id);
-                    const rootIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === rootNode.id);
-                    const isExpanded = expandedParents[rootNode.id] !== false; // padrão aberto
-
-                    return (
-                      <div key={rootNode.id} className="space-y-2">
-                        {/* NÓ PAI CARD REDESENHADO E ESPAÇOSO */}
-                        <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-3 text-xs shadow-sm">
-                          {/* LINHA 1: GATILHO + TÍTULO + CONTROLES */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setExpandedParents({ ...expandedParents, [rootNode.id]: !isExpanded })}
-                              className="text-slate-400 hover:text-indigo-600 p-1 font-bold text-xs"
-                              title={isExpanded ? "Recolher sub-nós" : "Expandir sub-nós"}
-                            >
-                              {children.length > 0 ? (isExpanded ? "▼" : "▶") : "•"}
-                            </button>
-
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 shadow-xs">
-                              <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
-                              <input
-                                type="text"
-                                value={rootNode.keyword || ""}
-                                onChange={(e) => {
-                                  const newNodes = [...(settings.custom_rules_nodes || [])];
-                                  newNodes[rootIdx].keyword = e.target.value;
-                                  updateField("custom_rules_nodes", newNodes);
-                                }}
-                                className="w-6 bg-transparent font-black text-center text-indigo-600 dark:text-indigo-400 text-xs focus:outline-none"
-                                title="Gatilho de Ativação (ex: 1, 2, pix)"
-                              />
-                            </div>
-
-                            <input
-                              type="text"
-                              value={rootNode.title || ""}
-                              onChange={(e) => {
-                                const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes[rootIdx].title = e.target.value;
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-extrabold text-slate-900 dark:text-white text-xs"
-                              placeholder="Título do Menu (ex: Catálogo)"
-                            />
-
-                            <button
-                              onClick={() => {
-                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
-                            >
-                              Excluir
-                            </button>
-                          </div>
-
-                          {/* LINHA 2: TIPO DE AÇÃO DO NÓ */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
-                              O que acontece ao escolher a opção &quot;{rootNode.title}&quot;?
-                            </label>
-                            <select
-                              value={rootNode.actionType || "text"}
-                              onChange={(e) => {
-                                const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes[rootIdx].actionType = e.target.value;
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
-                            >
-                              <option value="text">💬 Exibir Resposta de Texto</option>
-                              <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                              <option value="scheduling">📅 Abrir Agendamento de Horário</option>
-                              <option value="human">👤 Transferir para Atendente Humano</option>
-                            </select>
-                          </div>
-
-                          {/* LINHA 3: TEXTO DA RESPOSTA SE FOR MENSAGEM OU APRESENTAÇÃO */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
-                              Mensagem enviada pelo robô ao cliente:
-                            </label>
-                            <textarea
-                              rows={2}
-                              value={rootNode.textContent || ""}
-                              onChange={(e) => {
-                                const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes[rootIdx].textContent = e.target.value;
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              placeholder={
-                                rootNode.actionType === "catalog"
-                                  ? "Digite a introdução do seu catálogo..."
-                                  : rootNode.actionType === "scheduling"
-                                  ? "Digite a mensagem do agendamento..."
-                                  : rootNode.actionType === "human"
-                                  ? "Digite a mensagem de transferência para atendente..."
-                                  : "Digite o texto de resposta enviado..."
-                              }
-                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                            />
-                          </div>
-
-                          {/* BOTÃO PARA ADD SUB-NÓ */}
-                          <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
-                            <button
-                              onClick={() => {
-                                const newNodes = [...(settings.custom_rules_nodes || [])];
-                                newNodes.push({
-                                  id: "node_" + Math.random().toString(36).substr(2, 9),
-                                  parentId: rootNode.id,
-                                  keyword: String(children.length + 1),
-                                  title: `Sub-opção ${children.length + 1}`,
-                                  actionType: "text",
-                                  textContent: "Digite a resposta desta sub-opção...",
-                                });
-                                updateField("custom_rules_nodes", newNodes);
-                              }}
-                              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Add Sub-opção
-                            </button>
-
-                            <span className="text-[9px] text-slate-400 font-medium">
-                              {children.length} sub-opção(ões) vinculada(s)
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* SUB-NÓS (RECOLHÍVEIS VIA ACORDEÃO) */}
-                        {isExpanded && children.length > 0 && (
-                          <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-3 ml-3 space-y-2 relative">
-                            {children.map((child: any) => {
-                              const childIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === child.id);
-                              return (
-                                <div key={child.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
-                                  <div className="absolute -left-[17px] top-4 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white dark:border-slate-900 shadow-sm"></div>
-
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5">
-                                      <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
-                                      <input
-                                        type="text"
-                                        value={child.keyword || ""}
-                                        onChange={(e) => {
-                                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                                          newNodes[childIdx].keyword = e.target.value;
-                                          updateField("custom_rules_nodes", newNodes);
-                                        }}
-                                        className="w-5 bg-transparent font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px] focus:outline-none"
-                                        title="Gatilho do Sub-nó"
-                                      />
-                                    </div>
-
-                                    <input
-                                      type="text"
-                                      value={child.title || ""}
-                                      onChange={(e) => {
-                                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                                        newNodes[childIdx].title = e.target.value;
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-slate-900 dark:text-white text-[11px]"
-                                      placeholder="Título da Sub-opção"
-                                    />
-
-                                    <button
-                                      onClick={() => {
-                                        const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== child.id);
-                                        updateField("custom_rules_nodes", newNodes);
-                                      }}
-                                      className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-
-                                  <select
-                                    value={child.actionType || "text"}
-                                    onChange={(e) => {
-                                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                                      newNodes[childIdx].actionType = e.target.value;
-                                      updateField("custom_rules_nodes", newNodes);
-                                    }}
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 font-bold text-[10px] text-slate-700 dark:text-slate-200 focus:outline-none"
-                                  >
-                                    <option value="text">💬 Exibir Resposta de Texto</option>
-                                    <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                                    <option value="scheduling">📅 Abrir Agendamento de Horário</option>
-                                    <option value="human">👤 Transferir para Atendente Humano</option>
-                                  </select>
-
-                                  <textarea
-                                    rows={2}
-                                    value={child.textContent || ""}
-                                    onChange={(e) => {
-                                      const newNodes = [...(settings.custom_rules_nodes || [])];
-                                      newNodes[childIdx].textContent = e.target.value;
-                                      updateField("custom_rules_nodes", newNodes);
-                                    }}
-                                    placeholder="Resposta enviada pelo robô ao ativar esta sub-opção..."
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+              <div className="pt-2 border-t border-slate-100 dark:border-white/10 text-[11px] text-slate-400 font-medium leading-relaxed">
+                💡 Dica: Para criar ou organizar novos blocos e ramificações visuais de sub-nós, alterne para a aba <strong>Fluxo Visual</strong> no topo!
               </div>
             </div>
 
+            {/* CELULAR SMARTPHONE SIMULATOR */}
             <SmartphoneSimulator
               settings={settings}
               onActiveNodeChange={(nodeId) => {

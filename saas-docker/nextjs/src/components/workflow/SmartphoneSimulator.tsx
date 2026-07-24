@@ -18,6 +18,7 @@ import {
   Edit3,
   Check,
   X,
+  CreditCard,
 } from "lucide-react";
 
 interface Message {
@@ -44,6 +45,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [inCatalogView, setInCatalogView] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,10 +93,10 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
     };
   };
 
-  // Inicializa a mensagem inicial APENAS na primeira montagem (sem reinstanciar ao digitar)
   useEffect(() => {
     setMessages([generateBotInitialMenu()]);
     setCurrentParentId(null);
+    setInCatalogView(false);
   }, []);
 
   useEffect(() => {
@@ -105,6 +107,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
     setMessages([generateBotInitialMenu()]);
     setInput("");
     setCurrentParentId(null);
+    setInCatalogView(false);
     if (onActiveNodeChange) onActiveNodeChange(null);
   };
 
@@ -151,6 +154,76 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
       let botProducts: any[] | undefined = undefined;
 
       const allNodes = settings?.custom_rules_nodes || [];
+      const prods = settings?.products || [];
+
+      // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
+      if (inCatalogView && !isNaN(parseInt(clean, 10))) {
+        const prodIdx = parseInt(clean, 10) - 1;
+        const selectedProd = prods[prodIdx];
+
+        if (selectedProd) {
+          botResponseText = `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Descrição do produto..."}\n\n👇 *Selecione como deseja prosseguir:*`;
+          botButtons = [
+            { label: "💳 Pagar Agora (Gerar Pix)", value: `pay_pix_${prodIdx}` },
+            { label: "👤 Falar com Consultor", value: "4" },
+            { label: "⬅️ Voltar ao Catálogo", value: "1" },
+          ];
+
+          const botMsg: Message = {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: botResponseText,
+            timestamp: currentTime,
+            buttons: botButtons,
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          return;
+        }
+      }
+
+      // SE O CLIENTE CLICOU EM GERAR PIX
+      if (clean.startsWith("pay_pix_") || clean.includes("pix") || clean.includes("pagar")) {
+        let prodName = "Produto Selecionado";
+        let prodPrice = "147.00";
+
+        if (clean.startsWith("pay_pix_")) {
+          const pIdx = parseInt(clean.replace("pay_pix_", ""), 10);
+          if (prods[pIdx]) {
+            prodName = prods[pIdx].name;
+            prodPrice = prods[pIdx].price;
+          }
+        }
+
+        botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${prodName}*\nValor: *R$ ${prodPrice}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que o pagamento for realizado, seu acesso será liberado automaticamente! ✅`;
+        botButtons = [
+          { label: "✅ Já Realizei o Pagamento", value: "confirm_pix" },
+          { label: "🏠 Ir para o Menu Principal", value: "0" },
+        ];
+
+        const botMsg: Message = {
+          id: "bot_" + Date.now(),
+          sender: "bot",
+          text: botResponseText,
+          timestamp: currentTime,
+          buttons: botButtons,
+        };
+        setMessages((prev) => [...prev, botMsg]);
+        return;
+      }
+
+      if (clean === "confirm_pix") {
+        botResponseText = "🎉 *Pagamento em Processamento!*\n\nObrigado! Identificamos o envio do comprovante e nossa equipe de onboarding entrará em contato em instantes!";
+        botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+        const botMsg: Message = {
+          id: "bot_" + Date.now(),
+          sender: "bot",
+          text: botResponseText,
+          timestamp: currentTime,
+          buttons: botButtons,
+        };
+        setMessages((prev) => [...prev, botMsg]);
+        return;
+      }
 
       // Procura nó no nível atual
       const currentLevelNodes = currentParentId
@@ -169,6 +242,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
 
       if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
         setCurrentParentId(null);
+        setInCatalogView(false);
         if (onActiveNodeChange) onActiveNodeChange(null);
         const initial = generateBotInitialMenu();
         botResponseText = initial.text;
@@ -179,12 +253,13 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
         const children = allNodes.filter((n: any) => n.parentId === matchedNode.id);
 
         if (matchedNode.actionType === "catalog") {
-          const prods = settings?.products || [];
+          setInCatalogView(true);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
-            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para saber mais!";
+            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para ver mais detalhes e o link de pagamento!";
           botProducts = prods;
         } else if (matchedNode.actionType === "scheduling") {
+          setInCatalogView(false);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
             : "📅 *Agendamento de Atendimento*\n\nPor favor, escolha uma das datas disponíveis abaixo:\n\n1️⃣ Sexta-feira (24/07)\n2️⃣ Segunda-feira (27/07)\n3️⃣ Terça-feira (28/07)\n\nDigite o número ou a data desejada:";
@@ -194,10 +269,12 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
             { label: "3 - Ter 28/07", value: "28/07" },
           ];
         } else if (matchedNode.actionType === "human") {
+          setInCatalogView(false);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
             : "👤 *Transferindo para Atendente Humano*\n\nAguarde um instante! Um dos nossos consultores irá assumir a conversa para te atender pessoalmente. ⏳";
         } else {
+          setInCatalogView(false);
           botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*.`;
         }
 
@@ -240,10 +317,10 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
   };
 
   return (
-    <div className="w-[360px] h-[640px] bg-slate-950 rounded-[44px] p-3 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans">
+    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans">
       {/* BARRA DE STATUS SUPERIOR */}
       <div className="h-6 px-6 pt-1 flex items-center justify-between text-[11px] font-bold text-white z-20">
-        <span>11:14</span>
+        <span>11:48</span>
         <div className="w-16 h-4 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-center">
           <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
         </div>
@@ -256,10 +333,10 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
       </div>
 
       {/* CABEÇALHO DO WHATSAPP */}
-      <div className="bg-[#075e54] text-white px-3 py-2 rounded-t-[32px] flex items-center justify-between z-10 shadow-md">
+      <div className="bg-[#075e54] text-white px-3.5 py-2.5 rounded-t-[32px] flex items-center justify-between z-10 shadow-md">
         <div className="flex items-center gap-2">
           <ChevronLeft className="w-5 h-5 cursor-pointer opacity-80 hover:opacity-100" />
-          <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xs border border-emerald-400">
+          <div className="w-8.5 h-8.5 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xs border border-emerald-400">
             🤖
           </div>
           <div>
@@ -279,10 +356,10 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
       </div>
 
       {/* ÁREA DE CHAT DO WHATSAPP */}
-      <div className="flex-1 bg-[#e5ddd5] dark:bg-[#0b141a] p-3 overflow-y-auto space-y-3 font-sans text-xs">
+      <div className="flex-1 bg-[#e5ddd5] dark:bg-[#0b141a] p-3.5 overflow-y-auto space-y-3 font-sans text-xs">
         <div className="text-center my-1">
-          <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[9px] font-bold px-2 py-0.5 rounded-md shadow-xs">
-            🔒 Simulador ao Vivo: Clique no ✏️ para editar qualquer texto direto no balão!
+          <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[9px] font-bold px-2.5 py-1 rounded-md shadow-xs">
+            🔒 Clique no ✏️ para editar qualquer mensagem no balão!
           </span>
         </div>
 
@@ -292,7 +369,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
             className={`flex flex-col group relative ${msg.sender === "user" ? "items-end" : "items-start"}`}
           >
             <div
-              className={`max-w-[88%] rounded-2xl px-3 py-2 shadow-sm space-y-2 relative transition-all ${
+              className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm space-y-2 relative transition-all ${
                 msg.sender === "user"
                   ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-none"
                   : "bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-none"
@@ -346,7 +423,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
                     <div
                       key={pIdx}
                       onClick={() => processUserInput(String(pIdx + 1))}
-                      className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:border-emerald-500 transition-all flex items-center justify-between text-[10px]"
+                      className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:border-emerald-500 transition-all flex items-center justify-between text-[10px]"
                     >
                       <div className="truncate pr-2 font-bold text-slate-900 dark:text-white">
                         {pIdx + 1}. {prod.name}
@@ -361,12 +438,12 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
 
               {/* BOTOES PÍLULAS DE OPÇÃO RÁPIDA */}
               {msg.buttons && msg.buttons.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60 dark:border-white/10">
                   {msg.buttons.map((btn, bIdx) => (
                     <button
                       key={bIdx}
                       onClick={() => processUserInput(btn.value)}
-                      className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30"
+                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30"
                     >
                       {btn.label}
                     </button>
