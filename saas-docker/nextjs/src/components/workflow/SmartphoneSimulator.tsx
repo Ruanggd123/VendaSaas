@@ -53,7 +53,9 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
   };
 
   const generateBotInitialMenu = (): Message => {
-    const welcome = settings?.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
+    let welcome = settings?.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
+    welcome = welcome.split("Escolha uma das opções abaixo:")[0].split("\n*1* -")[0].split("\n1 -")[0].trim();
+
     const allNodes = settings?.custom_rules_nodes || [];
     // FILTRA APENAS NÓS PAI (sem parentId) PARA NÃO VAZAR SUB-NÓS NO MENU INICIAL
     const rootNodes = allNodes.filter((n: any) => !n.parentId);

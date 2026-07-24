@@ -163,7 +163,10 @@ function sanitizeWelcomeText(msg: any): string {
   if (!msg || typeof msg !== "string") {
     return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
   }
-  const clean = msg.replace(/[\uFFFD\u00A0]/g, "").replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "").replace(/¤|‘|‹/g, "").trim();
+  let clean = msg.split("Escolha uma das opções abaixo:")[0];
+  clean = clean.split("\n*1* -")[0];
+  clean = clean.split("\n1 -")[0];
+  clean = clean.replace(/[\uFFFD\u00A0]/g, "").replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "").replace(/¤|‘|‹/g, "").trim();
   if (!clean || clean.length < 5) {
     return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
   }
