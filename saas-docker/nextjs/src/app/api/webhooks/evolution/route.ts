@@ -63,13 +63,10 @@ export async function POST(req: Request) {
         // 0. Busca o Tenant para verificar permissões de grupo e limites
         let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
 
-        // Verificação de Grupos (só bloqueia se whitelisted_groups contiver grupos específicos configurados)
+        // Ignorar mensagens de grupos de WhatsApp (responder apenas a mensagens diretas 1x1)
         if (remoteJid.includes("@g.us")) {
-          const groupId = remoteJid.replace("@g.us", "");
-          const allowedGroups = webhookTenant?.whitelisted_groups?.trim() || "";
-          if (allowedGroups && !allowedGroups.includes(groupId)) {
-            return NextResponse.json({ success: true, ignored: "Grupo não autorizado" });
-          }
+          console.log(`[Webhook] Ignorando mensagem de grupo (${remoteJid}). O bot responde apenas a conversas diretas.`);
+          return NextResponse.json({ success: true, ignored: "Mensagens de grupo desativadas" });
         }
 
         const effectiveJid = (messageData.key.remoteJidAlt || messageData.key.remoteJid || "").toString();
