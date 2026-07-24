@@ -31,6 +31,8 @@ export default function NativeWhatsAppDashboard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(40);
 
+  const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
+
   const fetchInstances = async () => {
     try {
       const res = await fetch(`/api/whatsapp/instances?t=${new Date().getTime()}`, {
@@ -179,6 +181,31 @@ export default function NativeWhatsAppDashboard() {
     fetchInstances();
   };
 
+  const handleSyncWebhooks = async () => {
+    setWebhookStatus("Verificando...");
+    try {
+      const res = await fetch("/api/whatsapp/sync-webhook", { method: "POST" });
+      const data = await res.json();
+      const allOk = data.results.length > 0 && data.results.every((r: any) => r.ok);
+      const details = data.results.map((r: any) => {
+        if (r.error) return `${r.instance}: ERRO(${r.error})`;
+        const match = r.webhookAtual === r.webhookEsperado ? "✓" : "✗(URL diverge)";
+        return `${r.instance}: ${r.ok ? "OK" : "FALHA"} ${match}`;
+      }).join("\n");
+      setWebhookStatus(`${allOk ? "Webhooks OK" : "Problemas detectados"}`);
+      const mismatches = data.results.filter((r: any) => r.webhookAtual && r.webhookAtual !== r.webhookEsperado);
+      if (mismatches.length > 0) {
+        alert(`⚠️ URLs de webhook divergem!\n\nEsperado: ${data.webhookTargetUrl}\n\n${details}\n\nClique em reconectar nas instâncias para corrigir.`);
+      } else if (data.results.length > 0) {
+        alert(`Webhook: ${data.webhookTargetUrl}\n\n${details}`);
+      } else {
+        alert("Nenhuma instância para verificar. Crie uma conexão primeiro.");
+      }
+    } catch {
+      setWebhookStatus("Erro ao verificar");
+    }
+  };
+
   // Se houver uma instância tentando conectar, mostramos a tela de QR
   const connectingInstance = instances.find(i => i.name === activeInstanceName);
   if (activeInstanceName && connectingInstance?.status === "connecting") {
@@ -249,15 +276,28 @@ export default function NativeWhatsAppDashboard() {
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Aparelhos WhatsApp</h1>
                 <p className="text-slate-500 dark:text-zinc-400">Gerencie múltiplas conexões de atendimento simultâneas.</p>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 active:scale-[0.98]"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Nova Conexão
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={handleSyncWebhooks}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-600 px-4 py-2 text-xs font-medium text-zinc-300 transition-all hover:bg-zinc-800"
+                >
+                  Verificar Webhooks
+                </button>
+                {webhookStatus && (
+                  <span className={`text-xs ${webhookStatus.includes("OK") ? "text-emerald-400" : "text-amber-400"}`}>
+                    {webhookStatus}
+                  </span>
+                )}
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 active:scale-[0.98]"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  Nova Conexão
+                </button>
+              </div>
             </header>
 
           <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">

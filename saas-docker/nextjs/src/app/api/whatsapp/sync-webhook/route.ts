@@ -52,6 +52,18 @@ export async function POST(req: Request) {
     const results = [];
 
     for (const inst of instances) {
+      let webhookInfo: any = null;
+      try {
+        // Verifica webhook atual configurado na Evolution API
+        const findRes = await fetch(`${evolutionUrl}/webhook/find/${inst.name}`, {
+          method: "GET",
+          headers,
+        });
+        if (findRes.ok) {
+          webhookInfo = await findRes.json().catch(() => null);
+        }
+      } catch {}
+
       try {
         const res = await fetch(`${evolutionUrl}/webhook/set/${inst.name}`, {
           method: "POST",
@@ -66,7 +78,13 @@ export async function POST(req: Request) {
           }),
         });
 
-        results.push({ instance: inst.name, ok: res.ok, status: res.status });
+        results.push({
+          instance: inst.name,
+          ok: res.ok,
+          status: res.status,
+          webhookAtual: webhookInfo?.webhook?.url || null,
+          webhookEsperado: webhookTargetUrl,
+        });
       } catch (err: any) {
         results.push({ instance: inst.name, ok: false, error: err.message });
       }

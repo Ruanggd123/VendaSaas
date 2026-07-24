@@ -6,8 +6,14 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  return NextResponse.json({ status: "ok", time: new Date().toISOString() });
+}
+
 export async function POST(req: Request) {
   try {
+    const ts = Date.now();
+    console.log(`[Webhook] Recebido em ${new Date().toISOString()}`);
     // Validar se apikey está presente (quando configurada no Evolution)
     const apiKey = req.headers.get('apikey');
     if (apiKey && apiKey !== process.env.EVOLUTION_API_KEY) {
@@ -484,6 +490,7 @@ export async function POST(req: Request) {
       }
     }
 
+    console.log(`[Webhook] Processado em ${Date.now() - ts}ms`);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("❌ [Webhook Evolution] Erro:", err);
