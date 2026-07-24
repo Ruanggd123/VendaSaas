@@ -9,6 +9,12 @@ const prisma = new PrismaClient();
 
 export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false) {
   try {
+    // Bloquear estritamente mensagens vindas de Grupos do WhatsApp
+    if (contactNumber.includes("@g.us") || contactNumber.includes("g.us") || contactNumber.length > 15) {
+      console.log(`[AI Engine] Bloqueado: contato ${contactNumber} é um grupo de WhatsApp. Respostas de IA desativadas.`);
+      return null;
+    }
+
     if (!isMessageToMyself && !checkRateLimit(`${tenantId}:${contactNumber}`)) {
       console.warn(`[SECURITY] Rate Limit excedido para ${contactNumber} no tenant ${tenantId}`);
       return "Muitas mensagens em pouco tempo. Por favor, aguarde alguns segundos antes de enviar outra mensagem.";

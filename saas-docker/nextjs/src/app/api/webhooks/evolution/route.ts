@@ -63,9 +63,20 @@ export async function POST(req: Request) {
         // 0. Busca o Tenant para verificar permissões de grupo e limites
         let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
 
-        // Ignorar mensagens de grupos de WhatsApp (responder apenas a mensagens diretas 1x1)
-        if (remoteJid.includes("@g.us")) {
-          console.log(`[Webhook] Ignorando mensagem de grupo (${remoteJid}). O bot responde apenas a conversas diretas.`);
+        const rJid = (messageData.key.remoteJid || "").toString().toLowerCase();
+        const rJidAlt = (messageData.key.remoteJidAlt || "").toString().toLowerCase();
+        const partJid = (messageData.key.participant || "").toString().toLowerCase();
+        const partJidAlt = (messageData.key.participantAlt || "").toString().toLowerCase();
+
+        const isGroupMessage =
+          rJid.includes("@g.us") ||
+          rJidAlt.includes("@g.us") ||
+          partJid.includes("@g.us") ||
+          partJidAlt.includes("@g.us") ||
+          (messageData.key.participant !== undefined && messageData.key.participant !== null && messageData.key.participant !== "");
+
+        if (isGroupMessage) {
+          console.log(`[Webhook] Ignorando mensagem de grupo (${rJid}). O bot responde estritamente a conversas diretas 1x1.`);
           return NextResponse.json({ success: true, ignored: "Mensagens de grupo desativadas" });
         }
 
