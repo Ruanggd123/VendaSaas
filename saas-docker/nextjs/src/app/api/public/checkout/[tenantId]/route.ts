@@ -84,6 +84,9 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
 
     let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
+      tenant = await prisma.tenant.findFirst();
+    }
+    if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
     const realTenantId = tenant.id;
