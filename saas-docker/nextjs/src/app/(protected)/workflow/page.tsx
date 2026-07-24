@@ -92,6 +92,8 @@ interface AISettings {
   welcome_message?: string;
   enableScheduling?: boolean;
   hide_auto_catalog?: boolean;
+  enable_groups?: boolean;
+  whitelisted_groups?: string;
 }
 
 const DEFAULT_SCHEDULE_PER_DAY = {
@@ -181,6 +183,7 @@ export default function WorkflowPage() {
   const [showJsonModal, setShowJsonModal] = useState<boolean>(false);
   const [showProductsModal, setShowProductsModal] = useState<boolean>(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState<boolean>(false);
+  const [showGroupsModal, setShowGroupsModal] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -372,6 +375,15 @@ export default function WorkflowPage() {
               >
                 <Package className="w-3.5 h-3.5 text-indigo-500" />
                 <span className="hidden lg:inline">Catálogo</span>
+              </button>
+
+              <button
+                onClick={() => setShowGroupsModal(true)}
+                className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-200 dark:border-purple-500/20"
+                title="Configurar Trava de Segurança para Grupos do WhatsApp"
+              >
+                <Layers className="w-3.5 h-3.5 text-purple-500" />
+                <span className="hidden lg:inline">👥 Grupos</span>
               </button>
 
               <button
@@ -1142,6 +1154,70 @@ export default function WorkflowPage() {
                 className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all"
               >
                 Concluído
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL CONFIGURAÇÃO DE GRUPOS DO WHATSAPP */}
+      {showGroupsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Responder em Grupos do WhatsApp</h3>
+              </div>
+              <button onClick={() => setShowGroupsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-1">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Ativar Resposta do Robô em Grupos</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">Por padrão o robô atende apenas conversas privadas 1-x-1.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateField("enable_groups", !settings.enable_groups)}
+                  className={`w-10 h-6 flex items-center rounded-full p-0.5 transition-all shrink-0 ${
+                    settings.enable_groups ? "bg-purple-600 justify-end" : "bg-slate-300 dark:bg-slate-700 justify-start"
+                  }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white shadow-md"></div>
+                </button>
+              </div>
+
+              {settings.enable_groups && (
+                <div className="space-y-2 p-3.5 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-2xl">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300">
+                    Grupos Autorizados (Nome ou ID do WhatsApp)
+                  </label>
+                  <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
+                    Digite o nome ou ID dos grupos autorizados separados por vírgula. O robô responderá <strong>apenas</strong> aos grupos cadastrados aqui.
+                  </p>
+                  <input
+                    type="text"
+                    value={settings.whitelisted_groups || ""}
+                    onChange={(e) => updateField("whitelisted_groups", e.target.value)}
+                    placeholder="Ex: Grupo Clientes VIP, Suporte Oficial, 120363424279225343"
+                    className="w-full rounded-xl border border-purple-300 dark:border-purple-500/40 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => {
+                  setShowGroupsModal(false);
+                  saveConfig();
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md"
+              >
+                Salvar Configurações de Grupos
               </button>
             </div>
           </div>
