@@ -111,17 +111,26 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         }
       });
 
+      const productsList = settings.products || [];
+
       customNodes.forEach((cn: any) => {
         const hasChildren = customNodes.some((n: any) => n.parentId === cn.id);
+        const parentNode = customNodes.find((n: any) => n.id === cn.parentId);
         const level = levelMap.get(cn.id) || 1;
         const xPos = xPositions.get(cn.id) || 450;
-        const yPos = 50 + level * 170;
+        const yPos = 50 + level * 180;
 
         initialNodes.push({
           id: cn.id,
           type: 'menuNode',
           position: { x: xPos, y: yPos },
-          data: { ...cn, childrenCount: hasChildren ? 1 : 0 }
+          data: {
+            ...cn,
+            childrenCount: hasChildren ? 1 : 0,
+            products: productsList,
+            parentActionType: parentNode?.actionType,
+            parentTitle: parentNode?.title,
+          }
         });
 
         initialEdges.push({

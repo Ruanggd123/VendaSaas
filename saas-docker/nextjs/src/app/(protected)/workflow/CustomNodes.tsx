@@ -96,6 +96,33 @@ export const MenuNode = ({ data, selected }: any) => {
           <div className="flex-1 font-black text-xs text-slate-900 dark:text-white truncate">{data.title || "Nova Opção"}</div>
         </div>
 
+        {data.actionType === "catalog" && (
+          <div className="mt-2 space-y-1 p-2 bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl text-[10px]">
+            <span className="font-black text-sky-800 dark:text-sky-300 block mb-1">Itens Exibidos no Catálogo:</span>
+            {(data.products || []).length > 0 ? (
+              (data.products || []).slice(0, 4).map((p: any, i: number) => (
+                <div key={i} className="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                  <span className="truncate max-w-[130px] font-bold">*{i + 1}* - {p.name}</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400">R$ {p.price}</span>
+                </div>
+              ))
+            ) : (
+              <span className="text-slate-400 italic">Nenhum produto cadastrado</span>
+            )}
+          </div>
+        )}
+
+        {data.parentActionType === "catalog" && (
+          <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-[10px] space-y-0.5">
+            <span className="font-black text-emerald-800 dark:text-emerald-300 block">
+              🎯 Responde ao Item #{data.keyword} do Catálogo:
+            </span>
+            <span className="font-extrabold text-slate-900 dark:text-white block truncate">
+              {data.products?.[parseInt(data.keyword, 10) - 1]?.name || data.title || `Produto #${data.keyword}`}
+            </span>
+          </div>
+        )}
+
         {data.actionType === "product" && data.productPrice ? (
           <div className={`flex items-center justify-between gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-xl px-2.5 py-1.5 font-bold`}>
             <div className="flex items-center gap-1.5">
