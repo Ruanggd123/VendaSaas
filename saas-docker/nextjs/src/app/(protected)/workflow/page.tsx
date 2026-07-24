@@ -645,88 +645,268 @@ export default function WorkflowPage() {
           </aside>
         )}
 
-        {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO DE TELA CHEIA */}
+        {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO COM PAINEL DE REGRAS COMPLETO */}
         {activeTab === "simulator" && (
           <div className="flex-1 h-full bg-slate-900/90 backdrop-blur-xl flex flex-col lg:flex-row items-center justify-center p-6 gap-8 overflow-y-auto">
-            {/* PAINEL LATERAL COMPACTO DE CONTROLE DE TESTES */}
-            <div className="w-80 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+            {/* PAINEL LATERAL COMPLETO DE GERENCIAMENTO DE NÓS E TESTES */}
+            <div className="w-96 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-emerald-500" />
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Testador ao Vivo</h3>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Editar Regras &amp; Testar</h3>
                 </div>
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">Ativo</span>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">Ao Vivo</span>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                Passe o mouse sobre qualquer mensagem no celular ao lado e clique no botão ✏️ para **editar o texto diretamente no balão**!
-              </p>
-
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/10">
-                <button
-                  onClick={() => {
-                    const newNodes = [...(settings.custom_rules_nodes || [])];
-                    let rootCounter = 1;
-                    const rootMap = new Map<string, number>();
-
-                    const renumbered = newNodes.map((n: any) => {
-                      if (!n.parentId) {
-                        return { ...n, keyword: String(rootCounter++) };
-                      } else {
-                        const currentCount = (rootMap.get(n.parentId) || 0) + 1;
-                        rootMap.set(n.parentId, currentCount);
-                        return { ...n, keyword: String(currentCount) };
-                      }
-                    });
-
-                    updateField("custom_rules_nodes", renumbered);
-                    setAlert({ type: "success", msg: "Gatilhos auto-numerados sequencialmente (1, 2, 3...) ✨" });
-                  }}
-                  className="w-full bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4 text-indigo-500" />
-                  <span>✨ Auto-Numerar Regras (1, 2, 3...)</span>
-                </button>
-
-                <button
-                  onClick={() => updateField("enable_off_hours_message", !settings.enable_off_hours_message)}
-                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
-                >
-                  <span>🌙 Trava de Expediente</span>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${settings.enable_off_hours_message ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-700"}`}>
-                    {settings.enable_off_hours_message ? "Ligado" : "Desligado (24h)"}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setShowProductsModal(true)}
-                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Package className="w-4 h-4 text-indigo-500" />
-                    <span>Gerenciar Produtos</span>
-                  </span>
-                  <span className="text-[10px] font-black text-slate-400">
-                    {(settings.products || []).length} itens
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setShowGroupsModal(true)}
-                  className="w-full bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 rounded-2xl px-3 py-2.5 text-xs font-bold transition-all flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-purple-500" />
-                    <span>Resposta em Grupos</span>
-                  </span>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${settings.enable_groups ? "bg-purple-600 text-white" : "bg-slate-200 text-slate-600"}`}>
-                    {settings.enable_groups ? "Ativo" : "Off"}
-                  </span>
-                </button>
+              {/* BARRA DE PESQUISA */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={nodeSearchQuery}
+                  onChange={(e) => setNodeSearchQuery(e.target.value)}
+                  placeholder="🔍 Buscar opção ou gatilho..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500"
+                />
+                {nodeSearchQuery && (
+                  <button onClick={() => setNodeSearchQuery("")} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-white/10 text-[11px] text-slate-400 font-medium leading-relaxed">
-                💡 Dica: Para criar ou organizar novos blocos e ramificações visuais de sub-nós, alterne para a aba <strong>Fluxo Visual</strong> no topo!
+              {/* MENSAGENS DO SISTEMA */}
+              <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-white/10 rounded-2xl">
+                <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider block">
+                  Mensagem de Boas-vindas (Entrada)
+                </span>
+                <textarea
+                  value={settings.welcome_message || ""}
+                  onChange={(e) => updateField("welcome_message", e.target.value)}
+                  rows={2}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* ÁRVORE DE NÓS E SUB-NÓS */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Árvore de Nós ({ (settings.custom_rules_nodes || []).length })
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        let rootCounter = 1;
+                        const rootMap = new Map<string, number>();
+                        const renumbered = newNodes.map((n: any) => {
+                          if (!n.parentId) {
+                            return { ...n, keyword: String(rootCounter++) };
+                          } else {
+                            const currentCount = (rootMap.get(n.parentId) || 0) + 1;
+                            rootMap.set(n.parentId, currentCount);
+                            return { ...n, keyword: String(currentCount) };
+                          }
+                        });
+                        updateField("custom_rules_nodes", renumbered);
+                      }}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      ✨ Auto-Numerar
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        const nextNum = newNodes.filter((n) => !n.parentId).length + 1;
+                        newNodes.push({
+                          id: "node_" + Math.random().toString(36).substr(2, 9),
+                          parentId: null,
+                          keyword: String(nextNum),
+                          title: `Opção ${nextNum}`,
+                          actionType: "text",
+                          textContent: "Digite a resposta desta opção...",
+                        });
+                        updateField("custom_rules_nodes", newNodes);
+                      }}
+                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Nó
+                    </button>
+                  </div>
+                </div>
+
+                {/* LISTA HIERÁRQUICA COM BUSCA */}
+                {(settings.custom_rules_nodes || [])
+                  .filter((n: any) => !n.parentId)
+                  .filter((rootNode: any) => {
+                    if (!nodeSearchQuery) return true;
+                    const q = nodeSearchQuery.toLowerCase();
+                    return rootNode.title?.toLowerCase().includes(q) || rootNode.keyword?.toLowerCase().includes(q) || rootNode.textContent?.toLowerCase().includes(q);
+                  })
+                  .map((rootNode: any) => {
+                    const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === rootNode.id);
+                    const rootIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === rootNode.id);
+                    const isExpanded = expandedParents[rootNode.id] !== false;
+
+                    return (
+                      <div key={rootNode.id} className="space-y-2">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl space-y-2 text-xs shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setExpandedParents({ ...expandedParents, [rootNode.id]: !isExpanded })}
+                              className="text-slate-400 hover:text-indigo-600 p-0.5 font-bold text-xs"
+                            >
+                              {children.length > 0 ? (isExpanded ? "▼" : "▶") : "•"}
+                            </button>
+
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5">
+                              <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
+                              <input
+                                type="text"
+                                value={rootNode.keyword || ""}
+                                onChange={(e) => {
+                                  const newNodes = [...(settings.custom_rules_nodes || [])];
+                                  newNodes[rootIdx].keyword = e.target.value;
+                                  updateField("custom_rules_nodes", newNodes);
+                                }}
+                                className="w-5 bg-transparent font-black text-center text-indigo-600 dark:text-indigo-400 text-xs focus:outline-none"
+                              />
+                            </div>
+
+                            <input
+                              type="text"
+                              value={rootNode.title || ""}
+                              onChange={(e) => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes[rootIdx].title = e.target.value;
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-extrabold text-slate-900 dark:text-white text-xs"
+                              placeholder="Título do Menu"
+                            />
+
+                            <button
+                              onClick={() => {
+                                const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== rootNode.id && n.parentId !== rootNode.id);
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+
+                          <select
+                            value={rootNode.actionType || "text"}
+                            onChange={(e) => {
+                              const newNodes = [...(settings.custom_rules_nodes || [])];
+                              newNodes[rootIdx].actionType = e.target.value;
+                              updateField("custom_rules_nodes", newNodes);
+                            }}
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                          >
+                            <option value="text">💬 Exibir Resposta de Texto</option>
+                            <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                            <option value="scheduling">📅 Abrir Agendamento de Horário</option>
+                            <option value="human">👤 Transferir para Atendente Humano</option>
+                          </select>
+
+                          <textarea
+                            rows={2}
+                            value={rootNode.textContent || ""}
+                            onChange={(e) => {
+                              const newNodes = [...(settings.custom_rules_nodes || [])];
+                              newNodes[rootIdx].textContent = e.target.value;
+                              updateField("custom_rules_nodes", newNodes);
+                            }}
+                            placeholder="Resposta enviada ao cliente..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
+                          />
+
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
+                            <button
+                              onClick={() => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes.push({
+                                  id: "node_" + Math.random().toString(36).substr(2, 9),
+                                  parentId: rootNode.id,
+                                  keyword: String(children.length + 1),
+                                  title: `Sub-opção ${children.length + 1}`,
+                                  actionType: "text",
+                                  textContent: "Resposta desta sub-opção...",
+                                });
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add Sub-opção
+                            </button>
+                            <span className="text-[9px] text-slate-400 font-medium">{children.length} sub-opção(ões)</span>
+                          </div>
+                        </div>
+
+                        {/* SUB-NÓS */}
+                        {isExpanded && children.length > 0 && (
+                          <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-3 ml-3 space-y-2 relative">
+                            {children.map((child: any) => {
+                              const childIdx = (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === child.id);
+                              return (
+                                <div key={child.id} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl space-y-2 text-xs shadow-sm relative">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg px-1.5 py-0.5">
+                                      <span className="text-[9px] font-bold text-slate-400">Gatilho:</span>
+                                      <input
+                                        type="text"
+                                        value={child.keyword || ""}
+                                        onChange={(e) => {
+                                          const newNodes = [...(settings.custom_rules_nodes || [])];
+                                          newNodes[childIdx].keyword = e.target.value;
+                                          updateField("custom_rules_nodes", newNodes);
+                                        }}
+                                        className="w-5 bg-transparent font-bold text-center text-emerald-600 dark:text-emerald-400 text-[11px] focus:outline-none"
+                                      />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={child.title || ""}
+                                      onChange={(e) => {
+                                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                                        newNodes[childIdx].title = e.target.value;
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-0.5 font-bold text-slate-900 dark:text-white text-[11px]"
+                                      placeholder="Sub-opção"
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== child.id);
+                                        updateField("custom_rules_nodes", newNodes);
+                                      }}
+                                      className="text-[10px] font-bold text-rose-500 hover:underline shrink-0"
+                                    >
+                                      Excluir
+                                    </button>
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    value={child.textContent || ""}
+                                    onChange={(e) => {
+                                      const newNodes = [...(settings.custom_rules_nodes || [])];
+                                      newNodes[childIdx].textContent = e.target.value;
+                                      updateField("custom_rules_nodes", newNodes);
+                                    }}
+                                    placeholder="Resposta da sub-opção..."
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
 

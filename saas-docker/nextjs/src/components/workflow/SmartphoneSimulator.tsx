@@ -19,6 +19,7 @@ import {
   Check,
   X,
   CreditCard,
+  ExternalLink,
 } from "lucide-react";
 
 interface Message {
@@ -162,9 +163,13 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
         const selectedProd = prods[prodIdx];
 
         if (selectedProd) {
-          botResponseText = `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Descrição do produto..."}\n\n👇 *Selecione como deseja prosseguir:*`;
+          const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
+          const checkoutLink = `${originUrl}/checkout/default?product=${encodeURIComponent(selectedProd.name)}`;
+
+          botResponseText = `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Automação de alta performance para impulsionar suas vendas no WhatsApp."}\n\n👇 *Como você prefere realizar o pagamento?*\n\n• *Opção A:* Gerar chave Pix copia e cola direta no chat.\n• *Opção B:* Acessar o site em nova aba para pagar via Cartão de Crédito, Boleto ou Pix.\n🔗 Link do Site: ${checkoutLink}`;
           botButtons = [
-            { label: "💳 Pagar Agora (Gerar Pix)", value: `pay_pix_${prodIdx}` },
+            { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
+            { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
             { label: "👤 Falar com Consultor", value: "4" },
             { label: "⬅️ Voltar ao Catálogo", value: "1" },
           ];
@@ -181,23 +186,15 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
         }
       }
 
-      // SE O CLIENTE CLICOU EM GERAR PIX
-      if (clean.startsWith("pay_pix_") || clean.includes("pix") || clean.includes("pagar")) {
-        let prodName = "Produto Selecionado";
-        let prodPrice = "147.00";
+      // SE CLICOU EM GERAR PIX NO CHAT
+      if (clean.startsWith("gen_pix_chat_")) {
+        const pIdx = parseInt(clean.replace("gen_pix_chat_", ""), 10);
+        const prod = prods[pIdx] || { name: "Produto", price: "147.00" };
 
-        if (clean.startsWith("pay_pix_")) {
-          const pIdx = parseInt(clean.replace("pay_pix_", ""), 10);
-          if (prods[pIdx]) {
-            prodName = prods[pIdx].name;
-            prodPrice = prods[pIdx].price;
-          }
-        }
-
-        botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${prodName}*\nValor: *R$ ${prodPrice}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que o pagamento for realizado, seu acesso será liberado automaticamente! ✅`;
+        botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${prod.name}*\nValor: *R$ ${prod.price}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que efetuar a transferência Pix, o seu acesso é liberado instantaneamente! ✅`;
         botButtons = [
           { label: "✅ Já Realizei o Pagamento", value: "confirm_pix" },
-          { label: "🏠 Ir para o Menu Principal", value: "0" },
+          { label: "🏠 Menu Principal", value: "0" },
         ];
 
         const botMsg: Message = {
@@ -212,8 +209,28 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
       }
 
       if (clean === "confirm_pix") {
-        botResponseText = "🎉 *Pagamento em Processamento!*\n\nObrigado! Identificamos o envio do comprovante e nossa equipe de onboarding entrará em contato em instantes!";
+        botResponseText = "🎉 *Pagamento em Processamento!*\n\nIdentificamos a solicitação de baixa! Nosso sistema liberará sua credencial em instantes no WhatsApp! 🚀";
         botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+        const botMsg: Message = {
+          id: "bot_" + Date.now(),
+          sender: "bot",
+          text: botResponseText,
+          timestamp: currentTime,
+          buttons: botButtons,
+        };
+        setMessages((prev) => [...prev, botMsg]);
+        return;
+      }
+
+      // SE CLICOU NO BOTÃO DE ABRIR LINK DE PAGAMENTO
+      if (clean.startsWith("open_link_")) {
+        const urlToOpen = userText.replace("open_link_", "").trim();
+        if (typeof window !== "undefined") {
+          window.open(urlToOpen, "_blank");
+        }
+        botResponseText = `🚀 Redirecionando para a aba de checkout seguro em nova janela!\n\nApós efetuar o pagamento via Pix, Cartão ou Boleto, sua conta será ativada automaticamente! ✅`;
+        botButtons = [{ label: "🏠 Ir para o Menu Principal", value: "0" }];
+
         const botMsg: Message = {
           id: "bot_" + Date.now(),
           sender: "bot",
@@ -256,7 +273,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
           setInCatalogView(true);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
-            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para ver mais detalhes e o link de pagamento!";
+            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para abrir o link de pagamento seguro em outra aba!";
           botProducts = prods;
         } else if (matchedNode.actionType === "scheduling") {
           setInCatalogView(false);
@@ -316,11 +333,38 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
     }, 400);
   };
 
+  // HELPER PARA RENDERIZAR LINKS CLICÁVEIS QUE ABREM EM NOVA ABA
+  const renderTextWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sky-600 dark:text-sky-400 font-bold underline hover:text-sky-700 flex items-center gap-1 inline-flex my-1 break-all"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <span>{part}</span>
+            <ExternalLink className="w-3 h-3 shrink-0" />
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   return (
-    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans">
+    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans shrink-0">
       {/* BARRA DE STATUS SUPERIOR */}
       <div className="h-6 px-6 pt-1 flex items-center justify-between text-[11px] font-bold text-white z-20">
-        <span>11:48</span>
+        <span>11:55</span>
         <div className="w-16 h-4 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-center">
           <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
         </div>
@@ -411,9 +455,9 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
                   </div>
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap leading-relaxed text-[11px] font-medium">
-                  {msg.text}
-                </p>
+                <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-medium">
+                  {renderTextWithLinks(msg.text)}
+                </div>
               )}
 
               {/* LISTA DE PRODUTOS SE FOR AÇÃO DE CATÁLOGO */}
@@ -443,7 +487,7 @@ export function SmartphoneSimulator({ settings, onActiveNodeChange, onUpdateText
                     <button
                       key={bIdx}
                       onClick={() => processUserInput(btn.value)}
-                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30"
+                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1"
                     >
                       {btn.label}
                     </button>
