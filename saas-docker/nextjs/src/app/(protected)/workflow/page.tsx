@@ -425,12 +425,23 @@ export default function WorkflowPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-white/10">
+            <div className="pt-3 border-t border-slate-100 dark:border-white/10 space-y-2">
+              <button
+                onClick={() => {
+                  updateField("custom_rules_nodes", []);
+                  setSelectedNodeId("start");
+                  setAlert({ type: "success", msg: "Fluxo limpo! Agora você pode criar suas regras 100% do zero. 🧹" });
+                }}
+                className="w-full py-2 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Começar do Zero
+              </button>
+
               <button
                 onClick={() => setShowProductsModal(true)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
               >
-                <Package className="w-4 h-4 text-indigo-500" /> Catálogo de Produtos
+                <Package className="w-3.5 h-3.5 text-indigo-500" /> Catálogo de Produtos
               </button>
             </div>
           </aside>
@@ -552,12 +563,52 @@ export default function WorkflowPage() {
                     }}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
                   >
-                    <option value="text">💬 Texto / Submenu</option>
+                    <option value="text">💬 Texto Personalizado / Submenu</option>
                     <option value="catalog">📋 Exibir Catálogo de Produtos</option>
                     <option value="scheduling">📅 Iniciar Agendamento</option>
                     <option value="human">👤 Transferir para Humano</option>
                   </select>
                 </div>
+
+                {settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.actionType === "text" && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Texto da Resposta</label>
+                    <textarea
+                      rows={4}
+                      value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.textContent || ""}
+                      onChange={(e) => {
+                        const newNodes = [...(settings.custom_rules_nodes || [])];
+                        const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
+                        if (idx > -1) {
+                          newNodes[idx].textContent = e.target.value;
+                          updateField("custom_rules_nodes", newNodes);
+                        }
+                      }}
+                      placeholder="Digite a resposta personalizada enviada ao cliente..."
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                    newNodes.push({
+                      id: "node_" + Math.random().toString(36).substr(2, 9),
+                      parentId: selectedNodeId,
+                      keyword: "1",
+                      title: "Sub-opção",
+                      actionType: "text",
+                      textContent: "Responda a esta sub-opção...",
+                    });
+                    updateField("custom_rules_nodes", newNodes);
+                  }}
+                  className="w-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Adicionar Sub-opção</span>
+                </button>
 
                 <button
                   type="button"
@@ -566,9 +617,9 @@ export default function WorkflowPage() {
                     updateField("custom_rules_nodes", newNodes);
                     setSelectedNodeId("start");
                   }}
-                  className="w-full mt-4 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-rose-100 transition-all"
+                  className="w-full mt-2 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-rose-100 transition-all"
                 >
-                  Excluir Nó
+                  Excluir Este Nó
                 </button>
               </div>
             )}
