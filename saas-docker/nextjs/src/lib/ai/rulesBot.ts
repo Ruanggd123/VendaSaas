@@ -543,8 +543,14 @@ export async function processMessageWithRules(
     activeLevelNodes = customNodes.filter((node: any) => node.parentId === currentSubmenuId);
   }
 
-  // Match keyword in the active level
-  if (activeLevelNodes.length > 0) {
+  // Se estiver no menu principal, o usuário digitou um número, e existem produtos listados,
+  // trata como seleção de produto em vez de match por palavra-chave
+  const productsList = settings.products || [];
+  const optionIdx = parseInt(cleanText, 10) - 1;
+  const isProductNumber = state.step === "main_menu" && !isNaN(optionIdx) && optionIdx >= 0 && optionIdx < productsList.length;
+
+  // Match keyword in the active level (pula se for número de produto no menu principal)
+  if (activeLevelNodes.length > 0 && !isProductNumber) {
     const matchedNode = activeLevelNodes.find((node: any) => {
       const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return cleanText === cleanKeyword || cleanText.includes(cleanKeyword);
@@ -727,10 +733,8 @@ export async function processMessageWithRules(
     }
   }
 
-  // Fallback: se não tem nós customizados, tenta match por número do produto
-  if (state.step === "main_menu" && (settings.custom_rules_nodes || []).length === 0) {
-    const productsList = settings.products || [];
-    const optionIdx = parseInt(cleanText, 10) - 1;
+  // Fallback: tenta match por número do produto (no menu principal)
+  if (state.step === "main_menu") {
     if (!isNaN(optionIdx) && optionIdx >= 0 && optionIdx < productsList.length) {
       const chosen = productsList[optionIdx];
       // Se for serviço com agendamento, vai pra etapa de agendar
