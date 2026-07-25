@@ -4,9 +4,46 @@ import { getProfilePicture } from "@/lib/evolution";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { timingSafeEqual } from "crypto";
 
 const prisma = new PrismaClient();
+const webhookTokenCache = new Map<string, { token: string; expiresAt: number }>();
 export const dynamic = "force-dynamic";
+
+function tokensMatch(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+async function isValidWebhookToken(instanceName: string, token: string) {
+  const globalToken = process.env.EVOLUTION_API_KEY || "";
+  if (globalToken && tokensMatch(token, globalToken)) return true;
+
+  const cached = webhookTokenCache.get(instanceName);
+  if (cached && cached.expiresAt > Date.now() && tokensMatch(token, cached.token)) return true;
+
+  const evolutionUrl = (process.env.EVOLUTION_URL || "").replace(/\/$/, "");
+  if (!evolutionUrl || !globalToken) return false;
+
+  try {
+    const response = await fetch(
+      `${evolutionUrl}/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
+      { headers: { apikey: globalToken }, cache: "no-store" },
+    );
+    if (!response.ok) return false;
+
+    const instances = await response.json();
+    const instanceToken = Array.isArray(instances) ? instances[0]?.token : null;
+    if (typeof instanceToken !== "string" || !tokensMatch(token, instanceToken)) return false;
+
+    webhookTokenCache.set(instanceName, { token: instanceToken, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return true;
+  } catch (error) {
+    console.error("[Webhook] Falha ao validar token da instância na Evolution:", error);
+    return false;
+  }
+}
 
 export async function GET() {
   return NextResponse.json({ status: "ok", time: new Date().toISOString() });
@@ -16,20 +53,18 @@ export async function POST(req: Request) {
   try {
     const ts = Date.now();
     console.log(`[Webhook] Recebido em ${new Date().toISOString()}`);
-    // Validar que veio da Evolution API (exige apikey, mas sem comparar valor fixo)
-    const apiKey = req.headers.get('apikey');
-    if (!apiKey) {
-      console.warn(`[Webhook] Tentativa de acesso sem apikey. IP: ${req.headers.get('x-forwarded-for') || 'desconhecido'}`);
+    const body = await req.json();
+    const instanceName = body.instance;
+    const apiKey = req.headers.get("apikey") || body.apikey;
+    if (!apiKey || !instanceName || !await isValidWebhookToken(instanceName, apiKey)) {
+      console.warn(`[Webhook] Token ausente ou inválido. IP: ${req.headers.get('x-forwarded-for') || 'desconhecido'}`);
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
-
-    const body = await req.json();
     
     // O evento da Evolution API geralmente vem no formato:
     // { event: "messages.upsert", instance: "nome_instancia", data: { messages: [...] } }
     
     const rawEvent = (body.event || body.type || "").toString().toLowerCase().replace(/_/g, ".").replace(/-/g, ".");
-    const instanceName = body.instance;
     console.log("[Webhook Debug] Evento:", rawEvent, "| Instância:", instanceName);
     
     const isMessageEvent =
