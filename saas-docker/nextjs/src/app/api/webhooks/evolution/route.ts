@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       // Fallback removido por segurança — não associar a primeira instância aleatória
       if (!instance) {
         console.warn(`[Webhook Evolution] Instância ${instanceName} não encontrada no banco.`);
-        return NextResponse.json({ success: true, ignored: "Instância desconhecida" });
+        return NextResponse.json({ error: 'Instância não encontrada' }, { status: 401 });
       }
 
       const tenantId = instance.tenant_id;
