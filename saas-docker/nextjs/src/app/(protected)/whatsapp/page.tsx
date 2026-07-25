@@ -185,27 +185,33 @@ export default function NativeWhatsAppDashboard() {
   };
 
   const handleSyncWebhooks = async () => {
-    setWebhookStatus("Verificando...");
+    setWebhookStatus("Sincronizando...");
     try {
       const res = await fetch("/api/whatsapp/sync-webhook", { method: "POST" });
       const data = await res.json();
+      if (!res.ok || !Array.isArray(data.results)) {
+        throw new Error(data.error || "Erro ao sincronizar webhooks");
+      }
+
       const allOk = data.results.length > 0 && data.results.every((r: any) => r.ok);
       const details = data.results.map((r: any) => {
         if (r.error) return `${r.instance}: ERRO(${r.error})`;
-        const match = r.webhookAtual === r.webhookEsperado ? "✓" : "✗(URL diverge)";
-        return `${r.instance}: ${r.ok ? "OK" : "FALHA"} ${match}`;
+        const match = r.webhookAtual === r.webhookEsperado ? "URL OK" : "URL DIVERGE";
+        return `${r.instance}: ${r.ok ? "OK" : "FALHA"} (${match})`;
       }).join("\n");
-      setWebhookStatus(`${allOk ? "Webhooks OK" : "Problemas detectados"}`);
-      const mismatches = data.results.filter((r: any) => r.webhookAtual && r.webhookAtual !== r.webhookEsperado);
-      if (mismatches.length > 0) {
-        alert(`⚠️ URLs de webhook divergem!\n\nEsperado: ${data.webhookTargetUrl}\n\n${details}\n\nClique em reconectar nas instâncias para corrigir.`);
-      } else if (data.results.length > 0) {
-        alert(`Webhook: ${data.webhookTargetUrl}\n\n${details}`);
+      setWebhookStatus(allOk ? "Webhooks sincronizados" : "Problemas detectados");
+      const mismatches = data.results.filter((r: any) => !r.error && r.webhookAtual !== r.webhookEsperado);
+      if (data.results.length === 0) {
+        alert("Nenhuma instância para sincronizar. Crie uma conexão primeiro.");
+      } else if (allOk) {
+        alert(`Webhook sincronizado: ${data.webhookTargetUrl}\n\n${details}`);
+      } else if (mismatches.length > 0) {
+        alert(`URLs de webhook divergem após a sincronização.\n\nEsperado: ${data.webhookTargetUrl}\n\n${details}`);
       } else {
-        alert("Nenhuma instância para verificar. Crie uma conexão primeiro.");
+        alert(`Não foi possível sincronizar todos os webhooks.\n\n${details}`);
       }
     } catch {
-      setWebhookStatus("Erro ao verificar");
+      setWebhookStatus("Erro ao sincronizar");
     }
   };
 
@@ -328,10 +334,10 @@ export default function NativeWhatsAppDashboard() {
                   onClick={handleSyncWebhooks}
                   className="flex items-center justify-center gap-2 rounded-xl border border-zinc-600 px-4 py-2 text-xs font-medium text-zinc-300 transition-all hover:bg-zinc-800"
                 >
-                  Verificar Webhooks
+                  Sincronizar Webhooks
                 </button>
                 {webhookStatus && (
-                  <span className={`text-xs ${webhookStatus.includes("OK") ? "text-emerald-400" : "text-amber-400"}`}>
+                  <span className={`text-xs ${webhookStatus === "Webhooks sincronizados" ? "text-emerald-400" : "text-amber-400"}`}>
                     {webhookStatus}
                   </span>
                 )}

@@ -15,7 +15,19 @@ export async function GET(req: Request) {
     const instance_name = searchParams.get("instance_name");
 
     if (id) {
-      // Retorna mensagens de uma conversa específica
+      const rawAfter = searchParams.get("after");
+      const rawBefore = searchParams.get("before");
+      const beforeId = searchParams.get("before_id");
+      if (rawAfter && rawBefore) {
+        return NextResponse.json({ error: "Use apenas um cursor de mensagens" }, { status: 400 });
+      }
+
+      const after = rawAfter ? new Date(rawAfter) : null;
+      const before = rawBefore ? new Date(rawBefore) : null;
+      if ((after && Number.isNaN(after.getTime())) || (before && Number.isNaN(before.getTime()))) {
+        return NextResponse.json({ error: "Cursor de mensagens inválido" }, { status: 400 });
+      }
+
       const conversationWhere: any = {
         id,
         tenant_id: session.tenant_id,
@@ -30,17 +42,51 @@ export async function GET(req: Request) {
       const conversation = await prisma.conversation.findFirst({
         where: conversationWhere,
         include: {
-          messages: { orderBy: { created_at: "asc" } },
           leads: { select: { id: true, name: true, status: true, value: true } },
         },
       });
 
       if (!conversation) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
 
+      const cursorWhere = after
+        ? { created_at: { gte: after } }
+        : before
+          ? beforeId
+            ? { OR: [{ created_at: { lt: before } }, { created_at: before, id: { lt: beforeId } }] }
+            : { created_at: { lt: before } }
+          : {};
+      const messageWhere = {
+        tenant_id: session.tenant_id,
+        conversation_id: conversation.id,
+        ...cursorWhere,
+      };
+      const [messagePage, team] = await Promise.all([
+        prisma.message.findMany({
+          where: messageWhere,
+          orderBy: after
+            ? [{ created_at: "asc" }, { id: "asc" }]
+            : [{ created_at: "desc" }, { id: "desc" }],
+          take: after ? 500 : 101,
+        }),
+        !after && !before && session.role !== "partner"
+          ? prisma.user.findMany({
+              where: { tenant_id: session.tenant_id, role: "agent" },
+              select: { id: true, name: true },
+              orderBy: [{ name: "asc" }, { id: "asc" }],
+            })
+          : Promise.resolve(undefined),
+      ]);
+      const hasMore = !after && messagePage.length > 100;
+      const messages = after
+        ? messagePage
+        : messagePage.slice(0, 100).reverse();
+
       return NextResponse.json({
-        conversation,
-        messages: conversation.messages || [],
+        conversation: { ...conversation, messages },
+        messages,
         leads: conversation.leads || [],
+        hasMore,
+        ...(team ? { team } : {}),
       });
     }
 
@@ -126,12 +172,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
     }
 
-    if (session.role === "partner" && assigned_to !== undefined) {
-      return NextResponse.json({ error: "Parceiros não podem atribuir conversas" }, { status: 403 });
-    }
-
     if (session.role === "agent" && assigned_to !== undefined && assigned_to !== null && assigned_to !== session.id) {
       return NextResponse.json({ error: "Agentes só podem assumir conversas para si" }, { status: 403 });
+    }
+
+    if (session.role === "partner" && assigned_to !== undefined) {
+      return NextResponse.json({ error: "Parceiros não podem atribuir conversas" }, { status: 403 });
     }
 
     if (assigned_to !== undefined && assigned_to !== null && typeof assigned_to !== "string") {

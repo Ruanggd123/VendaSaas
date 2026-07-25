@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type MediaType = "image" | "audio" | "video" | "document";
 type ClientStatus = "sending" | "sent" | "failed";
+type MessageFetchMode = "initial" | "delta" | "before";
 
 interface Message {
   id: string;
@@ -176,6 +177,20 @@ function isNearBottom(element: HTMLDivElement | null) {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
+function mediaTypeForFile(file: File, fallback: MediaType = "document"): MediaType {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("audio/")) return "audio";
+  if (file.type.startsWith("video/")) return "video";
+  return fallback;
+}
+
+function sortMessages(messages: Message[]) {
+  return messages.sort((a, b) => {
+    const timeDifference = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return timeDifference || a.id.localeCompare(b.id);
+  });
+}
+
 export default function ConversasPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -193,6 +208,10 @@ export default function ConversasPage() {
   const [messagesError, setMessagesError] = useState("");
   const [composerError, setComposerError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadName, setUploadName] = useState("");
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [olderMessagesLoading, setOlderMessagesLoading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -201,7 +220,8 @@ export default function ConversasPage() {
   const [controlLoading, setControlLoading] = useState<"assignment" | "ai" | null>(null);
 
   const listRequestRef = useRef(false);
-  const messageRequestRef = useRef(false);
+  const messageRequestRef = useRef<{ conversationId: string; version: number } | null>(null);
+  const messageRequestVersionRef = useRef(0);
   const selectedIdRef = useRef<string | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const initialScrollRef = useRef<string | null>(null);
@@ -213,6 +233,7 @@ export default function ConversasPage() {
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recorderTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dragDepthRef = useRef(0);
 
   const selected = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
@@ -292,30 +313,61 @@ export default function ConversasPage() {
     }
   }, [activeInstance, assignedFilter]);
 
-  const fetchMessages = useCallback(async (conversationId: string, force = false) => {
-    if (messageRequestRef.current || (!force && document.hidden)) return;
-    messageRequestRef.current = true;
+  const fetchMessages = useCallback(async (conversationId: string, mode: MessageFetchMode = "delta") => {
+    if (messageRequestRef.current?.conversationId === conversationId || (mode === "delta" && document.hidden)) return;
+
+    let effectiveMode = mode;
+    const params = new URLSearchParams({ id: conversationId });
+    const serverMessages = messagesRef.current.filter((message) => !message.id.startsWith("client-"));
+    if (mode === "delta") {
+      const latest = serverMessages[serverMessages.length - 1];
+      if (latest) {
+        params.set("after", latest.created_at);
+      }
+      else effectiveMode = "initial";
+    } else if (mode === "before") {
+      const earliest = serverMessages[0];
+      if (!earliest) {
+        setHasMoreMessages(false);
+        return;
+      }
+      params.set("before", earliest.created_at);
+      params.set("before_id", earliest.id);
+    }
+
+    const requestVersion = ++messageRequestVersionRef.current;
+    messageRequestRef.current = { conversationId, version: requestVersion };
     const shouldFollow = isNearBottom(scrollRef.current);
+    const previousScrollHeight = scrollRef.current?.scrollHeight ?? 0;
+    const previousScrollTop = scrollRef.current?.scrollTop ?? 0;
     const previousServerIds = new Set(
-      messagesRef.current.filter((message) => !message.clientStatus).map((message) => message.id),
+      serverMessages.map((message) => message.id),
     );
+    if (effectiveMode === "before") setOlderMessagesLoading(true);
     try {
-      const response = await fetch(`/api/conversations?id=${encodeURIComponent(conversationId)}`, {
+      const response = await fetch(`/api/conversations?${params.toString()}`, {
         cache: "no-store",
       });
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível carregar as mensagens."));
-      if (selectedIdRef.current !== conversationId) return;
-      const serverMessages = (Array.isArray(data.messages) ? data.messages : []) as Message[];
-      const serverIds = new Set(serverMessages.map((message) => message.id));
-      const pending = messagesRef.current.filter(
-        (message) => message.clientStatus && message.clientStatus !== "sent" && !serverIds.has(message.id),
-      );
-      const next = [...serverMessages, ...pending];
-      const hasNewServerMessage = serverMessages.some((message) => !previousServerIds.has(message.id));
+      if (selectedIdRef.current !== conversationId || messageRequestVersionRef.current !== requestVersion) return;
+      const incoming = (Array.isArray(data.messages) ? data.messages : []) as Message[];
+      const retained = effectiveMode === "initial"
+        ? messagesRef.current.filter(
+            (message) => message.clientStatus === "sending" || message.clientStatus === "failed",
+          )
+        : messagesRef.current;
+      const byId = new Map(retained.map((message) => [message.id, message]));
+      incoming.forEach((message) => byId.set(message.id, message));
+      const next = sortMessages(Array.from(byId.values()));
+      const hasNewServerMessage = incoming.some((message) => !previousServerIds.has(message.id));
       setMessages(next);
       messagesRef.current = next;
       setMessagesError("");
+      if (effectiveMode === "initial" || effectiveMode === "before") {
+        setHasMoreMessages(data.hasMore === true);
+      }
+      if (Array.isArray(data.team)) setTeam(data.team as unknown as TeamMember[]);
 
       const detail = data.conversation as Conversation | undefined;
       if (detail?.id) {
@@ -329,7 +381,10 @@ export default function ConversasPage() {
       }
 
       requestAnimationFrame(() => {
-        if (initialScrollRef.current !== conversationId) {
+        if (effectiveMode === "before") {
+          const element = scrollRef.current;
+          if (element) element.scrollTop = previousScrollTop + element.scrollHeight - previousScrollHeight;
+        } else if (initialScrollRef.current !== conversationId) {
           initialScrollRef.current = conversationId;
           scrollToBottom("auto");
         } else if (shouldFollow) {
@@ -343,8 +398,10 @@ export default function ConversasPage() {
         setMessagesError(error instanceof Error ? error.message : "Não foi possível carregar as mensagens.");
       }
     } finally {
-      setMessagesLoading(false);
-      messageRequestRef.current = false;
+      const isCurrentRequest = messageRequestVersionRef.current === requestVersion;
+      if (isCurrentRequest && effectiveMode === "initial") setMessagesLoading(false);
+      if (isCurrentRequest && effectiveMode === "before") setOlderMessagesLoading(false);
+      if (messageRequestRef.current?.version === requestVersion) messageRequestRef.current = null;
     }
   }, [scrollToBottom]);
 
@@ -388,7 +445,6 @@ export default function ConversasPage() {
         if (Array.isArray(data.team)) setTeam(data.team as unknown as TeamMember[]);
       })
       .catch(() => undefined);
-    fetch("/api/whatsapp/sync-webhook", { method: "POST" }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -411,17 +467,21 @@ export default function ConversasPage() {
     if (!selectedId) {
       setMessages([]);
       messagesRef.current = [];
+      setHasMoreMessages(false);
+      setOlderMessagesLoading(false);
       return;
     }
     initialScrollRef.current = null;
     setMessages([]);
     messagesRef.current = [];
+    setHasMoreMessages(false);
+    setOlderMessagesLoading(false);
     setMessagesLoading(true);
     setMessagesError("");
-    void fetchMessages(selectedId, true);
-    const interval = window.setInterval(() => void fetchMessages(selectedId), 3_000);
+    void fetchMessages(selectedId, "initial");
+    const interval = window.setInterval(() => void fetchMessages(selectedId), 1_500);
     const refresh = () => {
-      if (!document.hidden) void fetchMessages(selectedId, true);
+      if (!document.hidden) void fetchMessages(selectedId, "delta");
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -452,12 +512,22 @@ export default function ConversasPage() {
   };
 
   const updateOptimistic = (id: string, update: Partial<Message>) => {
-    setMessages((current) => current.map((message) => (message.id === id ? { ...message, ...update } : message)));
+    setMessages((current) => {
+      const next = current.map((message) => (message.id === id ? { ...message, ...update } : message));
+      messagesRef.current = next;
+      return next;
+    });
   };
 
-  const submitMessage = async (payload: SendPayload, retryId?: string) => {
-    const conversationId = selectedIdRef.current;
-    if (!conversationId || (!payload.content.trim() && !payload.mediaUrl)) return;
+  const submitMessage = async (
+    payload: SendPayload,
+    retryId?: string,
+    targetConversation = selected,
+    clearDraft = true,
+  ) => {
+    if (!targetConversation || (!payload.content.trim() && !payload.mediaUrl)) return false;
+    const conversationId = targetConversation.id;
+    const isCurrentConversation = () => selectedIdRef.current === conversationId;
     const tempId = retryId ?? `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const optimistic: Message = {
       id: tempId,
@@ -472,13 +542,17 @@ export default function ConversasPage() {
       clientPayload: payload,
     };
 
-    if (retryId) updateOptimistic(retryId, { clientStatus: "sending", error: undefined });
-    else {
-      setMessages((current) => [...current, optimistic]);
-      setDraft("");
+    if (retryId && isCurrentConversation()) updateOptimistic(retryId, { clientStatus: "sending", error: undefined });
+    else if (isCurrentConversation()) {
+      setMessages((current) => {
+        const next = [...current, optimistic];
+        messagesRef.current = next;
+        return next;
+      });
+      if (clearDraft) setDraft("");
       requestAnimationFrame(() => scrollToBottom("smooth"));
     }
-    setComposerError("");
+    if (isCurrentConversation()) setComposerError("");
 
     try {
       const response = await fetch("/api/conversations/message", {
@@ -494,15 +568,19 @@ export default function ConversasPage() {
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível enviar a mensagem."));
       const serverMessage = data.message as Message | undefined;
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === tempId
-            ? serverMessage
-              ? { ...serverMessage, clientStatus: "sent" }
-              : { ...message, clientStatus: "sent", error: undefined }
-            : message,
-        ),
-      );
+      if (isCurrentConversation()) {
+        setMessages((current) => {
+          const next: Message[] = current.map((message) =>
+            message.id === tempId
+              ? serverMessage
+                ? { ...serverMessage, clientStatus: "sent" as const }
+                : { ...message, clientStatus: "sent" as const, error: undefined }
+              : message,
+          );
+          messagesRef.current = next;
+          return next;
+        });
+      }
       if (data.conversation) {
         const updated = data.conversation as Conversation;
         setConversations((current) =>
@@ -512,16 +590,27 @@ export default function ConversasPage() {
         );
       }
       void fetchConversations();
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível enviar a mensagem.";
-      updateOptimistic(tempId, { clientStatus: "failed", error: message });
-      if (payload.content) setDraft((current) => current.trim() ? current : payload.content);
-      setComposerError(message);
+      if (isCurrentConversation()) {
+        updateOptimistic(tempId, { clientStatus: "failed", error: message });
+        if (payload.content) setDraft((current) => current.trim() ? current : payload.content);
+        setComposerError(message);
+      }
+      return false;
     }
   };
 
-  const uploadAndSend = async (file: File | Blob, mediaType: MediaType, filename?: string) => {
+  const uploadAndSend = async (
+    file: File | Blob,
+    mediaType: MediaType,
+    filename?: string,
+    caption = draft,
+    targetConversation = selected,
+  ) => {
     setUploading(true);
+    setUploadName(filename || "arquivo");
     setComposerError("");
     const formData = new FormData();
     formData.append("file", file, filename);
@@ -531,23 +620,83 @@ export default function ConversasPage() {
       if (!response.ok || typeof data.url !== "string") {
         throw new Error(errorFrom(data, "O arquivo não pôde ser enviado."));
       }
-      await submitMessage({ content: draft, mediaUrl: data.url, mediaType });
+      return await submitMessage(
+        { content: caption, mediaUrl: data.url, mediaType },
+        undefined,
+        targetConversation,
+        false,
+      );
     } catch (error) {
-      setComposerError(error instanceof Error ? error.message : "O arquivo não pôde ser enviado.");
+      if (selectedIdRef.current === targetConversation?.id) {
+        setComposerError(error instanceof Error ? error.message : "O arquivo não pôde ser enviado.");
+      }
+      return false;
     } finally {
       setUploading(false);
+      setUploadName("");
+    }
+  };
+
+  const uploadFiles = async (files: File[], fallback: MediaType = "document") => {
+    const targetConversation = selected;
+    if (!files.length || uploading || recording || !targetConversation) return;
+    const caption = draft;
+    let captionPending = caption;
+    if (caption && selectedIdRef.current === targetConversation.id) setDraft("");
+    for (const file of files) {
+      const uploaded = await uploadAndSend(
+        file,
+        mediaTypeForFile(file, fallback),
+        file.name,
+        captionPending,
+        targetConversation,
+      );
+      if (!uploaded) break;
+      captionPending = "";
+    }
+    if (captionPending && selectedIdRef.current === targetConversation.id) {
+      setDraft((current) => current.trim() ? current : captionPending);
     }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    let type = fileTypeRef.current;
-    if (file.type.startsWith("image/")) type = "image";
-    else if (file.type.startsWith("audio/")) type = "audio";
-    else if (file.type.startsWith("video/")) type = "video";
-    await uploadAndSend(file, type, file.name);
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    await uploadFiles(files, fileTypeRef.current);
     event.target.value = "";
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files);
+    if (!files.length) return;
+    event.preventDefault();
+    void uploadFiles(files);
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFile(true);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLElement>) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFile(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFile(false);
+    void uploadFiles(Array.from(event.dataTransfer.files));
   };
 
   const triggerFilePicker = (type: MediaType) => {
@@ -681,7 +830,7 @@ export default function ConversasPage() {
         </div>
 
         <div className="space-y-2.5 border-b border-slate-200/80 p-3 dark:border-white/10">
-          {sessionUser?.role !== "agent" && (
+          {sessionUser?.role !== "agent" && sessionUser?.role !== "partner" && (
             <select
               aria-label="Filtrar por atendente"
               value={assignedFilter}
@@ -798,15 +947,39 @@ export default function ConversasPage() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={!sessionUser || Boolean(controlLoading)}
-                  onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id })}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:text-xs"
-                >
-                  {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
-                  <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
-                </button>
+                {sessionUser?.role === "agent" ? (
+                  <button
+                    type="button"
+                    disabled={Boolean(controlLoading)}
+                    onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:text-xs"
+                  >
+                    {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
+                    <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
+                  </button>
+                ) : sessionUser && sessionUser.role !== "partner" ? (
+                  <label className="flex max-w-32 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 text-[10px] font-bold dark:border-white/10 dark:bg-white/5 sm:max-w-44 sm:text-xs">
+                    <span className="sr-only">Atribuir conversa</span>
+                    {controlLoading === "assignment" ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <UserCheck className="size-3.5 shrink-0" />}
+                    <select
+                      value={selected.assigned_to || ""}
+                      disabled={Boolean(controlLoading)}
+                      onChange={(event) => void patchConversation("assignment", { assigned_to: event.target.value || null })}
+                      className="min-w-0 flex-1 bg-transparent py-2 outline-none disabled:opacity-50"
+                    >
+                      <option value="">Liberar para fila</option>
+                      {!team.some((member) => member.id === sessionUser.id) && (
+                        <option value={sessionUser.id}>{sessionUser.name || "Minha conta"} (eu)</option>
+                      )}
+                      {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
+                      {selected.assigned_to &&
+                        selected.assigned_to !== sessionUser.id &&
+                        !team.some((member) => member.id === selected.assigned_to) && (
+                          <option value={selected.assigned_to}>{selected.assignee?.name || "Responsável atual"}</option>
+                        )}
+                    </select>
+                  </label>
+                ) : null}
                 <button
                   type="button"
                   disabled={Boolean(controlLoading)}
@@ -828,9 +1001,20 @@ export default function ConversasPage() {
             </div>
 
             <div className="flex min-h-0 flex-1">
-              <section className="relative flex min-w-0 flex-1 flex-col">
+              <section
+                className="relative flex min-w-0 flex-1 flex-col"
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {isDraggingFile && (
+                  <div className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-indigo-500 bg-indigo-50/95 text-sm font-black text-indigo-700 shadow-xl dark:bg-indigo-950/95 dark:text-indigo-300">
+                    <span className="inline-flex items-center gap-2"><Paperclip className="size-5" />Solte para enviar</span>
+                  </div>
+                )}
                 {messagesError && (
-                  <div className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"><CircleAlert className="size-4 shrink-0" /><span className="flex-1">{messagesError}</span><button type="button" onClick={() => void fetchMessages(selected.id, true)} className="font-bold">Tentar novamente</button></div>
+                  <div className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"><CircleAlert className="size-4 shrink-0" /><span className="flex-1">{messagesError}</span><button type="button" onClick={() => void fetchMessages(selected.id, messages.length ? "delta" : "initial")} className="font-bold">Tentar novamente</button></div>
                 )}
                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-slate-100/50 px-3 py-5 dark:bg-slate-950/50 sm:px-7">
                   {messagesLoading && messages.length === 0 ? (
@@ -839,6 +1023,19 @@ export default function ConversasPage() {
                     <div className="flex h-full flex-col items-center justify-center text-center text-slate-500"><MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" /><p className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma mensagem ainda</p><p className="mt-1 text-xs">Envie uma mensagem para iniciar o atendimento.</p></div>
                   ) : (
                     <div className="space-y-2">
+                      {hasMoreMessages && (
+                        <div className="flex justify-center pb-2">
+                          <button
+                            type="button"
+                            disabled={olderMessagesLoading}
+                            onClick={() => void fetchMessages(selected.id, "before")}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black text-slate-600 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-60 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
+                          >
+                            {olderMessagesLoading && <Loader2 className="size-3 animate-spin" />}
+                            Carregar anteriores
+                          </button>
+                        </div>
+                      )}
                       {messages.map((message, index) => {
                         const outgoing = message.direction === "outbound" || message.direction === "outgoing";
                         const previous = messages[index - 1];
@@ -881,8 +1078,9 @@ export default function ConversasPage() {
                   <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5">
                     {QUICK_REPLIES.map((reply) => <button type="button" key={reply} onClick={() => setDraft(reply)} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Sparkles className="mr-1 inline size-3" />{reply}</button>)}
                   </div>
+                  {uploading && <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400"><Loader2 className="size-3.5 shrink-0 animate-spin" /><span className="truncate">Enviando {uploadName}</span></div>}
                   {composerError && <div className="mb-2 flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400"><CircleAlert className="size-3.5 shrink-0" />{composerError}</div>}
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                   <div className="flex items-end gap-2">
                     <div className="relative" ref={attachRef}>
                       <button type="button" disabled={uploading || recording} onClick={() => setShowAttachMenu((value) => !value)} aria-expanded={showAttachMenu} aria-label="Anexar arquivo" className="rounded-xl p-2.5 text-slate-500 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5">{uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}</button>
@@ -899,6 +1097,7 @@ export default function ConversasPage() {
                         rows={1}
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
+                        onPaste={handlePaste}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();
@@ -911,7 +1110,7 @@ export default function ConversasPage() {
                     )}
                     {!recording && !draft.trim() ? <button type="button" onClick={() => void startRecording()} disabled={uploading} className="rounded-xl p-2.5 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10" aria-label="Gravar áudio"><Mic className="size-5" /></button> : !recording && <button type="button" onClick={() => void submitMessage({ content: draft })} disabled={!draft.trim() || uploading} className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 p-2.5 text-white shadow-lg shadow-indigo-500/20 transition hover:brightness-110 disabled:opacity-50" aria-label="Enviar mensagem"><Send className="size-5" /></button>}
                   </div>
-                  <p className="mt-1 pl-12 text-[9px] text-slate-400">Enter envia, Shift+Enter quebra a linha</p>
+                  <p className="mt-1 pl-12 text-[9px] text-slate-400">Enter envia, Shift+Enter quebra a linha. Cole ou arraste arquivos.</p>
                 </div>
               </section>
 

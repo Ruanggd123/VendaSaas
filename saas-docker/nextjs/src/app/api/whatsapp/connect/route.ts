@@ -89,7 +89,7 @@ export async function POST(req: Request) {
               webhook: {
                 enabled: true,
                 url: webhookTargetUrl,
-                webhookByEvents: false,
+                byEvents: false,
                 events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"],
               },
             }),
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
             webhook: {
               enabled: true,
               url: webhookTargetUrl,
-              webhookByEvents: false,
+              byEvents: false,
               events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"],
             },
           }),

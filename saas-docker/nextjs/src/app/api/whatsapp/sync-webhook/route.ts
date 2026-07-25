@@ -44,26 +44,18 @@ export async function POST(req: Request) {
 
     const appBaseUrl = getValidAppBaseUrl(req);
     const webhookTargetUrl = `${appBaseUrl}/api/webhooks/evolution`;
+    const expectedEvents = ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"];
 
     const instances = await prisma.whatsappInstance.findMany({
-      where: { tenant_id: session.tenant_id },
+      where: {
+        tenant_id: session.tenant_id,
+        ...(session.role === "partner" ? { partner_id: session.id } : {}),
+      },
     });
 
     const results = [];
 
     for (const inst of instances) {
-      let webhookInfo: any = null;
-      try {
-        // Verifica webhook atual configurado na Evolution API
-        const findRes = await fetch(`${evolutionUrl}/webhook/find/${inst.name}`, {
-          method: "GET",
-          headers,
-        });
-        if (findRes.ok) {
-          webhookInfo = await findRes.json().catch(() => null);
-        }
-      } catch {}
-
       try {
         const res = await fetch(`${evolutionUrl}/webhook/set/${inst.name}`, {
           method: "POST",
@@ -72,26 +64,70 @@ export async function POST(req: Request) {
             webhook: {
               enabled: true,
               url: webhookTargetUrl,
-              webhookByEvents: false,
-              events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "SEND_MESSAGE"],
+              byEvents: false,
+              events: expectedEvents,
             },
           }),
         });
 
+        if (!res.ok) {
+          results.push({
+            instance: inst.name,
+            ok: false,
+            status: res.status,
+            error: "Falha ao configurar webhook na Evolution API",
+            webhookAtual: null,
+            webhookEsperado: webhookTargetUrl,
+          });
+          continue;
+        }
+
+        const findRes = await fetch(`${evolutionUrl}/webhook/find/${inst.name}`, {
+          method: "GET",
+          headers,
+        });
+
+        if (!findRes.ok) {
+          results.push({
+            instance: inst.name,
+            ok: false,
+            status: findRes.status,
+            error: "Webhook configurado, mas não foi possível verificar o estado atual",
+            webhookAtual: null,
+            webhookEsperado: webhookTargetUrl,
+          });
+          continue;
+        }
+
+        const webhookInfo: any = await findRes.json().catch(() => null);
+        const webhook = webhookInfo?.webhook || webhookInfo;
+        const webhookAtual = webhook?.url || null;
+        const configuredEvents = Array.isArray(webhook?.events) ? webhook.events : [];
+        const configurationMatches =
+          webhookAtual === webhookTargetUrl &&
+          webhook?.enabled === true &&
+          webhook?.webhookByEvents === false &&
+          expectedEvents.every((event) => configuredEvents.includes(event));
         results.push({
           instance: inst.name,
-          ok: res.ok,
-          status: res.status,
-          webhookAtual: webhookInfo?.webhook?.url || null,
+          ok: configurationMatches,
+          status: findRes.status,
+          webhookAtual,
           webhookEsperado: webhookTargetUrl,
         });
       } catch (err: any) {
-        results.push({ instance: inst.name, ok: false, error: err.message });
+        results.push({
+          instance: inst.name,
+          ok: false,
+          error: err.message,
+          webhookAtual: null,
+          webhookEsperado: webhookTargetUrl,
+        });
       }
     }
 
     return NextResponse.json({
-      success: true,
+      success: results.every((result) => result.ok),
       webhookTargetUrl,
       results,
     });
