@@ -1,7 +1,3 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
 const EVOLUTION_API_URL = process.env.EVOLUTION_URL;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
@@ -65,18 +61,20 @@ export async function getProfilePicture(instanceName: string, number: string) {
  * Envia uma mídia/arquivo via WhatsApp (Evolution API)
  * Infere automaticamente se é document, video, ou image.
  */
-export async function sendWhatsAppMedia(instanceName: string, number: string, mediaUrl: string, caption?: string) {
+export async function sendWhatsAppMedia(instanceName: string, number: string, mediaUrl: string, caption?: string, explicitMediaType?: string) {
   try {
     // Inferir o mediatype baseado na extensão da URL
     const urlLower = mediaUrl.toLowerCase();
-    let mediaType = "document"; // Padrão seguro para PDFs, ZIPs, etc.
+    let mediaType = explicitMediaType || "document"; // Padrão seguro para PDFs, ZIPs, etc.
     
-    if (urlLower.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i)) {
-      mediaType = "image";
-    } else if (urlLower.match(/\.(mp4|avi|mkv|mov|webm)$/i)) {
-      mediaType = "video";
-    } else if (urlLower.match(/\.(mp3|ogg|wav)$/i)) {
-      mediaType = "audio";
+    if (!explicitMediaType) {
+      if (urlLower.match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i)) {
+        mediaType = "image";
+      } else if (urlLower.match(/\.(mp4|avi|mkv|mov)$/i)) {
+        mediaType = "video";
+      } else if (urlLower.match(/\.(mp3|ogg|wav|webm)$/i)) {
+        mediaType = "audio";
+      }
     }
 
     const res = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {

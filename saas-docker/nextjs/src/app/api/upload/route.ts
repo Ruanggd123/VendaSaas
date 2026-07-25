@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const file = formData.get('file') as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
     }
 
     const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     // Validar tipo de arquivo por extensão (whitelist segura)
-    const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.mp4', '.mp3', '.ogg', '.docx', '.xlsx', '.zip'];
+    const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.m4a', '.docx', '.xlsx', '.zip'];
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       return NextResponse.json({ error: `Tipo de arquivo não permitido: ${ext}. Permitidos: ${ALLOWED_EXTENSIONS.join(', ')}` }, { status: 400 });
@@ -55,7 +55,8 @@ export async function POST(req: Request) {
       const filePath = join(uploadsDir, filename);
       await writeFile(filePath, bufferData);
       
-      return NextResponse.json({ success: true, url: `/uploads/${filename}` });
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, '');
+      return NextResponse.json({ success: true, url: `${appUrl}/uploads/${filename}` });
     }
 
     // Instancia o Client do S3 apontando para o Cloudflare R2
@@ -79,8 +80,8 @@ export async function POST(req: Request) {
     const fileUrl = publicUrl ? `${publicUrl.replace(/\/$/, '')}/${filename}` : `https://${bucketName}.${accountId}.r2.cloudflarestorage.com/${filename}`;
 
     return NextResponse.json({ success: true, url: fileUrl });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in upload API:", error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ error: 'Não foi possível enviar o arquivo. Tente novamente.' }, { status: 500 });
   }
 }

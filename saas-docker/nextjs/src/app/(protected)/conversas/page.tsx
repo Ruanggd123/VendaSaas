@@ -1,60 +1,71 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import {
-  MessageSquare,
-  Search,
-  User,
-  Phone,
+  ArrowDown,
+  ArrowLeft,
+  Bot,
+  Check,
+  CircleAlert,
   Clock,
-  Send,
-  Paperclip,
-  Mic,
-  Square,
-  Image as ImageIcon,
   FileText,
+  Image as ImageIcon,
+  Loader2,
+  MessageSquare,
+  Mic,
   Music,
-  CheckCheck,
-  Zap,
-  UserCheck,
+  Paperclip,
+  Phone,
+  RefreshCw,
+  Search,
+  Send,
   Sparkles,
-  ChevronDown,
-  ShieldCheck,
-  Circle,
-  MoreVertical,
-  Volume2,
+  Square,
+  UserCheck,
+  Video,
+  Wifi,
+  WifiOff,
+  X,
 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-interface Conversation {
-  id: string;
-  contact_number: string;
-  contact_name?: string;
-  profile_picture?: string;
-  status: string;
-  last_message_at?: string;
-  created_at: string;
-  ai_paused: boolean;
-  assigned_to?: string;
-  assignee?: { id: string; name: string };
-  messages?: Message[];
-  leads?: Lead[];
-  _count?: { messages: number };
-}
+type MediaType = "image" | "audio" | "video" | "document";
+type ClientStatus = "sending" | "sent" | "failed";
 
 interface Message {
   id: string;
   direction: string;
   content: string;
   ai_generated: boolean;
-  metadata?: string;
+  metadata?: string | null;
   created_at: string;
+  clientStatus?: ClientStatus;
+  clientPayload?: SendPayload;
+  error?: string;
 }
 
 interface Lead {
   id: string;
-  name?: string;
-  status?: string;
-  value?: number;
+  name?: string | null;
+  status?: string | null;
+  value?: number | null;
+}
+
+interface Conversation {
+  id: string;
+  contact_number: string;
+  contact_name?: string | null;
+  profile_picture?: string | null;
+  status: string;
+  instance_name?: string | null;
+  last_message_at?: string | null;
+  created_at: string;
+  ai_paused: boolean;
+  assigned_to?: string | null;
+  assignee?: { id: string; name?: string | null } | null;
+  messages?: Message[];
+  leads?: Lead[];
+  _count?: { messages: number };
 }
 
 interface Instance {
@@ -65,736 +76,861 @@ interface Instance {
 
 interface TeamMember {
   id: string;
-  name: string;
+  name?: string | null;
 }
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "agora";
-  if (mins < 60) return `${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} h`;
-  return `${Math.floor(hrs / 24)} d`;
+interface SendPayload {
+  content: string;
+  mediaUrl?: string;
+  mediaType?: MediaType;
+}
+
+interface SeenValue {
+  id: string;
+  time: string;
+}
+
+const QUICK_REPLIES = [
+  "Olá! Como posso ajudar?",
+  "Vou verificar para você.",
+  "Obrigado pelo contato!",
+];
+const SEEN_STORAGE_KEY = "conversations:last-seen:v1";
+
+function timeAgo(iso?: string | null) {
+  if (!iso) return "sem mensagens";
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return "";
+  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60_000));
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h`;
+  return `${Math.floor(hours / 24)} d`;
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function parseMetadata(message: Message): { type?: MediaType; url?: string } {
+  if (!message.metadata) return {};
+  try {
+    const value: unknown = JSON.parse(message.metadata);
+    if (typeof value !== "object" || value === null) return {};
+    const record = value as Record<string, unknown>;
+    return {
+      type:
+        record.type === "image" ||
+        record.type === "audio" ||
+        record.type === "video" ||
+        record.type === "document"
+          ? record.type
+          : undefined,
+      url: typeof record.url === "string" ? record.url : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function readJson(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const value: unknown = await response.json();
+    return typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function errorFrom(data: Record<string, unknown>, fallback: string) {
+  return typeof data.error === "string"
+    ? data.error
+    : typeof data.message === "string"
+      ? data.message
+      : fallback;
+}
+
+function latestMessage(conversation: Conversation) {
+  return conversation.messages?.[0];
+}
+
+function messagePreview(message?: Message) {
+  if (!message) return "Conversa ainda sem mensagens";
+  const media = parseMetadata(message);
+  if (message.content && !message.content.startsWith("[Mídia")) return message.content;
+  if (media.type === "image") return "Imagem";
+  if (media.type === "audio") return "Áudio";
+  if (media.type === "video") return "Vídeo";
+  if (media.type === "document") return "Documento";
+  return message.content || "Mídia";
+}
+
+function isNearBottom(element: HTMLDivElement | null) {
+  if (!element) return true;
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
 export default function ConversasPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [activeInstance, setActiveInstance] = useState<string>("");
-  const [selected, setSelected] = useState<Conversation | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [activeInstance, setActiveInstance] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMsg, setNewMsg] = useState("");
-  const [sending, setSending] = useState(false);
   const [team, setTeam] = useState<TeamMember[]>([]);
-  const [sessionUser, setSessionUser] = useState<{ id: string; role: string; name: string } | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; role: string; name?: string | null } | null>(null);
+  const [search, setSearch] = useState("");
   const [assignedFilter, setAssignedFilter] = useState("all");
+  const [draft, setDraft] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [listError, setListError] = useState("");
+  const [messagesError, setMessagesError] = useState("");
+  const [composerError, setComposerError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showNewMessages, setShowNewMessages] = useState(false);
+  const [seen, setSeen] = useState<Record<string, SeenValue>>({});
+  const [controlLoading, setControlLoading] = useState<"assignment" | "ai" | null>(null);
+
+  const listRequestRef = useRef(false);
+  const messageRequestRef = useRef(false);
+  const selectedIdRef = useRef<string | null>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const initialScrollRef = useRef<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileTypeRef = useRef<string>("");
+  const fileTypeRef = useRef<MediaType>("document");
   const attachRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recorderTimerRef = useRef<any>(null);
+  const recorderTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fecha menu de anexo ao clicar fora
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (attachRef.current && !attachRef.current.contains(e.target as Node)) {
-        setShowAttachMenu(false);
+  const selected = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
+    [conversations, selectedId],
+  );
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    return conversations.filter((conversation) => {
+      if (!term) return true;
+      return (
+        (conversation.contact_name ?? "").toLocaleLowerCase("pt-BR").includes(term) ||
+        conversation.contact_number.includes(term)
+      );
+    });
+  }, [conversations, search]);
+
+  const selectedInstance = useMemo(() => {
+    if (!selected?.instance_name) return null;
+    return (
+      instances.find(
+        (instance) =>
+          instance.name === selected.instance_name || instance.connectionName === selected.instance_name,
+      ) ?? null
+    );
+  }, [instances, selected]);
+
+  const saveSeen = useCallback((conversationId: string, message?: Message) => {
+    if (!message || message.direction === "outbound" || message.direction === "outgoing") return;
+    setSeen((current) => {
+      if (current[conversationId]?.id === message.id) return current;
+      const next = {
+        ...current,
+        [conversationId]: { id: message.id, time: message.created_at },
+      };
+      try {
+        localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Local unread state remains available for this tab when storage is unavailable.
       }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+      return next;
+    });
   }, []);
 
-  const fetchConversations = useCallback(async (instanceName?: string, assignedTo?: string) => {
-    try {
-      let url = `/api/conversations?`;
-      if (instanceName && instanceName !== "all") url += `instance_name=${encodeURIComponent(instanceName)}&`;
-      if (assignedTo && assignedTo !== "all") url += `assigned_to=${encodeURIComponent(assignedTo)}&`;
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior });
+    setShowNewMessages(false);
+  }, []);
 
-      const res = await fetch(url);
-      const data = await res.json();
-      const convsArray = Array.isArray(data) ? data : data.conversations || [];
-      const sorted = convsArray.sort((a: any, b: any) => {
-        const timeA = new Date(a.last_message_at || a.created_at).getTime();
-        const timeB = new Date(b.last_message_at || b.created_at).getTime();
-        return timeB - timeA;
-      });
-      setConversations(sorted);
-      if (data.instances && Array.isArray(data.instances)) {
-        setInstances(data.instances);
-      }
-    } catch (e) {
-      console.error(e);
+  const fetchConversations = useCallback(async () => {
+    if (listRequestRef.current || document.hidden) return;
+    listRequestRef.current = true;
+    try {
+      const params = new URLSearchParams();
+      if (activeInstance && activeInstance !== "all") params.set("instance_name", activeInstance);
+      if (assignedFilter !== "all") params.set("assigned_to", assignedFilter);
+      const response = await fetch(`/api/conversations?${params.toString()}`, { cache: "no-store" });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível carregar as conversas."));
+      const raw = Array.isArray(data) ? data : data.conversations;
+      const next = (Array.isArray(raw) ? raw : []) as Conversation[];
+      next.sort(
+        (a, b) =>
+          new Date(b.last_message_at || b.created_at).getTime() -
+          new Date(a.last_message_at || a.created_at).getTime(),
+      );
+      setConversations(next);
+      if (Array.isArray(data.instances)) setInstances(data.instances as unknown as Instance[]);
+      setListError("");
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "Não foi possível carregar as conversas.");
     } finally {
       setIsLoading(false);
+      listRequestRef.current = false;
     }
+  }, [activeInstance, assignedFilter]);
+
+  const fetchMessages = useCallback(async (conversationId: string, force = false) => {
+    if (messageRequestRef.current || (!force && document.hidden)) return;
+    messageRequestRef.current = true;
+    const shouldFollow = isNearBottom(scrollRef.current);
+    const previousServerIds = new Set(
+      messagesRef.current.filter((message) => !message.clientStatus).map((message) => message.id),
+    );
+    try {
+      const response = await fetch(`/api/conversations?id=${encodeURIComponent(conversationId)}`, {
+        cache: "no-store",
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível carregar as mensagens."));
+      if (selectedIdRef.current !== conversationId) return;
+      const serverMessages = (Array.isArray(data.messages) ? data.messages : []) as Message[];
+      const serverIds = new Set(serverMessages.map((message) => message.id));
+      const pending = messagesRef.current.filter(
+        (message) => message.clientStatus && message.clientStatus !== "sent" && !serverIds.has(message.id),
+      );
+      const next = [...serverMessages, ...pending];
+      const hasNewServerMessage = serverMessages.some((message) => !previousServerIds.has(message.id));
+      setMessages(next);
+      messagesRef.current = next;
+      setMessagesError("");
+
+      const detail = data.conversation as Conversation | undefined;
+      if (detail?.id) {
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === detail.id
+              ? { ...conversation, ...detail, messages: conversation.messages }
+              : conversation,
+          ),
+        );
+      }
+
+      requestAnimationFrame(() => {
+        if (initialScrollRef.current !== conversationId) {
+          initialScrollRef.current = conversationId;
+          scrollToBottom("auto");
+        } else if (shouldFollow) {
+          scrollToBottom("smooth");
+        } else if (hasNewServerMessage) {
+          setShowNewMessages(true);
+        }
+      });
+    } catch (error) {
+      if (selectedIdRef.current === conversationId) {
+        setMessagesError(error instanceof Error ? error.message : "Não foi possível carregar as mensagens.");
+      }
+    } finally {
+      setMessagesLoading(false);
+      messageRequestRef.current = false;
+    }
+  }, [scrollToBottom]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(SEEN_STORAGE_KEY) || "{}");
+      if (typeof stored === "object" && stored !== null) setSeen(stored as Record<string, SeenValue>);
+    } catch {
+      setSeen({});
+    }
+  }, []);
+
+  useEffect(() => {
+    const closeMenu = (event: MouseEvent) => {
+      if (attachRef.current && !attachRef.current.contains(event.target as Node)) setShowAttachMenu(false);
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
   }, []);
 
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.authenticated && d.user) setSessionUser(d.user);
-      });
-    fetch("/api/team")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.team) setTeam(d.team);
+      .then(readJson)
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setSessionUser(data.user as { id: string; role: string; name?: string | null });
+        }
       })
-      .catch(() => {});
-    fetch("/api/whatsapp/sync-webhook", { method: "POST" }).catch(() => {});
+      .catch(() => undefined);
+    fetch("/api/team")
+      .then(readJson)
+      .then((data) => {
+        if (Array.isArray(data.team)) setTeam(data.team as unknown as TeamMember[]);
+      })
+      .catch(() => undefined);
+    fetch("/api/whatsapp/sync-webhook", { method: "POST" }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    fetchConversations(activeInstance, assignedFilter);
-    const interval = setInterval(() => {
-      fetchConversations(activeInstance, assignedFilter);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchConversations, activeInstance, assignedFilter]);
+    setIsLoading(true);
+    void fetchConversations();
+    const interval = window.setInterval(() => void fetchConversations(), 5_000);
+    const refresh = () => {
+      if (!document.hidden) void fetchConversations();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [fetchConversations]);
 
   useEffect(() => {
-    if (!selected) return;
-    const loadMsgs = () => {
-      fetch(`/api/conversations?id=${selected.id}`)
-        .then((r) => r.json())
-        .then((d) => {
-          setMessages(d.messages || []);
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          }, 100);
-        });
+    if (!selectedId) {
+      setMessages([]);
+      messagesRef.current = [];
+      return;
+    }
+    initialScrollRef.current = null;
+    setMessages([]);
+    messagesRef.current = [];
+    setMessagesLoading(true);
+    setMessagesError("");
+    void fetchMessages(selectedId, true);
+    const interval = window.setInterval(() => void fetchMessages(selectedId), 3_000);
+    const refresh = () => {
+      if (!document.hidden) void fetchMessages(selectedId, true);
     };
-    loadMsgs();
-    const interval = setInterval(loadMsgs, 3000);
-    return () => clearInterval(interval);
-  }, [selected]);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [fetchMessages, selectedId]);
 
-  // Gravador de Áudio
-  const startRecording = async () => {
+  useEffect(() => {
+    if (!selectedId || !isNearBottom(scrollRef.current)) return;
+    const incoming = [...messages]
+      .reverse()
+      .find((message) => message.direction !== "outbound" && message.direction !== "outgoing");
+    saveSeen(selectedId, incoming);
+  }, [messages, saveSeen, selectedId]);
+
+  useEffect(() => () => {
+    if (recorderTimerRef.current) clearInterval(recorderTimerRef.current);
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const selectConversation = (conversation: Conversation) => {
+    setSelectedId(conversation.id);
+    setComposerError("");
+    saveSeen(conversation.id, latestMessage(conversation));
+  };
+
+  const updateOptimistic = (id: string, update: Partial<Message>) => {
+    setMessages((current) => current.map((message) => (message.id === id ? { ...message, ...update } : message)));
+  };
+
+  const submitMessage = async (payload: SendPayload, retryId?: string) => {
+    const conversationId = selectedIdRef.current;
+    if (!conversationId || (!payload.content.trim() && !payload.mediaUrl)) return;
+    const tempId = retryId ?? `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: Message = {
+      id: tempId,
+      direction: "outbound",
+      content: payload.content.trim() || `[Mídia: ${payload.mediaType ?? "document"}]`,
+      ai_generated: false,
+      created_at: new Date().toISOString(),
+      metadata: payload.mediaUrl
+        ? JSON.stringify({ type: payload.mediaType ?? "document", url: payload.mediaUrl })
+        : null,
+      clientStatus: "sending",
+      clientPayload: payload,
+    };
+
+    if (retryId) updateOptimistic(retryId, { clientStatus: "sending", error: undefined });
+    else {
+      setMessages((current) => [...current, optimistic]);
+      setDraft("");
+      requestAnimationFrame(() => scrollToBottom("smooth"));
+    }
+    setComposerError("");
+
     try {
+      const response = await fetch("/api/conversations/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          content: payload.content.trim(),
+          mediaUrl: payload.mediaUrl,
+          mediaType: payload.mediaType,
+        }),
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível enviar a mensagem."));
+      const serverMessage = data.message as Message | undefined;
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === tempId
+            ? serverMessage
+              ? { ...serverMessage, clientStatus: "sent" }
+              : { ...message, clientStatus: "sent", error: undefined }
+            : message,
+        ),
+      );
+      if (data.conversation) {
+        const updated = data.conversation as Conversation;
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === updated.id ? { ...conversation, ...updated } : conversation,
+          ),
+        );
+      }
+      void fetchConversations();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível enviar a mensagem.";
+      updateOptimistic(tempId, { clientStatus: "failed", error: message });
+      if (payload.content) setDraft((current) => current.trim() ? current : payload.content);
+      setComposerError(message);
+    }
+  };
+
+  const uploadAndSend = async (file: File | Blob, mediaType: MediaType, filename?: string) => {
+    setUploading(true);
+    setComposerError("");
+    const formData = new FormData();
+    formData.append("file", file, filename);
+    try {
+      const response = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await readJson(response);
+      if (!response.ok || typeof data.url !== "string") {
+        throw new Error(errorFrom(data, "O arquivo não pôde ser enviado."));
+      }
+      await submitMessage({ content: draft, mediaUrl: data.url, mediaType });
+    } catch (error) {
+      setComposerError(error instanceof Error ? error.message : "O arquivo não pôde ser enviado.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    let type = fileTypeRef.current;
+    if (file.type.startsWith("image/")) type = "image";
+    else if (file.type.startsWith("audio/")) type = "audio";
+    else if (file.type.startsWith("video/")) type = "video";
+    await uploadAndSend(file, type, file.name);
+    event.target.value = "";
+  };
+
+  const triggerFilePicker = (type: MediaType) => {
+    fileTypeRef.current = type;
+    setShowAttachMenu(false);
+    const input = fileInputRef.current;
+    if (!input) return;
+    input.accept =
+      type === "image" ? "image/*" : type === "audio" ? "audio/*" : type === "video" ? "video/*" : "*/*";
+    input.click();
+  };
+
+  const startRecording = async () => {
+    setComposerError("");
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("Gravação de áudio não é suportada neste navegador.");
+      }
+      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+      const mimeType = candidates.find((type) => MediaRecorder.isTypeSupported(type));
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-      mediaRecorderRef.current = mediaRecorder;
+      recordingStreamRef.current = stream;
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) audioChunksRef.current.push(event.data);
       };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
         if (recorderTimerRef.current) clearInterval(recorderTimerRef.current);
+        recorderTimerRef.current = null;
         setRecordingTime(0);
-
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        if (blob.size < 100) return;
-
-        setUploading(true);
-        const formData = new FormData();
-        formData.append("file", blob, `audio_${Date.now()}.webm`);
-        try {
-          const res = await fetch("/api/upload", { method: "POST", body: formData });
-          const data = await res.json();
-          if (data.url) {
-            await sendManual(data.url);
-          }
-        } catch (err) {
-          alert("Erro ao enviar áudio.");
-        } finally {
-          setUploading(false);
+        const blobType = recorder.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: blobType });
+        if (blob.size < 100) {
+          setComposerError("A gravação ficou vazia. Tente novamente.");
+          return;
         }
+        const extension = blobType.includes("ogg") ? "ogg" : blobType.includes("mp4") ? "m4a" : "webm";
+        void uploadAndSend(blob, "audio", `audio-${Date.now()}.${extension}`);
       };
-
-      mediaRecorder.start();
+      recorder.start();
       setRecording(true);
       setRecordingTime(0);
-      recorderTimerRef.current = setInterval(() => {
-        setRecordingTime((t) => t + 1);
-      }, 1000);
-    } catch (err) {
-      alert("Não foi possível acessar o microfone. Verifique as permissões.");
+      recorderTimerRef.current = setInterval(() => setRecordingTime((value) => value + 1), 1_000);
+    } catch (error) {
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      setComposerError(
+        error instanceof Error ? error.message : "Não foi possível acessar o microfone. Verifique a permissão.",
+      );
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    setRecording(false);
   };
 
-  const formatRecordingTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const sendManual = async (fileUrl?: string) => {
-    if (!newMsg.trim() && !fileUrl) return;
-    if (!selected) return;
-    setSending(true);
-
-    const isAudio = fileUrl?.toLowerCase().includes(".webm");
-    const tempMsg = {
-      id: Date.now().toString(),
-      direction: "outbound",
-      content: newMsg || (isAudio ? "🎤 Mensagem de Voz" : "[Arquivo Enviado]"),
-      ai_generated: false,
-      created_at: new Date().toISOString(),
-      metadata: fileUrl ? JSON.stringify({ type: isAudio ? "audio" : "document", url: fileUrl }) : undefined,
-    };
-
-    setMessages((prev) => [...prev, tempMsg as Message]);
-    const currentMsg = newMsg;
-    setNewMsg("");
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-
+  const patchConversation = async (kind: "assignment" | "ai", patch: Record<string, unknown>) => {
+    if (!selected || controlLoading) return;
+    setControlLoading(kind);
+    setMessagesError("");
     try {
-      await fetch("/api/conversations/message", {
-        method: "POST",
+      const response = await fetch("/api/conversations", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId: selected.id, content: currentMsg, mediaUrl: fileUrl }),
+        body: JSON.stringify({ id: selected.id, ...patch }),
       });
-      fetchConversations(activeInstance, assignedFilter);
-    } catch (e) {}
-
-    setSending(false);
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setShowAttachMenu(false);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.url) {
-        await sendManual(data.url);
-      }
-    } catch (err) {
-      alert("Erro ao enviar arquivo.");
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível atualizar a conversa."));
+      const updated = data.conversation as Conversation | undefined;
+      if (!updated) throw new Error("A resposta não trouxe a conversa atualizada.");
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updated.id ? { ...conversation, ...updated } : conversation,
+        ),
+      );
+    } catch (error) {
+      setMessagesError(error instanceof Error ? error.message : "Não foi possível atualizar a conversa.");
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setControlLoading(null);
     }
   };
 
-  const triggerFilePicker = (type: string) => {
-    fileTypeRef.current = type;
-    setShowAttachMenu(false);
-    if (fileInputRef.current) {
-      if (type === "image") fileInputRef.current.accept = "image/*";
-      else if (type === "audio") fileInputRef.current.accept = "audio/*";
-      else fileInputRef.current.accept = "*/*";
-      fileInputRef.current.click();
+  const handleScroll = () => {
+    const atBottom = isNearBottom(scrollRef.current);
+    if (atBottom) {
+      setShowNewMessages(false);
+      if (selectedId) {
+        const incoming = [...messages]
+          .reverse()
+          .find((message) => message.direction !== "outbound" && message.direction !== "outgoing");
+        saveSeen(selectedId, incoming);
+      }
     }
   };
 
-  const filtered = conversations.filter((c) => {
-    const term = search.toLowerCase();
-    const nameMatch = (c.contact_name || "").toLowerCase().includes(term);
-    const numMatch = c.contact_number.includes(term);
-    return nameMatch || numMatch;
-  });
+  const formatRecordingTime = (seconds: number) =>
+    `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div className="flex h-[calc(100dvh-64px-2rem)] md:h-[calc(100dvh-4rem)] -m-4 md:-m-8 overflow-hidden bg-slate-50 dark:bg-[#030712] text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10">
-      {/* ─── SIDEBAR ESQUERDA (LISTA DE CONVERSAS) ─── */}
-      <div className="w-[32%] min-w-[310px] max-w-[420px] flex flex-col border-r border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/90 shadow-sm">
-        {/* Header da Barra Lateral */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200/80 dark:border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 p-0.5 shadow-md shadow-indigo-500/20">
-              <div className="w-full h-full bg-white dark:bg-[#030712] rounded-[14px] flex items-center justify-center p-1">
-                <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
+    <div className="-m-4 flex h-[calc(100dvh-64px-2rem)] overflow-hidden border-b border-slate-200 bg-slate-50 text-slate-900 dark:border-white/10 dark:bg-[#030712] dark:text-white md:-m-8 md:h-[calc(100dvh-4rem)]">
+      <aside
+        className={`${selectedId ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/90 md:w-[350px] md:min-w-[320px] xl:w-[390px]`}
+      >
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200/80 px-4 dark:border-white/10">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
+              <MessageSquare className="size-4" />
             </div>
-            <div>
-              <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Conversas</h2>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold block">
-                {filtered.length} contatos ativos
-              </span>
+            <div className="min-w-0">
+              <h1 className="font-black tracking-tight">Conversas</h1>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{filtered.length} na fila atual</p>
             </div>
           </div>
-
           {instances.length > 0 && (
             <select
+              aria-label="Filtrar por instância"
               value={activeInstance}
-              onChange={(e) => {
-                setActiveInstance(e.target.value);
-                setIsLoading(true);
-                fetchConversations(e.target.value);
-              }}
-              className="bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl px-3 py-1.5 outline-none focus:border-indigo-500 transition-colors cursor-pointer max-w-[130px] truncate"
+              onChange={(event) => setActiveInstance(event.target.value)}
+              className="max-w-32 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
             >
               <option value="">Todas</option>
-              {instances.map((inst) => (
-                <option key={inst.name} value={inst.name}>
-                  {inst.name}
-                </option>
+              {instances.map((instance) => (
+                <option key={instance.name} value={instance.name}>{instance.connectionName || instance.name}</option>
               ))}
             </select>
           )}
         </div>
 
-        {/* Filtros e Busca */}
-        <div className="p-4 border-b border-slate-200/80 dark:border-white/10 space-y-2.5">
+        <div className="space-y-2.5 border-b border-slate-200/80 p-3 dark:border-white/10">
           {sessionUser?.role !== "agent" && (
             <select
+              aria-label="Filtrar por atendente"
               value={assignedFilter}
-              onChange={(e) => setAssignedFilter(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl px-3 py-2 outline-none focus:border-indigo-500 transition-colors w-full cursor-pointer"
+              onChange={(event) => setAssignedFilter(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
             >
-              <option value="all">Todos os Atendimentos</option>
-              <option value="unassigned">Fila Geral (Sem Atendente)</option>
-              {team.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
+              <option value="all">Todos os atendimentos</option>
+              <option value="unassigned">Fila geral</option>
+              {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
             </select>
           )}
-
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+          <label className="relative block">
+            <span className="sr-only">Buscar conversa</span>
+            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input
-              type="text"
-              placeholder="Buscar por nome ou número..."
-              className="w-full bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 font-medium"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar nome ou número"
+              className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-3 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
             />
-          </div>
+          </label>
         </div>
 
-        {/* Lista de Conversas */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {isLoading ? (
-            <div className="flex justify-center p-8">
-              <div className="w-7 h-7 rounded-full border-3 border-indigo-500 border-t-transparent animate-spin" />
-            </div>
+        {listError && (
+          <div className="m-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+            <CircleAlert className="mt-0.5 size-4 shrink-0" />
+            <span className="flex-1">{listError}</span>
+            <button type="button" onClick={() => void fetchConversations()} aria-label="Tentar novamente"><RefreshCw className="size-4" /></button>
+          </div>
+        )}
+
+        <div className="flex-1 space-y-1 overflow-y-auto p-2">
+          {isLoading && conversations.length === 0 ? (
+            <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando conversas</div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma conversa encontrada</p>
-              <p className="text-xs text-slate-400 font-medium">Tente ajustar seus termos de busca.</p>
+            <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+              <MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" />
+              <p className="text-sm font-bold">Nenhuma conversa encontrada</p>
+              <p className="mt-1 text-xs text-slate-500">Ajuste a busca ou os filtros.</p>
             </div>
-          ) : (
-            filtered.map((conv) => {
-              const isSelected = selected?.id === conv.id;
-              const displayName = conv.contact_name || `+${conv.contact_number}`;
-              const initials = displayName.charAt(0).toUpperCase();
-
-              return (
-                <div
-                  key={conv.id}
-                  onClick={() => setSelected(conv)}
-                  className={`flex items-center p-3.5 rounded-2xl cursor-pointer transition-all duration-200 ${
-                    isSelected
-                      ? "bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 shadow-sm"
-                      : "hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent"
-                  }`}
-                >
-                  {conv.profile_picture ? (
-                    <img
-                      src={conv.profile_picture}
-                      alt={displayName}
-                      className="h-11 w-11 rounded-2xl object-cover shrink-0 mr-3 ring-2 ring-slate-200 dark:ring-white/10"
-                    />
+          ) : filtered.map((conversation) => {
+            const latest = latestMessage(conversation);
+            const lastSeen = seen[conversation.id];
+            const unread = Boolean(
+              latest &&
+              latest.direction !== "outbound" &&
+              latest.direction !== "outgoing" &&
+              latest.id !== lastSeen?.id &&
+              (!lastSeen?.time || new Date(latest.created_at).getTime() > new Date(lastSeen.time).getTime()),
+            );
+            const active = selectedId === conversation.id;
+            const name = conversation.contact_name || `+${conversation.contact_number}`;
+            return (
+              <button
+                type="button"
+                key={conversation.id}
+                onClick={() => selectConversation(conversation)}
+                aria-current={active ? "true" : undefined}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? "border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/15" : "border-transparent hover:bg-slate-100 dark:hover:bg-white/5"}`}
+              >
+                <div className="relative shrink-0">
+                  {conversation.profile_picture ? (
+                    <Image unoptimized src={conversation.profile_picture} alt="" width={44} height={44} className="size-11 rounded-2xl object-cover ring-1 ring-slate-200 dark:ring-white/10" />
                   ) : (
-                    <div
-                      className={`h-11 w-11 rounded-2xl flex items-center justify-center text-sm font-black text-white shrink-0 mr-3 shadow-sm ${
-                        isSelected
-                          ? "bg-gradient-to-tr from-indigo-600 to-purple-600"
-                          : "bg-gradient-to-tr from-slate-700 to-slate-800 dark:from-indigo-900 dark:to-purple-900"
-                      }`}
-                    >
-                      {initials}
-                    </div>
+                    <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 text-sm font-black text-white dark:from-indigo-950 dark:to-purple-900">{name.charAt(0).toUpperCase()}</div>
                   )}
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">{displayName}</h4>
-                      <span className={`text-[10px] font-mono font-bold whitespace-nowrap ml-2 ${
-                        isSelected ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"
-                      }`}>
-                        {conv.last_message_at ? timeAgo(conv.last_message_at) : timeAgo(conv.created_at)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[10px] font-bold">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border ${
-                        conv.ai_paused
-                          ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${conv.ai_paused ? "bg-amber-500" : "bg-emerald-500"}`} />
-                        {conv.ai_paused ? "Atendimento Humano" : "Atendimento Automático"}
-                      </span>
-
-                      {conv.assignee && (
-                        <span className="text-slate-500 dark:text-slate-400 truncate">
-                          • {conv.assignee.name.split(" ")[0]}
-                        </span>
-                      )}
-                    </div>
+                  {unread && <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-white bg-indigo-500 dark:border-slate-900" aria-label="Nova mensagem" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className={`truncate text-xs ${unread ? "font-black" : "font-bold"}`}>{name}</span>
+                    <span className={`shrink-0 text-[10px] font-bold ${unread ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`}>{timeAgo(latest?.created_at || conversation.last_message_at || conversation.created_at)}</span>
+                  </div>
+                  <p className={`mt-1 truncate text-xs ${unread ? "font-bold text-slate-800 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>{messagePreview(latest)}</p>
+                  <div className="mt-2 flex items-center gap-1.5 overflow-hidden text-[9px] font-black uppercase tracking-wide">
+                    <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">WhatsApp</span>
+                    <span className={`rounded-md px-1.5 py-0.5 ${conversation.ai_paused ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400"}`}>{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
+                    <span className="truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-white/5 dark:text-slate-400">{conversation.status || "sem status"}</span>
                   </div>
                 </div>
-              );
-            })
-          )}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </aside>
 
-      {/* ─── PAINEL CENTRAL DE CHAT ─── */}
-      <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-[#030712] relative min-w-0">
+      <main className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-slate-50/60 dark:bg-[#030712]`}>
         {!selected ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
-            <div className="w-20 h-20 rounded-3xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xl">
-              <MessageSquare className="w-10 h-10" />
-            </div>
-            <div className="max-w-md space-y-2">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Selecione uma Conversa
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                Acompanhe o atendimento automatizado em tempo real ou assuma a conversa diretamente pelo painel.
-              </p>
-            </div>
-
+          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+            <div className="mb-5 flex size-20 items-center justify-center rounded-[28px] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-xl shadow-indigo-500/10 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400"><MessageSquare className="size-9" /></div>
+            <h2 className="text-xl font-black tracking-tight">Sua central de atendimento</h2>
+            <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">Selecione uma conversa para acompanhar o histórico e responder ao contato.</p>
             {instances.length > 0 && (
-              <div className="w-full max-w-md pt-4">
-                <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest block mb-3">
-                  Conexões WhatsApp Ativas
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {instances.map((inst) => {
-                    const isOnline = inst.status === "open";
-                    return (
-                      <div
-                        key={inst.name}
-                        className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 shadow-sm text-left"
-                      >
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                          isOnline ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-amber-50 text-amber-600 border border-amber-200"
-                        }`}>
-                          <Phone className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-black text-slate-900 dark:text-white truncate">{inst.connectionName || inst.name}</p>
-                          <span className={`text-[10px] font-bold ${isOnline ? "text-emerald-600" : "text-amber-600"}`}>
-                            {isOnline ? "Conectado" : "Conectando..."}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="mt-7 flex flex-wrap justify-center gap-2">
+                {instances.map((instance) => {
+                  const online = instance.status === "open";
+                  return <span key={instance.name} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold dark:border-white/10 dark:bg-slate-900">{online ? <Wifi className="size-3 text-emerald-500" /> : <WifiOff className="size-3 text-rose-500" />}{instance.connectionName || instance.name}: {online ? "conectado" : "desconectado"}</span>;
+                })}
               </div>
             )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col h-full min-w-0">
-            {/* Header da Conversa Selecionada */}
-            <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/90 shrink-0 shadow-sm z-10">
-              <div className="flex items-center gap-3 min-w-0">
-                {selected.profile_picture ? (
-                  <img
-                    src={selected.profile_picture}
-                    alt="Avatar"
-                    className="h-10 w-10 rounded-2xl object-cover ring-2 ring-slate-200 dark:ring-white/10 shrink-0"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-md">
-                    {(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}
-                  </div>
-                )}
+          <>
+            <header className="flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-slate-900/90 sm:px-5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">
-                    {selected.contact_name || `+${selected.contact_number}`}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
-                    {selected.ai_paused ? "Atendimento Humano em andamento" : "Atendimento Automático ativo"}
+                  <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                  <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
+                    {selectedInstance?.status === "open" ? "WhatsApp conectado" : "WhatsApp desconectado"}
                   </p>
                 </div>
               </div>
-
-              {/* Botões de Ação do Chat */}
-              <div className="flex items-center gap-3 shrink-0">
-                {/* Botão para Assumir / Transferir */}
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/conversations", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: selected.id, assigned_to: sessionUser?.id }),
-                      });
-                      if (res.ok) {
-                        selected.assigned_to = sessionUser?.id;
-                        selected.assignee = sessionUser || undefined;
-                        setConversations([...conversations]);
-                      }
-                    } catch (e) {}
-                  }}
-                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 ${
-                    selected.assigned_to === sessionUser?.id
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
-                      : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-                  }`}
-                >
-                  <UserCheck className="w-4 h-4" />
-                  <span>{selected.assignee ? selected.assignee.name.split(" ")[0] : "Assumir Conversa"}</span>
-                </button>
-
-                {/* Alternador de IA / Atendimento Humano */}
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/conversations", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: selected.id, ai_paused: !selected.ai_paused }),
-                      });
-                      if (res.ok) {
-                        selected.ai_paused = !selected.ai_paused;
-                        setConversations([...conversations]);
-                      }
-                    } catch (e) {}
-                  }}
-                  className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-2 ${
-                    selected.ai_paused
-                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800"
-                      : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500"
-                  }`}
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>{selected.ai_paused ? "Ativar Automação" : "Pausar Automação"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Área de Scroll das Mensagens */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-3 bg-slate-100/50 dark:bg-slate-950/50">
-              {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-xs text-slate-500 dark:text-slate-400 shadow-sm flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Mensagens protegidas com criptografia oficial do WhatsApp.</span>
-                  </div>
-                </div>
-              ) : (
-                messages.map((msg, index) => {
-                  const isOutgoing = msg.direction === "outbound" || msg.direction === "outgoing";
-                  const prevMsg = index > 0 ? messages[index - 1] : null;
-                  const isFirstInGroup = !prevMsg || prevMsg.direction !== msg.direction;
-
-                  let metaObj: any = null;
-                  try {
-                    if (msg.metadata) metaObj = JSON.parse(msg.metadata);
-                  } catch (e) {}
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${isOutgoing ? "justify-end" : "justify-start"} ${
-                        isFirstInGroup ? "mt-4" : ""
-                      } animate-fade-in`}
-                    >
-                      <div
-                        className={`relative max-w-[85%] sm:max-w-[70%] p-4 rounded-3xl shadow-sm text-sm font-medium leading-relaxed ${
-                          isOutgoing
-                            ? "bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-tr-xs shadow-indigo-600/10"
-                            : "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200/90 dark:border-white/10 rounded-tl-xs"
-                        }`}
-                      >
-                        <div className="flex flex-col space-y-2">
-                          {metaObj?.type === "image" && (
-                            <img
-                              src={metaObj.url}
-                              alt="Mídia"
-                              className="rounded-2xl max-w-full object-cover max-h-80 cursor-pointer shadow-sm"
-                              loading="lazy"
-                            />
-                          )}
-                          {metaObj?.type === "audio" && (
-                            <div className="flex items-center gap-3 p-2 bg-black/10 rounded-2xl">
-                              <Volume2 className="w-5 h-5 text-indigo-400 shrink-0" />
-                              <audio controls src={metaObj.url} className="max-w-full h-8" />
-                            </div>
-                          )}
-                          {metaObj?.type === "document" && (
-                            <a
-                              href={metaObj.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 p-3 rounded-2xl bg-black/10 hover:bg-black/20 transition-colors"
-                            >
-                              <FileText className="w-5 h-5 text-indigo-400 shrink-0" />
-                              <span className="text-xs font-bold truncate">Abrir Documento Anexo</span>
-                            </a>
-                          )}
-
-                          {msg.content && msg.content !== "[Mídia Enviada]" && (
-                            <span className="whitespace-pre-wrap word-break">{msg.content}</span>
-                          )}
-
-                          <div
-                            className={`flex items-center justify-end gap-1.5 pt-1 text-[10px] font-mono ${
-                              isOutgoing ? "text-white/80" : "text-slate-400 dark:text-slate-500"
-                            }`}
-                          >
-                            <span>{formatTime(msg.created_at)}</span>
-                            {isOutgoing && <CheckCheck className="w-3.5 h-3.5 text-white/90" />}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Barra de Envio de Mensagem */}
-            <div className="border-t border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-4 flex items-center gap-3 shrink-0 z-10 shadow-lg">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileUpload}
-                accept={
-                  fileTypeRef.current === "image"
-                    ? "image/*"
-                    : fileTypeRef.current === "audio"
-                    ? "audio/*"
-                    : "*/*"
-                }
-              />
-
-              {/* Menu de Anexos */}
-              <div className="relative" ref={attachRef}>
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setShowAttachMenu(!showAttachMenu)}
-                  disabled={uploading || recording}
-                  className="p-3 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                  title="Anexar arquivo"
+                  disabled={!sessionUser || Boolean(controlLoading)}
+                  onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id })}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:text-xs"
                 >
-                  <Paperclip className="w-5 h-5" />
+                  {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
+                  <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
                 </button>
+                <button
+                  type="button"
+                  disabled={Boolean(controlLoading)}
+                  onClick={() => void patchConversation("ai", { ai_paused: !selected.ai_paused })}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-black transition disabled:opacity-50 sm:text-xs ${selected.ai_paused ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"}`}
+                >
+                  {controlLoading === "ai" ? <Loader2 className="size-3.5 animate-spin" /> : <Bot className="size-3.5" />}
+                  <span className="hidden sm:inline">{selected.ai_paused ? "Ativar IA" : "Pausar IA"}</span>
+                </button>
+              </div>
+            </header>
 
-                {showAttachMenu && (
-                  <div className="absolute bottom-full left-0 mb-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl py-2 w-48 z-50">
-                    <button
-                      type="button"
-                      onClick={() => triggerFilePicker("image")}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
-                    >
-                      <ImageIcon className="w-4 h-4 text-purple-500" />
-                      <span>Imagem / Foto</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => triggerFilePicker("document")}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
-                    >
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      <span>Documento PDF</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => triggerFilePicker("audio")}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
-                    >
-                      <Music className="w-4 h-4 text-amber-500" />
-                      <span>Áudio</span>
-                    </button>
-                  </div>
+            <div className="hidden min-h-10 shrink-0 items-center gap-5 overflow-x-auto border-b border-slate-200 bg-white/80 px-5 text-[10px] dark:border-white/10 dark:bg-slate-900/60 lg:flex 2xl:hidden">
+              <span className="flex shrink-0 items-center gap-1.5 font-bold text-slate-500"><Phone className="size-3" /><strong className="text-slate-800 dark:text-slate-200">+{selected.contact_number}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Lead: <strong className="text-slate-800 dark:text-slate-200">{selected.leads?.[0]?.status || "não informado"}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Valor: <strong className="text-slate-800 dark:text-slate-200">{selected.leads?.[0]?.value == null ? "não informado" : selected.leads[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Atendente: <strong className="text-slate-800 dark:text-slate-200">{selected.assignee?.name || "não atribuído"}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Instância: <strong className="text-slate-800 dark:text-slate-200">{selectedInstance?.connectionName || selected.instance_name || "não informada"}</strong></span>
+            </div>
+
+            <div className="flex min-h-0 flex-1">
+              <section className="relative flex min-w-0 flex-1 flex-col">
+                {messagesError && (
+                  <div className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"><CircleAlert className="size-4 shrink-0" /><span className="flex-1">{messagesError}</span><button type="button" onClick={() => void fetchMessages(selected.id, true)} className="font-bold">Tentar novamente</button></div>
                 )}
-              </div>
-
-              {/* Gravador de Áudio ou Input de Texto */}
-              {recording ? (
-                <div className="flex-1 flex items-center gap-3 px-4 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl">
-                  <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-                  <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-400">
-                    {formatRecordingTime(recordingTime)}
-                  </span>
-                  <div className="flex-1 h-1.5 bg-rose-200 dark:bg-rose-500/30 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-rose-500 rounded-full transition-all"
-                      style={{ width: `${(recordingTime % 15) * 6.6}%` }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={stopRecording}
-                    className="p-2 rounded-xl bg-rose-600 text-white hover:bg-rose-500 transition-colors text-xs font-bold"
-                  >
-                    <Square className="w-4 h-4" />
-                  </button>
+                <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-slate-100/50 px-3 py-5 dark:bg-slate-950/50 sm:px-7">
+                  {messagesLoading && messages.length === 0 ? (
+                    <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando histórico</div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center text-slate-500"><MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" /><p className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma mensagem ainda</p><p className="mt-1 text-xs">Envie uma mensagem para iniciar o atendimento.</p></div>
+                  ) : (
+                    <div className="space-y-2">
+                      {messages.map((message, index) => {
+                        const outgoing = message.direction === "outbound" || message.direction === "outgoing";
+                        const previous = messages[index - 1];
+                        const firstInGroup = !previous || previous.direction !== message.direction;
+                        const media = parseMetadata(message);
+                        return (
+                          <div key={message.id} className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : ""}`}>
+                            <div className={`max-w-[88%] rounded-3xl px-3.5 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${outgoing ? "rounded-tr-md bg-gradient-to-br from-indigo-600 to-purple-700 text-white" : "rounded-tl-md border border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"}`}>
+                              {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
+                              {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
+                              {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
+                              {media.url && media.type === "document" && <a href={media.url} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-2 rounded-2xl bg-black/10 p-3 font-bold hover:bg-black/15"><FileText className="size-5 shrink-0" /><span className="truncate">Abrir documento</span></a>}
+                              {message.content && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
+                              <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
+                                <span>{formatTime(message.created_at)}</span>
+                                {outgoing && message.clientStatus === "sending" && <><Loader2 className="size-3 animate-spin" /><span>enviando</span></>}
+                                {outgoing && message.clientStatus === "sent" && <><Check className="size-3" /><span>enviada</span></>}
+                                {outgoing && message.clientStatus === "failed" && <><CircleAlert className="size-3" /><span>falhou</span></>}
+                              </div>
+                              {message.clientStatus === "failed" && (
+                                <div className="mt-2 flex items-center justify-end gap-2 border-t border-white/20 pt-2 text-[10px] font-black">
+                                  <span className="mr-auto max-w-40 truncate text-white/80" title={message.error}>{message.error}</span>
+                                  <button type="button" onClick={() => message.clientPayload && void submitMessage(message.clientPayload, message.id)} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><RefreshCw className="size-3" />Reenviar</button>
+                                  <button type="button" onClick={() => setMessages((current) => current.filter((item) => item.id !== message.id))} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><X className="size-3" />Remover</button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <input
-                  type="text"
-                  value={newMsg}
-                  onChange={(e) => setNewMsg(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendManual()}
-                  placeholder="Digite sua resposta para o cliente..."
-                  className="flex-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-sm text-slate-900 dark:text-white rounded-2xl px-5 py-3 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 font-medium"
-                />
-              )}
 
-              {/* Botão de Microfone / Enviar */}
-              {!recording && !newMsg.trim() && (
-                <button
-                  type="button"
-                  onClick={startRecording}
-                  disabled={uploading}
-                  className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-2xl transition-all"
-                  title="Gravar Mensagem de Voz"
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
-              )}
+                {showNewMessages && (
+                  <button type="button" onClick={() => scrollToBottom()} className="absolute bottom-40 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl dark:bg-white dark:text-slate-900"><ArrowDown className="size-4" />Novas mensagens</button>
+                )}
 
-              {!recording && newMsg.trim() && (
-                <button
-                  type="button"
-                  onClick={() => sendManual()}
-                  disabled={sending || uploading}
-                  className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl transition-all shadow-lg shadow-indigo-600/25 active:scale-95"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              )}
+                <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-slate-900 sm:px-4">
+                  <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5">
+                    {QUICK_REPLIES.map((reply) => <button type="button" key={reply} onClick={() => setDraft(reply)} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Sparkles className="mr-1 inline size-3" />{reply}</button>)}
+                  </div>
+                  {composerError && <div className="mb-2 flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400"><CircleAlert className="size-3.5 shrink-0" />{composerError}</div>}
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                  <div className="flex items-end gap-2">
+                    <div className="relative" ref={attachRef}>
+                      <button type="button" disabled={uploading || recording} onClick={() => setShowAttachMenu((value) => !value)} aria-expanded={showAttachMenu} aria-label="Anexar arquivo" className="rounded-xl p-2.5 text-slate-500 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5">{uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}</button>
+                      {showAttachMenu && (
+                        <div className="absolute bottom-full left-0 z-30 mb-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                          {([{ type: "image", label: "Imagem", icon: ImageIcon }, { type: "video", label: "Vídeo", icon: Video }, { type: "audio", label: "Áudio", icon: Music }, { type: "document", label: "Documento", icon: FileText }] as const).map(({ type, label, icon: Icon }) => <button type="button" key={type} onClick={() => triggerFilePicker(type)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5"><Icon className="size-4 text-indigo-500" />{label}</button>)}
+                        </div>
+                      )}
+                    </div>
+                    {recording ? (
+                      <div className="flex min-h-11 flex-1 items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"><span className="size-2.5 animate-pulse rounded-full bg-rose-500" /><span className="font-mono text-xs font-bold">{formatRecordingTime(recordingTime)}</span><span className="flex-1 text-xs font-bold">Gravando áudio</span><button type="button" onClick={stopRecording} className="rounded-lg bg-rose-600 p-2 text-white" aria-label="Parar e enviar gravação"><Square className="size-4" /></button></div>
+                    ) : (
+                      <textarea
+                        rows={1}
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            void submitMessage({ content: draft });
+                          }
+                        }}
+                        placeholder="Digite uma resposta..."
+                        className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
+                      />
+                    )}
+                    {!recording && !draft.trim() ? <button type="button" onClick={() => void startRecording()} disabled={uploading} className="rounded-xl p-2.5 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10" aria-label="Gravar áudio"><Mic className="size-5" /></button> : !recording && <button type="button" onClick={() => void submitMessage({ content: draft })} disabled={!draft.trim() || uploading} className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 p-2.5 text-white shadow-lg shadow-indigo-500/20 transition hover:brightness-110 disabled:opacity-50" aria-label="Enviar mensagem"><Send className="size-5" /></button>}
+                  </div>
+                  <p className="mt-1 pl-12 text-[9px] text-slate-400">Enter envia, Shift+Enter quebra a linha</p>
+                </div>
+              </section>
+
+              <aside className="hidden w-64 shrink-0 border-l border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900/80 2xl:block">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Contexto do contato</p>
+                <dl className="mt-5 space-y-4 text-xs">
+                  <div><dt className="mb-1 flex items-center gap-1.5 font-bold text-slate-400"><Phone className="size-3.5" />Telefone</dt><dd className="font-bold">+{selected.contact_number}</dd></div>
+                  <div><dt className="mb-1 font-bold text-slate-400">Lead</dt><dd className="font-bold">{selected.leads?.[0]?.name || selected.contact_name || "Não vinculado"}</dd></div>
+                  <div><dt className="mb-1 font-bold text-slate-400">Status do lead</dt><dd className="inline-flex rounded-lg bg-slate-100 px-2 py-1 font-bold dark:bg-white/5">{selected.leads?.[0]?.status || "Não informado"}</dd></div>
+                  <div><dt className="mb-1 font-bold text-slate-400">Valor</dt><dd className="font-bold">{selected.leads?.[0]?.value == null ? "Não informado" : selected.leads[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</dd></div>
+                  <div><dt className="mb-1 font-bold text-slate-400">Atendente</dt><dd className="font-bold">{selected.assignee?.name || "Não atribuído"}</dd></div>
+                  <div><dt className="mb-1 font-bold text-slate-400">Instância</dt><dd className="font-bold">{selectedInstance?.connectionName || selected.instance_name || "Não informada"}</dd></div>
+                  <div><dt className="mb-1 flex items-center gap-1.5 font-bold text-slate-400"><Clock className="size-3.5" />Última atividade</dt><dd className="font-bold">{timeAgo(selected.last_message_at || selected.created_at)}</dd></div>
+                </dl>
+              </aside>
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

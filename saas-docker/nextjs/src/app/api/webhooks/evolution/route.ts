@@ -162,6 +162,7 @@ export async function POST(req: Request) {
           .replace("@lid", "");
         const contactName = messageData.pushName || contactNumber;
         const fromMe = messageData.key.fromMe || false;
+        const providerMessageId = typeof messageData.key.id === "string" ? messageData.key.id.trim() : "";
 
         // 0. Verifica Lista Negra (ignored_numbers) por Telefone E por Nome
         if (webhookTenant && webhookTenant.settings) {
@@ -269,7 +270,6 @@ export async function POST(req: Request) {
             }
           },
           update: {
-            last_message_at: new Date(),
             ...(fromMe ? {} : { contact_name: contactName }) // Só atualiza o nome se não for eu enviando (para não sobreescrever os clientes com o meu nome)
           },
           create: {
@@ -280,6 +280,21 @@ export async function POST(req: Request) {
             last_message_at: new Date()
           }
         });
+
+        if (providerMessageId) {
+          const recentWebhookDuplicate = await prisma.message.findFirst({
+            where: {
+              conversation_id: conversation.id,
+              metadata: { contains: `"providerMessageId":${JSON.stringify(providerMessageId)}` },
+              created_at: { gte: new Date(Date.now() - 5 * 60 * 1000) }
+            },
+            select: { id: true }
+          });
+          if (recentWebhookDuplicate) {
+            console.log(`[Webhook] Ignorando retry duplicado da mensagem ${providerMessageId}`);
+            return NextResponse.json({ success: true, ignored: "Retry duplicado" });
+          }
+        }
 
         // 1.1 Criar ou Atualizar Lead no Funil de Vendas
         if (!fromMe || conversation.contact_name) {
@@ -353,7 +368,8 @@ export async function POST(req: Request) {
         const botNumber = (body.sender || "").replace("@s.whatsapp.net", "");
         
         // --- Processamento de Mídia ---
-        let finalMetadata = null;
+        const messageMetadata: Record<string, string> = {};
+        if (providerMessageId) messageMetadata.providerMessageId = providerMessageId;
         if (mediaType && mediaBase64) {
            try {
              const bufferData = Buffer.from(mediaBase64, 'base64');
@@ -390,11 +406,13 @@ export async function POST(req: Request) {
                 uploadedUrl = publicUrl ? `${publicUrl.replace(/\/$/, '')}/${filename}` : `https://${bucketName}.${accountId}.r2.cloudflarestorage.com/${filename}`;
              }
              
-             finalMetadata = JSON.stringify({ type: mediaType, url: uploadedUrl });
-           } catch (err) {
-             console.error("[Webhook] Erro ao salvar mídia", err);
-           }
-        }
+             messageMetadata.type = mediaType;
+             messageMetadata.url = uploadedUrl;
+            } catch (err) {
+              console.error("[Webhook] Erro ao salvar mídia", err);
+            }
+         }
+        const finalMetadata = Object.keys(messageMetadata).length > 0 ? JSON.stringify(messageMetadata) : null;
         
         let isOwner = false;
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { phone: true } });
@@ -459,19 +477,29 @@ export async function POST(req: Request) {
 
             // Se for mídia sem texto legível (imagem/vídeo/documento sem legenda), responde direto sem chamar IA
             if (mediaType && mediaType !== "audio" && !messageData.message?.imageMessage?.caption && !messageData.message?.videoMessage?.caption) {
-              const mediaReply = "📸 Não consigo visualizar imagens ou arquivos. Se preferir, me descreva o que precisa!";
-              const { sendWhatsAppMessage } = await import('@/lib/evolution');
-              await sendWhatsAppMessage(instanceName, contactNumber, mediaReply);
-              await prisma.message.create({
-                data: {
-                  tenant_id: tenantId,
-                  conversation_id: conversation.id,
-                  direction: "outbound",
-                  content: mediaReply,
-                  ai_generated: true,
-                }
-              });
-              console.log(`[Webhook] Resposta automática para mídia de ${contactNumber}`);
+              if (conversation.ai_paused) {
+                console.log(`[Webhook] Resposta automática para mídia ignorada: IA pausada para ${contactNumber}`);
+              } else {
+                const mediaReply = "📸 Não consigo visualizar imagens ou arquivos. Se preferir, me descreva o que precisa!";
+                const { sendWhatsAppMessage } = await import('@/lib/evolution');
+                const sent = await sendWhatsAppMessage(instanceName, contactNumber, mediaReply);
+                if (!sent) throw new Error("Evolution recusou a resposta automática para mídia");
+
+                await prisma.message.create({
+                  data: {
+                    tenant_id: tenantId,
+                    conversation_id: conversation.id,
+                    direction: "outbound",
+                    content: mediaReply,
+                    ai_generated: true,
+                  }
+                });
+                await prisma.conversation.update({
+                  where: { id: conversation.id },
+                  data: { last_message_at: new Date() }
+                });
+                console.log(`[Webhook] Resposta automática para mídia de ${contactNumber}`);
+              }
             } else {
               // Carregar settings específicas da instância (se houver)
               let instanceSettings: any = null;
@@ -492,7 +520,7 @@ export async function POST(req: Request) {
                 const evolutionKey = process.env.EVOLUTION_API_KEY || '';
                
                 try {
-                  await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+                  const sendResponse = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
                     method: "POST",
                     headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -501,6 +529,10 @@ export async function POST(req: Request) {
                       delay: 1200
                     })
                   });
+                  if (!sendResponse.ok) {
+                    const responseBody = await sendResponse.text();
+                    throw new Error(`Evolution respondeu ${sendResponse.status}: ${responseBody}`);
+                  }
                   console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
 
                   await prisma.message.create({

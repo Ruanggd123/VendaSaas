@@ -16,15 +16,16 @@ export async function GET(req: Request) {
 
     if (id) {
       // Retorna mensagens de uma conversa específica
-      const conversationWhere: any = { id, tenant_id: session.tenant_id };
-
-      // Parceiro só vê conversa se tiver lead vinculado
-      if (session.role === 'partner') {
-        const lead = await prisma.lead.findFirst({
-          where: { conversation_id: id, partner_id: session.id },
-        });
-        if (!lead) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
-      }
+      const conversationWhere: any = {
+        id,
+        tenant_id: session.tenant_id,
+        ...(session.role === "agent"
+          ? { OR: [{ assigned_to: session.id }, { assigned_to: null }] }
+          : {}),
+        ...(session.role === "partner"
+          ? { leads: { some: { partner_id: session.id } } }
+          : {}),
+      };
 
       const conversation = await prisma.conversation.findFirst({
         where: conversationWhere,
@@ -99,8 +100,9 @@ export async function GET(req: Request) {
       where: whereClause,
       orderBy: { last_message_at: "desc" },
       include: {
-        leads: { select: { id: true, name: true, status: true } },
+        leads: { select: { id: true, name: true, status: true, value: true } },
         assignee: { select: { id: true, name: true, email: true } },
+        messages: { orderBy: { created_at: "desc" }, take: 1 },
         _count: { select: { messages: true } },
       },
     });
@@ -124,23 +126,49 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
     }
 
+    if (session.role === "partner" && assigned_to !== undefined) {
+      return NextResponse.json({ error: "Parceiros não podem atribuir conversas" }, { status: 403 });
+    }
+
+    if (session.role === "agent" && assigned_to !== undefined && assigned_to !== null && assigned_to !== session.id) {
+      return NextResponse.json({ error: "Agentes só podem assumir conversas para si" }, { status: 403 });
+    }
+
+    if (assigned_to !== undefined && assigned_to !== null && typeof assigned_to !== "string") {
+      return NextResponse.json({ error: "Responsável inválido" }, { status: 400 });
+    }
+
     const conversation = await prisma.conversation.findFirst({
-      where: { id, tenant_id: session.tenant_id }
+      where: {
+        id,
+        tenant_id: session.tenant_id,
+        ...(session.role === "agent"
+          ? { OR: [{ assigned_to: session.id }, { assigned_to: null }] }
+          : {}),
+        ...(session.role === "partner"
+          ? { leads: { some: { partner_id: session.id } } }
+          : {}),
+      },
     });
 
     if (!conversation) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
 
-    // Parceiro só pode pausar IA em conversas dos próprios leads
-    if (session.role === 'partner') {
-      const lead = await prisma.lead.findFirst({
-        where: { conversation_id: id, partner_id: session.id },
+    if (assigned_to) {
+      const assignee = await prisma.user.findFirst({
+        where: { id: assigned_to, tenant_id: session.tenant_id },
+        select: { id: true },
       });
-      if (!lead) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
+      if (!assignee) {
+        return NextResponse.json({ error: "Responsável não pertence a esta empresa" }, { status: 400 });
+      }
     }
 
     const dataToUpdate: any = {};
     if (typeof ai_paused === "boolean") dataToUpdate.ai_paused = ai_paused;
-    if (assigned_to !== undefined) dataToUpdate.assigned_to = assigned_to;
+    if (assigned_to !== undefined) {
+      dataToUpdate.assigned_to = assigned_to;
+      if (assigned_to) dataToUpdate.ai_paused = true;
+    }
 
     // Atualiza a conversa
     const updated = await prisma.conversation.update({
