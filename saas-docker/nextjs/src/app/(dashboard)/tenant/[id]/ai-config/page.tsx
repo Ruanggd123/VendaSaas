@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
-export default function AIConfigPage({ params }: { params: { id: string } }) {
+export default function AIConfigPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,7 +26,7 @@ export default function AIConfigPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch(`/api/tenant?instance=${params.id}`);
+        const res = await fetch(`/api/tenant?instance=${id}`);
         const data = await res.json();
         if (data.settings) {
           // Precisamos parsear as configurações que estão no banco
@@ -46,10 +47,10 @@ export default function AIConfigPage({ params }: { params: { id: string } }) {
       }
     };
 
-    if (params.id) {
+    if (id) {
       fetchConfig();
     }
-  }, [params.id]);
+  }, [id]);
 
   // Salvar configurações
   const handleSave = async (e: React.FormEvent) => {
@@ -57,7 +58,7 @@ export default function AIConfigPage({ params }: { params: { id: string } }) {
     setSaving(true);
 
     try {
-      const res = await fetch(`/api/tenant/${params.id}/ai-config`, {
+      const res = await fetch(`/api/tenant/${id}/ai-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settings: config })
@@ -128,7 +129,7 @@ export default function AIConfigPage({ params }: { params: { id: string } }) {
             placeholder="Ex: Você é a assistente da Imobiliária João... (descreva produtos, preços, tom, etc)"
           />
           <p className="text-xs text-gray-500 mt-2">
-            Este prompt é o "cérebro" da IA. Quanto mais detalhado, melhores as respostas.
+            Este prompt é o &quot;cérebro&quot; da IA. Quanto mais detalhado, melhores as respostas.
           </p>
         </div>
 

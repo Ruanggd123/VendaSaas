@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
     const userRole = session?.role?.toLowerCase();
@@ -19,8 +19,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: 'Ação inválida. Use "approve" ou "reject"' }, { status: 400 });
     }
 
+    const { id } = await params;
     const withdrawal = await prisma.partnerWithdrawal.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { partner: true },
     });
 
@@ -87,7 +88,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
       // Mark withdrawal as approved
       await prisma.partnerWithdrawal.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: 'approved', approved_at: new Date(), admin_id: session.id },
       });
 
@@ -115,8 +116,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     } else {
       // Reject
       await prisma.partnerWithdrawal.update({
-        where: { id: params.id },
-        data: { status: 'rejected', rejected_at: new Date(), admin_id: user.id },
+        where: { id },
+        data: { status: 'rejected', rejected_at: new Date(), admin_id: session.id },
       });
     }
 

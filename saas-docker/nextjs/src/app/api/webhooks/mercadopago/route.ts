@@ -194,7 +194,7 @@ export async function POST(req: Request) {
                   productInfo.digital_content = keys.slice(1).join('\n');
                   
                   // Update DB
-                  let parsedSettings = JSON.parse(tenantSettings?.settings as string || '{}');
+                  const parsedSettings = JSON.parse(tenantSettings?.settings as string || '{}');
                   parsedSettings.products = products;
                   await prisma.tenant.update({
                     where: { id: tenantId },
@@ -231,7 +231,7 @@ export async function POST(req: Request) {
                 // Let's send the warning directly to the provider since MP webhook structure is simpler
                 const tenantPhone = await prisma.whatsappInstance.findFirst({
                   where: { tenant_id: tenantId, status: "open" }
-                }).then(i => i?.ownerJid?.replace('@s.whatsapp.net', ''));
+                }).then(i => i?.phone_number?.replace('@s.whatsapp.net', ''));
                 
                 if (tenantPhone) {
                   await sendWhatsAppMessage(instance.name, tenantPhone, `🛒 *Nova Venda MP Confirmada!*\n\n📦 ${sale.product_name}\n${keysWarning}`);

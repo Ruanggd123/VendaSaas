@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month"); // formato: "2026-07"
 
-    let where: Record<string, unknown> = { tenant_id: session.tenant_id };
+    const where: Record<string, unknown> = { tenant_id: session.tenant_id };
     if (isPartner && partnerLeadIds) {
       where.OR = [
         { lead_id: { in: partnerLeadIds } },

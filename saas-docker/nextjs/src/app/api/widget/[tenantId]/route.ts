@@ -5,10 +5,10 @@ const prisma = new PrismaClient();
 
 export async function GET(
   req: Request,
-  { params }: { params: { tenantId: string } }
+  { params }: { params: Promise<{ tenantId: string }> }
 ) {
   try {
-    const { tenantId } = params;
+    const { tenantId } = await params;
 
     // 1. Busca o tenant e suas configurações
     const tenant = await prisma.tenant.findUnique({

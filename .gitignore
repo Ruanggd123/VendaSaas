@@ -1,18 +1,11 @@
 .aider*
-.env
-saas-docker/postgres/
-saas-docker/ollama/
-saas-docker/redis/
-saas-docker/postgres/
-saas-docker/ollama/
-saas-docker/redis/
+.env*
+!.env.example
+.vercel/
 node_modules/
 
 saas-docker/postgres/
 saas-docker/ollama/
 saas-docker/redis/
-node_modules/
- 
- 
-.vercel
-.env*
+saas-docker/backups/
+saas-docker/cookies*.txt

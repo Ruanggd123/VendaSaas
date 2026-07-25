@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-export default function TenantDashboard({ params }: { params: { id: string } }) {
+export default function TenantDashboard() {
+  const { id } = useParams<{ id: string }>();
   const [stats, setStats] = useState({
     conversations: 0,
     leads: 0,
@@ -14,7 +16,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch(`/api/stats?tenantId=${params.id}`);
+        const res = await fetch(`/api/stats?tenantId=${id}`);
         const data = await res.json();
         if(data && !data.error) {
             setStats(data);
@@ -25,7 +27,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
     };
 
     fetchStats();
-  }, [params.id]);
+  }, [id]);
 
   return (
     <div className="p-6">
@@ -52,7 +54,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link
-          href={`/tenant/${params.id}/conversations`}
+          href={`/tenant/${id}/conversations`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
           <h2 className="text-xl font-semibold text-gray-700">💬 Conversas</h2>
@@ -60,7 +62,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
         </Link>
 
         <Link
-          href={`/tenant/${params.id}/assinatura`}
+          href={`/tenant/${id}/assinatura`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
           <h2 className="text-xl font-semibold text-gray-700">💳 Meu Plano</h2>
@@ -68,7 +70,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
         </Link>
 
         <Link
-          href={`/tenant/${params.id}/ai-config`}
+          href={`/tenant/${id}/ai-config`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
           <h2 className="text-xl font-semibold text-gray-700">🧠 Configurar IA</h2>
@@ -76,7 +78,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
         </Link>
 
         <Link
-          href={`/tenant/${params.id}/team`}
+          href={`/tenant/${id}/team`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
           <h2 className="text-xl font-semibold text-gray-700">👥 Equipe</h2>
@@ -84,7 +86,7 @@ export default function TenantDashboard({ params }: { params: { id: string } }) 
         </Link>
 
         <Link
-          href={`/tenant/${params.id}/analytics`}
+          href={`/tenant/${id}/analytics`}
           className="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200"
         >
           <h2 className="text-xl font-semibold text-gray-700">📊 Analytics</h2>

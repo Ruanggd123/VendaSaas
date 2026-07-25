@@ -813,9 +813,9 @@ export async function processMessageWithRules(
 }
 
 function getMainMenuMessage(settings: any): string {
-  let rawWelcome = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋";
+  const rawWelcome = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋";
   // Remove caracteres mojibake/corrompidos se houver
-  let welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
+  const welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
   let msg = welcome + "\n\n";
   
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
@@ -1114,7 +1114,7 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
   
   const dates: Date[] = [];
   const today = new Date();
-  let current = new Date(today.getTime());
+  const current = new Date(today.getTime());
 
   // Garante que o ano está corrigido se houver clock drift
   if (current.getFullYear() < 2026) {

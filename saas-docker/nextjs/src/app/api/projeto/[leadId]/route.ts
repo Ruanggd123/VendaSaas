@@ -4,10 +4,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, { params }: { params: { leadId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ leadId: string }> }) {
   try {
+    const { leadId } = await params;
     const lead = await prisma.lead.findUnique({
-      where: { id: params.leadId },
+      where: { id: leadId },
       include: {
         sales: { orderBy: { created_at: 'desc' }, take: 5 },
         partner: { select: { name: true, whatsappNumber: true } },

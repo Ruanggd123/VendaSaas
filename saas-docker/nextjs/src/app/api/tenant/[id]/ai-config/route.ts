@@ -6,30 +6,23 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
     if (!session?.tenant_id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
-    if (session.tenant_id !== params.id && session.role !== 'superadmin') {
+    const { id } = await params;
+    if (session.tenant_id !== id && session.role !== 'superadmin') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const { settings } = await request.json();
 
-    // No Prisma com SQLite, os settings em JSON podem ser armazenados como String.
-    // Primeiro buscamos o tenant para ver se a instância existe
-    let tenant = await prisma.tenant.findFirst({
-        where: { whatsapp_instance: params.id }
+    const tenant = await prisma.tenant.findUnique({
+      where: { id }
     });
-
-    if (!tenant) {
-        tenant = await prisma.tenant.findUnique({
-            where: { id: params.id }
-        });
-    }
 
     if (!tenant) {
         return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 });

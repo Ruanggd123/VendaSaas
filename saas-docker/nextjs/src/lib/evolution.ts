@@ -20,7 +20,7 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
+        apikey: EVOLUTION_API_KEY || "",
       },
       body: JSON.stringify({
         number: number,
@@ -46,7 +46,7 @@ export async function getProfilePicture(instanceName: string, number: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
+        apikey: EVOLUTION_API_KEY || "",
       },
       body: JSON.stringify({ number }),
     });
@@ -83,7 +83,7 @@ export async function sendWhatsAppMedia(instanceName: string, number: string, me
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
+        apikey: EVOLUTION_API_KEY || "",
       },
       body: JSON.stringify({
         number: number,

@@ -88,8 +88,8 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
       }
     }
 
-    let isDemoIA = conversation?.contact_name?.includes('[TESTE-IA]');
-    let isDemoRegras = conversation?.contact_name?.includes('[TESTE-REGRAS]');
+    const isDemoIA = conversation?.contact_name?.includes('[TESTE-IA]');
+    const isDemoRegras = conversation?.contact_name?.includes('[TESTE-REGRAS]');
 
     if (lowerMessage === '#teste-ia' || lowerMessage === 'testar ia') {
       await prisma.conversation.update({

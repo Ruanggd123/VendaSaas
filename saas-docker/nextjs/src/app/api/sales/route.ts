@@ -59,7 +59,7 @@ async function processProvisioning(sale: any) {
       await prisma.project.create({
         data: {
           tenant_id: sale.tenant_id,
-          name: `Site: ${sale.product_name} - ${clientName}`,
+          title: `Site: ${sale.product_name} - ${clientName}`,
           status: 'pendente',
           prazo_entrega: new Date(Date.now() + 15 * 86400000),
         }
@@ -217,7 +217,7 @@ export async function GET(req: Request) {
     const overdueAmount = allOverdue.reduce((acc, s) => acc + s.amount, 0);
 
     // Busca filtrada para exibição
-    let salesQuery: any = { ...baseWhere };
+    const salesQuery: any = { ...baseWhere };
     if (search) {
       const searchOR = [
         { product_name: { contains: search, mode: "insensitive" } },

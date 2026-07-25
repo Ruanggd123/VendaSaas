@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getProfilePicture } from "@/lib/evolution";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
 
     if (isMessageEvent && instanceName) {
       // Procurar qual Tenant é dono dessa instância (por name ou connectionName)
-      let instance = await prisma.whatsappInstance.findFirst({
+      const instance = await prisma.whatsappInstance.findFirst({
         where: {
           OR: [
             { name: instanceName },
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
         }
 
         // 0. Busca o Tenant para verificar permissões de grupo e limites
-        let webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+        const webhookTenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
 
         const rJid = (messageData.key.remoteJid || "").toString().toLowerCase();
         const rJidAlt = (messageData.key.remoteJidAlt || "").toString().toLowerCase();
@@ -210,7 +212,7 @@ export async function POST(req: Request) {
           || "";
 
         let mediaType = null;
-        let mediaBase64 = messageData.base64 || "";
+        const mediaBase64 = messageData.base64 || "";
 
         if (messageData.message?.imageMessage) mediaType = "image";
         else if (messageData.message?.audioMessage) mediaType = "audio";
@@ -287,7 +289,7 @@ export async function POST(req: Request) {
             if (settingsTenant) {
                let settings: any = {};
                try { settings = JSON.parse((settingsTenant.settings as string) || "{}"); } catch(e) {}
-               let currentIgnored = settings.ignored_numbers ? settings.ignored_numbers.split(",").map((s:string) => s.trim()).filter((s:string) => s) : [];
+               const currentIgnored = settings.ignored_numbers ? settings.ignored_numbers.split(",").map((s:string) => s.trim()).filter((s:string) => s) : [];
                const cleanContact = contactNumber.replace(/\D/g, "");
                if (!currentIgnored.includes(cleanContact)) {
                  currentIgnored.push(cleanContact);
@@ -333,9 +335,7 @@ export async function POST(req: Request) {
              
              if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
                 // Fallback local
-                const { writeFile, mkdir } = require('fs/promises');
-                const { join } = require('path');
-                const uploadsDir = join(process.cwd(), 'public', 'uploads');
+                 const uploadsDir = join(process.cwd(), 'public', 'uploads');
                 await mkdir(uploadsDir, { recursive: true });
                 await writeFile(join(uploadsDir, filename), bufferData);
                 uploadedUrl = `/uploads/${filename}`;
@@ -493,7 +493,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (event === "connection.update" && instanceName) {
+    if (rawEvent === "connection.update" && instanceName) {
       if (body.data?.state === "open" && body.sender) {
         const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
         const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';

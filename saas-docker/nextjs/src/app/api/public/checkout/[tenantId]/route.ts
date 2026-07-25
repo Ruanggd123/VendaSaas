@@ -32,10 +32,10 @@ function cleanDescription(str: string): string {
     .slice(0, 100) || "Pagamento";
 }
 
-export async function GET(req: Request, { params }: { params: { tenantId: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
   try {
-    const { tenantId } = params;
-    let tenant = await prisma.tenant.findUnique({
+    const { tenantId } = await params;
+    const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, name: true, settings: true }
     });
@@ -67,9 +67,9 @@ export async function GET(req: Request, { params }: { params: { tenantId: string
   }
 }
 
-export async function POST(req: Request, { params }: { params: { tenantId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
   try {
-    const { tenantId } = params;
+    const { tenantId } = await params;
     const { name, phone, email, referralCode, productName, amount, isSubscription, billingType, cart, scheduled_at } = await req.json();
 
     if (!name || !phone || !productName || !amount) {
@@ -81,7 +81,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 });
     }
 
-    let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
@@ -213,7 +213,7 @@ export async function POST(req: Request, { params }: { params: { tenantId: strin
 
     let paymentLink = '';
     let paymentId = '';
-    let paymentMethod = billingType || 'PIX';
+    const paymentMethod = billingType || 'PIX';
     let pixQrCodeUrl = '';
     let pixCopiaECola = '';
     let bankSlipUrl = '';

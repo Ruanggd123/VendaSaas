@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { mkdir, writeFile } from 'fs/promises';
+import { join } from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,9 +48,6 @@ export async function POST(req: Request) {
     // Fallback: Se o R2 não estiver configurado no .env, salva no disco local.
     if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
       console.log("R2 credentials not fully configured. Using local disk fallback.");
-      const { writeFile, mkdir } = require('fs/promises');
-      const { join } = require('path');
-      
       const publicDir = join(process.cwd(), 'public');
       const uploadsDir = join(publicDir, 'uploads');
       await mkdir(uploadsDir, { recursive: true });

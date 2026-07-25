@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { PLANS, Plan } from '@/lib/plans';
 import { Check, X, CreditCard, Zap, Shield, Loader2, ArrowRight } from 'lucide-react';
 
-export default function AssinaturaPage({ params }: { params: { id: string } }) {
+export default function AssinaturaPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [currentPlanId, setCurrentPlanId] = useState<string>('solo');
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ export default function AssinaturaPage({ params }: { params: { id: string } }) {
         // ou simulamos. O ideal era ter um /api/tenant/[id]
         // Como não temos a rota GET simples implementada no escopo agora, 
         // vamos assumir "solo" como default ou usar alguma store
-        setCurrentPlanId('solo'); // Aqui no futuro viria de await fetch(`/api/tenant/${params.id}`)
+        setCurrentPlanId('solo'); // Aqui no futuro viria de await fetch(`/api/tenant/${id}`)
       } catch (error) {
         console.error(error);
       } finally {
@@ -27,14 +28,14 @@ export default function AssinaturaPage({ params }: { params: { id: string } }) {
       }
     };
     fetchPlan();
-  }, [params.id]);
+  }, [id]);
 
   const handleUpdatePlan = async (planId: string) => {
     if (!confirm(`Você tem certeza que deseja mudar para o plano ${PLANS[planId].name}?`)) return;
     
     setUpdating(planId);
     try {
-      const res = await fetch(`/api/tenant/${params.id}/plan`, {
+      const res = await fetch(`/api/tenant/${id}/plan`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId })
@@ -123,7 +124,7 @@ export default function AssinaturaPage({ params }: { params: { id: string } }) {
               
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
-                <p className="text-gray-500 mt-2 text-sm">{plan.description}</p>
+                <p className="text-gray-500 mt-2 text-sm">{plan.tagline}</p>
               </div>
 
               <div className="mb-6">

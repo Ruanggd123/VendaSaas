@@ -25,7 +25,7 @@ export async function POST() {
     };
 
     const newToken = await encrypt(newPayload);
-    cookies().set('session', newToken, {
+    (await cookies()).set('session', newToken, {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       httpOnly: true,
     });

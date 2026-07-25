@@ -19,7 +19,9 @@ export async function POST(req: Request) {
         
         if (tenant) {
           // Calcula a nova data de validade (+30 dias)
-          const currentExpiry = tenant.subscription_expires_at > new Date() ? tenant.subscription_expires_at : new Date();
+          const currentExpiry = tenant.subscription_expires_at && tenant.subscription_expires_at > new Date()
+            ? tenant.subscription_expires_at
+            : new Date();
           const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
 
           await prisma.tenant.update({

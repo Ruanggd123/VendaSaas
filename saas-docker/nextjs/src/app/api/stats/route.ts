@@ -29,14 +29,14 @@ export async function GET(request: NextRequest) {
     const conversations = await prisma.conversation.count({
       where: {
         tenant_id: tenant.id,
-        ...(isPartner ? { leads: { partner_id: session.id } } : {}),
+        ...(isPartner ? { leads: { some: { partner_id: session.id } } } : {}),
       }
     });
     const leads = await prisma.lead.count({
       where: { tenant_id: tenant.id, ...partnerFilter }
     });
     const messages = await prisma.message.count({
-      where: { conversation: { tenant_id: tenant.id, ...(isPartner ? { leads: { partner_id: session.id } } : {}) } }
+      where: { conversation: { tenant_id: tenant.id, ...(isPartner ? { leads: { some: { partner_id: session.id } } } : {}) } }
     });
     
     return NextResponse.json({

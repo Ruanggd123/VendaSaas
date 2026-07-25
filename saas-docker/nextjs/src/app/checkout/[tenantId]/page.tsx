@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import {
   Check, Loader2, ChevronRight, ShoppingCart,
   Star, Shield, Globe, Rocket, Bot, Zap, Users,
@@ -74,8 +75,8 @@ function hasValue(value: string | undefined): boolean {
   return !!value && value !== '0' && parseFloat(value) > 0;
 }
 
-export default function CheckoutPage({ params }: { params: { tenantId: string } }) {
-  const { tenantId } = params;
+export default function CheckoutPage() {
+  const { tenantId } = useParams<{ tenantId: string }>();
   const formRef = useRef<HTMLDivElement>(null);
   const [ref, setRef] = useState('');
   const [tenantName, setTenantName] = useState('');
@@ -180,6 +181,8 @@ export default function CheckoutPage({ params }: { params: { tenantId: string } 
 
   // Standalone products: one-time price products (Sites, Web Apps, E-commerce, etc)
   const standaloneProducts = activeProducts.filter(p => !hasValue(p.monthly) && hasValue(p.price));
+
+  const getBot = (name: string) => products.find(p => p.name === name);
 
   const handleSelect = (name: string) => {
     setSelected(name === selected ? null : name);

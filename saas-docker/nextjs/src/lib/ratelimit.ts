@@ -22,10 +22,10 @@ export function rateLimit(key: string, maxRequests: number = 10): boolean {
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
-    for (const [key, entry] of rateMap) {
+    rateMap.forEach((entry, key) => {
       if (now > entry.resetAt) {
         rateMap.delete(key);
       }
-    }
+    });
   }, 60_000).unref?.();
 }

@@ -22,7 +22,7 @@ const validateSuperAdmin = async (request: Request) => {
   return true;
 };
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const isValid = await validateSuperAdmin(request);
     if (!isValid) {
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     const { plan, addDays } = await request.json();
-    const tenantId = params.id;
+    const { id: tenantId } = await params;
 
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant ID é obrigatório' }, { status: 400 });
@@ -47,7 +47,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
     
     if (addDays) {
-      const currentExpiry = tenant.subscription_expires_at > new Date() ? tenant.subscription_expires_at : new Date();
+      const currentExpiry = tenant.subscription_expires_at && tenant.subscription_expires_at > new Date()
+        ? tenant.subscription_expires_at
+        : new Date();
       const newExpiry = new Date(currentExpiry.getTime() + addDays * 24 * 60 * 60 * 1000);
       updateData.subscription_expires_at = newExpiry;
     }
@@ -57,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       data: updateData,
       select: {
         id: true, name: true, plan: true, phone: true, status: true,
-        subscription_expires_at: true, created_at: true, updated_at: true
+        subscription_expires_at: true, created_at: true
       }
     });
 
@@ -67,7 +69,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const isValid = await validateSuperAdmin(request);
     if (!isValid) {
@@ -77,7 +79,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       );
     }
 
-    const tenantId = params.id;
+    const { id: tenantId } = await params;
 
     // Apenas expira a assinatura pra simular suspensão (Soft Delete / Suspension)
     const updatedTenant = await prisma.tenant.update({

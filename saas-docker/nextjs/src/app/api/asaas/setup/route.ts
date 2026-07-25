@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       })
     });
 
-    let webhookOk = webhookRes.ok;
+    const webhookOk = webhookRes.ok;
     let webhookMsg = "";
     if (!webhookRes.ok) {
       const wErr = await webhookRes.text();

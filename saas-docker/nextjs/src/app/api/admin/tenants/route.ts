@@ -98,7 +98,7 @@ export async function GET(request: Request) {
         referralCode: true, type: true, commissionRate: true,
         trial_ends_at: true, access_expires_at: true,
         created_at: true, updated_at: true,
-        _count: { select: { leads: true, dev_services: true, withdrawals: true } },
+        _count: { select: { leads: true, services: true, withdrawals: true } },
       },
       orderBy: { created_at: "desc" },
     });

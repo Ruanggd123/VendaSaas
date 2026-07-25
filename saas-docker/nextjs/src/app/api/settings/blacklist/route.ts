@@ -26,7 +26,7 @@ export async function GET() {
     // Suporta formato antigo (string CSV) e novo (array de objetos)
     const raw = settings.ignored_numbers || [];
     let numbers: string[] = [];
-    let nameMap = new Map<string, string | null>();
+    const nameMap = new Map<string, string | null>();
 
     if (Array.isArray(raw)) {
       raw.forEach((item: any) => {

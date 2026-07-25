@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
     if (!session || !session.tenantId) {
@@ -15,7 +15,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const partner = await prisma.partner.findUnique({ where: { id } });
     if (!partner || partner.tenant_id !== session.tenantId) {

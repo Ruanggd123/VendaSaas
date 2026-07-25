@@ -22,7 +22,7 @@ async function checkUsers() {
       id: true,
       email: true,
       name: true,
-      status: true,
+      type: true,
     }
   });
 

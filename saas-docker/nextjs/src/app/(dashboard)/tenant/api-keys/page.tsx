@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -22,8 +23,7 @@ export default async function ApiKeysPage() {
   // Se o Tenant não tiver API Key (registros antigos antes da migração), gera uma agora
   let apiKey = tenant.api_key;
   if (!apiKey) {
-    const crypto = require("crypto");
-    apiKey = crypto.randomUUID();
+    apiKey = randomUUID();
     await prisma.tenant.update({
       where: { id: tenant.id },
       data: { api_key: apiKey },
@@ -31,7 +31,7 @@ export default async function ApiKeysPage() {
   }
 
   // Pegar o host dinâmico para os exemplos
-  const headersList = headers();
+  const headersList = await headers();
   const host = headersList.get("host") || "seusistema.com.br";
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
   const baseUrl = `${protocol}://${host}`;

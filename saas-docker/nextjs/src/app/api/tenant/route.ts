@@ -19,7 +19,11 @@ export async function GET(request: NextRequest) {
       })
     } else if (instance) {
       tenant = await prisma.tenant.findFirst({
-        where: { whatsapp_instance: instance }
+        where: {
+          whatsapp_instances: {
+            some: { OR: [{ name: instance }, { connectionName: instance }] }
+          }
+        }
       })
     } else {
       // Fallback para sessão logada (onboarding/settings)
@@ -84,7 +88,13 @@ export async function POST(request: NextRequest) {
     
     let tenant;
     if (instanceName) {
-      tenant = await prisma.tenant.findFirst({ where: { whatsapp_instance: instanceName } });
+      tenant = await prisma.tenant.findFirst({
+        where: {
+          whatsapp_instances: {
+            some: { OR: [{ name: instanceName }, { connectionName: instanceName }] }
+          }
+        }
+      });
     } else if (phone) {
       tenant = await prisma.tenant.findUnique({ where: { phone: phone } });
     }

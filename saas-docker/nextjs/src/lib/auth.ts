@@ -37,15 +37,16 @@ export async function login(user: any) {
     accessExpiresAt: user.accessExpiresAt ?? null
   });
 
-  cookies().set("session", session, { expires, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+  (await cookies()).set("session", session, { expires, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
 }
 
 export async function logout() {
-  cookies().set("session", "", { expires: new Date(0), path: "/" });
+  (await cookies()).set("session", "", { expires: new Date(0), path: "/" });
 }
 
 export async function getSession() {
-  const session = cookies().get("session")?.value;
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
   if (!session) return null;
   try {
     const payload = await decrypt(session);
@@ -57,7 +58,7 @@ export async function getSession() {
         select: { id: true, tenant_id: true }
       });
       if (!partner) {
-        try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+        try { cookieStore.set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
         return null;
       }
     } else if (payload.id || payload.userId) {
@@ -75,7 +76,7 @@ export async function getSession() {
       });
       if (!user) {
         // Usuário foi apagado do banco! Desloga automaticamente.
-        try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+        try { cookieStore.set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
         return null;
       }
       // Sempre garante dados reais atualizados do banco
@@ -88,7 +89,7 @@ export async function getSession() {
     }
     return payload;
   } catch {
-    try { cookies().set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
+    try { cookieStore.set("session", "", { expires: new Date(0), path: "/" }); } catch (e) {}
     return null;
   }
 }

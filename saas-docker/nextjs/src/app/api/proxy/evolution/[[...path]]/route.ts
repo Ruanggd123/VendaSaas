@@ -8,7 +8,7 @@ const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
 
 // This acts as a reverse proxy between the Official Evolution Manager and the Evolution API.
 // It intercepts requests to inject the Global API Key and isolate tenant instances.
-async function proxyRequest(req: NextRequest, { params }: { params: { path?: string[] } }) {
+async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const session = await getSession();
   const tenantId = session?.tenant_id;
   
@@ -27,7 +27,8 @@ async function proxyRequest(req: NextRequest, { params }: { params: { path?: str
   }
 
   // Reconstruct the URL path
-  const path = params.path ? params.path.join('/') : '';
+  const { path: pathSegments } = await params;
+  const path = pathSegments ? pathSegments.join('/') : '';
   const searchParams = req.nextUrl.searchParams.toString();
   const url = `${EVOLUTION_URL}${path ? '/' + path : ''}${searchParams ? '?' + searchParams : ''}`;
 

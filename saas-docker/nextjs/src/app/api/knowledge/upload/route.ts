@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { PDFParse } from 'pdf-parse';
 
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -42,9 +43,13 @@ export async function POST(req: Request) {
     let textContent = '';
 
     if (mimeType === 'application/pdf') {
-      const pdfParse = require('pdf-parse');
-      const parsed = await pdfParse(bufferData);
-      textContent = parsed.text;
+      const parser = new PDFParse({ data: bufferData });
+      try {
+        const parsed = await parser.getText();
+        textContent = parsed.text;
+      } finally {
+        await parser.destroy();
+      }
     } else if (isImage) {
       // Usar visão multimodal do Gemini para transcrever a imagem/tabelas/texto
       const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });

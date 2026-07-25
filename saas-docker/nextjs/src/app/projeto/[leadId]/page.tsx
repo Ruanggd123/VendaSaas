@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   Rocket,
   CheckCircle2,
@@ -23,14 +24,15 @@ const STAGES = [
   { id: "COMPLETED", label: "Concluído & Entregue 🎉", desc: "Seu projeto está no ar e 100% pronto para uso!" },
 ];
 
-export default function ProjectStatusPage({ params }: { params: { leadId: string } }) {
+export default function ProjectStatusPage() {
+  const { leadId } = useParams<{ leadId: string }>();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     // Primeiro tenta buscar na API de projetos por ID
-    fetch(`/api/projects?id=${params.leadId}`)
+    fetch(`/api/projects?id=${leadId}`)
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
@@ -38,7 +40,7 @@ export default function ProjectStatusPage({ params }: { params: { leadId: string
           setLoading(false);
         } else {
           // Se não encontrar por project ID, tenta buscar na API de projeto/[leadId]
-          fetch(`/api/projeto/${params.leadId}`)
+          fetch(`/api/projeto/${leadId}`)
             .then((r) => r.json())
             .then((d) => {
               if (d.error) setError(d.error);
@@ -73,7 +75,7 @@ export default function ProjectStatusPage({ params }: { params: { leadId: string
         }
       })
       .catch(() => setLoading(false));
-  }, [params.leadId]);
+  }, [leadId]);
 
   const getProgressPercentage = (status: string) => {
     switch (status) {

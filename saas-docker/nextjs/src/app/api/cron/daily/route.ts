@@ -128,7 +128,7 @@ export async function GET(req: Request) {
 
       for (const appt of appointmentsTomorrow) {
         let phone = appt.lead?.phone;
-        let name = appt.lead?.name || "Cliente";
+        const name = appt.lead?.name || "Cliente";
 
         if (!phone && appt.notes && appt.notes.includes("customer_phone:")) {
           const match = appt.notes.match(/customer_phone:(\d+)/);

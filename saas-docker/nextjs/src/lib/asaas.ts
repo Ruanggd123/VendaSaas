@@ -38,7 +38,7 @@ function getApiUrl(apiUrl?: string) {
 
 async function asaasFetch(endpoint: string, options: any = {}, apiKey?: string, apiUrl?: string) {
   const primaryUrl = getApiUrl(apiUrl);
-  let response = await fetch(`${primaryUrl}${endpoint}`, {
+  const response = await fetch(`${primaryUrl}${endpoint}`, {
     ...options,
     headers: getHeaders(apiKey),
   });
