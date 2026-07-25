@@ -17,19 +17,22 @@ const APP_URL = getAppBaseUrl();
 
 export async function POST(req: Request) {
   try {
-    // Validar token de acesso do Asaas se presente no header
+    // Validar token de acesso do Asaas (obrigatório)
     const accessToken = req.headers.get('asaas-access-token');
-    if (accessToken) {
-      const tenantMatch = await prisma.tenant.findFirst({
-        where: {
-          OR: [
-            { settings: { contains: accessToken } },
-          ]
-        }
-      });
-      if (!tenantMatch) {
-        return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-      }
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Token de acesso não fornecido' }, { status: 401 });
+    }
+    // Busca tenant com token exato (evita substring match)
+    const allTenants = await prisma.tenant.findMany({ select: { id: true, settings: true } });
+    const matchedTenant = allTenants.find(t => {
+      try {
+        const s = JSON.parse(t.settings as string || '{}');
+        const tokens = [s.asaas_api_key, s.asaas_test_api_key, s.asaas_webhook_secret].filter(Boolean);
+        return tokens.some((tk: string) => tk === accessToken);
+      } catch { return false; }
+    });
+    if (!matchedTenant) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const body = await req.json();

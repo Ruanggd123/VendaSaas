@@ -39,13 +39,25 @@ export function sanitizeInput(message: string, maxLen: number = 350): string {
     cleanMsg = cleanMsg.substring(0, maxLen);
   }
 
-  // 2. Filtro anti-jailbreak forte (Regex básico)
-  // Se contiver instruções óbvias de bypass, neutraliza o comando.
+  // 2. Filtro anti-jailbreak forte (Regex)
   const jailbreakPatterns = [
     /ignore (todas )?as instru(ções|oes) (anteriores|acima)/gi,
-    /você (agora )?(é|es) (um|o) (desenvolvedor|admin|dono)/gi,
-    /escreva o (seu )?prompt (original|interno)/gi,
+    /ignore (all )?(previous|above) instructions/gi,
+    /você (agora )?(é|es) (um|o) (desenvolvedor|admin|dono|deus)/gi,
+    /you are (now )?(a|an|the) (developer|admin|owner|god)/gi,
+    /escreva o (seu )?prompt (original|interno|completo|de sistema)/gi,
+    /write (your|the) (original|internal|system) prompt/gi,
     /repita (tudo )?o que eu disse/gi,
+    /repeat (everything )?(i|i just) said/gi,
+    /revele (suas )?instru(ções|oes) (internas|de sistema)/gi,
+    /reveal (your )?(internal|system) instructions/gi,
+    /haja como|act as|atu(e|e) como/gi,
+    /dê (um )?comando|execute (um )?comando|run command/gi,
+    /bypass (regras|segurança|restrições|rules|security|restrictions)/gi,
+    /.ignore (acima|anterior|above|previous)/gi,
+    /system (message|prompt) (:|: )?/gi,
+    /output (the )?(initial|original|full|entire) (prompt|instruction|message)/gi,
+    /role.?play|persona|character.?play/gi,
   ];
 
   for (const pattern of jailbreakPatterns) {

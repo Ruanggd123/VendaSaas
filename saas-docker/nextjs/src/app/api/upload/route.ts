@@ -23,6 +23,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Arquivo muito grande. Limite: 10MB' }, { status: 400 });
     }
 
+    // Validar tipo de arquivo por extensão (whitelist segura)
+    const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.mp4', '.mp3', '.ogg', '.docx', '.xlsx', '.zip'];
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return NextResponse.json({ error: `Tipo de arquivo não permitido: ${ext}. Permitidos: ${ALLOWED_EXTENSIONS.join(', ')}` }, { status: 400 });
+    }
+
     const buffer = await file.arrayBuffer();
     const bufferData = Buffer.from(buffer);
     

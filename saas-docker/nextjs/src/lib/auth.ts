@@ -5,10 +5,9 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 const rawSecret = process.env.NEXTAUTH_SECRET;
 if (!rawSecret) {
-  console.warn("⚠️  AVISO CRÍTICO: NEXTAUTH_SECRET não configurado! Em produção, defina esta variável. Usando fallback inseguro para build local.");
+  throw new Error("CRÍTICO: NEXTAUTH_SECRET não configurado. Defina esta variável de ambiente para segurança do sistema.");
 }
-const secretKey = rawSecret || "dev-fallback-only";
-const key = new TextEncoder().encode(secretKey);
+const key = new TextEncoder().encode(rawSecret);
 
 export async function encrypt(payload: any) {
   return await new SignJWT(payload)

@@ -14,9 +14,10 @@ export async function POST(req: Request) {
   try {
     const ts = Date.now();
     console.log(`[Webhook] Recebido em ${new Date().toISOString()}`);
-    // Validar se apikey está presente (quando configurada no Evolution)
+    // Validar apikey obrigatório
     const apiKey = req.headers.get('apikey');
-    if (apiKey && apiKey !== process.env.EVOLUTION_API_KEY) {
+    if (!apiKey || apiKey !== process.env.EVOLUTION_API_KEY) {
+      console.warn(`[Webhook] Tentativa de acesso sem apikey válida. IP: ${req.headers.get('x-forwarded-for') || 'desconhecido'}`);
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 

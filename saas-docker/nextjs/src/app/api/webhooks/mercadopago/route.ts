@@ -25,11 +25,11 @@ export async function POST(req: Request) {
             const s = JSON.parse(t.settings as string || '{}');
             const tokens = [s.mercadopago_access_token, s.mercadopago_test_access_token, s.mercadopago_token].filter(Boolean);
             for (const token of tokens) {
-              const expected = crypto.createHmac('sha256', token).update(`id:${tsVal};`) + bodyText;
-              // Simplified check — full HMAC requires the exact MP format
-              if (expected) valid = true;
+              const hmac = crypto.createHmac('sha256', token).update(`id:${tsVal};`).digest('hex');
+              if (hmac === hashVal) { valid = true; break; }
             }
           } catch {}
+          if (valid) break;
         }
         if (!valid) {
           return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 });
