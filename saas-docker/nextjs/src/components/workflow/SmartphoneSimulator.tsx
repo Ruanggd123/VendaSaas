@@ -4,21 +4,11 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Send,
   RotateCcw,
-  Smartphone,
   CheckCheck,
-  Bot,
-  User,
-  ShoppingBag,
-  Clock,
-  Calendar,
-  Headphones,
-  Sparkles,
   ChevronLeft,
   MoreVertical,
   Edit3,
   Check,
-  X,
-  CreditCard,
   ExternalLink,
 } from "lucide-react";
 
@@ -31,6 +21,17 @@ interface Message {
   isWelcome?: boolean;
   buttons?: { label: string; value: string }[];
   products?: any[];
+}
+
+interface SchedulingState {
+  phase: "selectService" | "selectDate" | "selectPeriod" | "selectTime" | "confirm";
+  services: Array<{ id: number; name: string; price?: string; durationMin: number }>;
+  availableDates?: string[];
+  selectedDateIso?: string;
+  selectedDateLabel?: string;
+  selectedService?: { id: number; name: string; price?: string; durationMin: number };
+  availableSlots?: string[];
+  selectedTime?: string;
 }
 
 interface SmartphoneSimulatorProps {
@@ -76,11 +77,131 @@ function hasExplicitMenuSection(message: string): boolean {
   return lines.filter((line) => /^\*?\d+\*?\s*[-–:]\s*/.test(line)).length >= 2;
 }
 
+const WEEKDAY_NAMES_SIMULATOR = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+const BUSINESS_DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+function getScheduleWindowForDate(settings: any, date: Date): { start: string; end: string } | null {
+  const dayKey = BUSINESS_DAY_KEYS[date.getDay()];
+
+  const schedulePerDay = settings?.schedule_per_day || {};
+  if (schedulePerDay[dayKey] && typeof schedulePerDay[dayKey] === "object") {
+    const cfg = schedulePerDay[dayKey];
+    if (cfg.enabled === false) return null;
+    return {
+      start: cfg.start || settings.business_hours_start || "08:00",
+      end: cfg.end || settings.business_hours_end || "18:00",
+    };
+  }
+
+  const businessDays: string[] = settings?.business_days || ["mon", "tue", "wed", "thu", "fri"];
+  if (!businessDays.includes(dayKey)) return null;
+
+  return {
+    start: settings?.business_hours_start || "08:00",
+    end: settings?.business_hours_end || "18:00",
+  };
+}
+
+function parseDateISO(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function formatDateLabel(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${WEEKDAY_NAMES_SIMULATOR[date.getDay()]} (${day}/${month})`;
+}
+
+function getNextSchedulingDates(settings: any): string[] {
+  const blockedDates = Array.isArray(settings?.blocked_dates) ? settings.blocked_dates : [];
+  const dates: string[] = [];
+  const today = new Date();
+  const current = new Date(today.getTime());
+
+  if (current.getFullYear() < 2026) {
+    current.setFullYear(2026);
+  }
+
+  for (let i = 0; i < 14; i++) {
+    const dayDate = new Date(current.getTime());
+    const schedule = getScheduleWindowForDate(settings, dayDate);
+    const isToday = i === 0;
+
+    if (schedule) {
+      const endParts = (schedule.end || settings.business_hours_end || "18:00").split(":").map((v: string) => parseInt(v || "0", 10));
+      const endHour = endParts[0] || 18;
+      const endMinute = endParts[1] || 0;
+      const dayEndLimit = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), endHour, endMinute, 0);
+
+      const dateIso = parseDateISO(dayDate);
+      if (!blockedDates.includes(dateIso) && !(isToday && new Date().getTime() > dayEndLimit.getTime())) {
+        dates.push(dateIso);
+      }
+    }
+
+    if (dates.length >= 5) break;
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function buildLabeledListText(items: string[], prefix: string): string {
+  let text = "";
+  items.forEach((item, idx) => {
+    text += `\n*${idx + 1}* - ${prefix}${item}`;
+  });
+  return text;
+}
+
+function buildDateButtons(dates: string[]): { label: string; value: string }[] {
+  return dates.map((dateISO, idx) => ({
+    label: `${idx + 1} - ${formatDateLabel(new Date(`${dateISO}T00:00:00`))}`,
+    value: String(idx + 1),
+  }));
+}
+
+function getAvailableSlots(dateISO: string, durationMinutes: number, settings: any): string[] {
+  const date = new Date(`${dateISO}T00:00:00`);
+  const schedule = getScheduleWindowForDate(settings, date);
+  if (!schedule) return [];
+
+  const startParts = schedule.start.split(":").map((v: string) => parseInt(v || "0", 10));
+  const endParts = schedule.end.split(":").map((v: string) => parseInt(v || "0", 10));
+  const startHour = startParts[0] || 8;
+  const startMinute = startParts[1] || 0;
+  const endHour = endParts[0] || 18;
+  const endMinute = endParts[1] || 0;
+
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), startHour, startMinute, 0);
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endHour, endMinute, 0);
+  const slots: string[] = [];
+
+  const slot = new Date(start.getTime());
+  const stepMs = 30 * 60 * 1000;
+  const now = new Date();
+  const isToday = now.toDateString() === date.toDateString();
+
+  while (slot.getTime() + durationMinutes * 60 * 1000 <= end.getTime()) {
+    if (!isToday || slot.getTime() > now.getTime()) {
+      const h = String(slot.getHours()).padStart(2, "0");
+      const m = String(slot.getMinutes()).padStart(2, "0");
+      slots.push(`${h}:${m}`);
+    }
+    slot.setTime(slot.getTime() + stepMs);
+  }
+
+  return slots;
+}
+
 export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, onUpdateText }: SmartphoneSimulatorProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
+  const [schedulingState, setSchedulingState] = useState<SchedulingState | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [inCatalogView, setInCatalogView] = useState(false);
@@ -155,6 +276,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setMessages([generateBotInitialMenu()]);
     setInput("");
     setCurrentParentId(null);
+    setSchedulingState(null);
     setInCatalogView(false);
     if (onActiveNodeChange) onActiveNodeChange(null);
   };
@@ -201,11 +323,238 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       let botButtons: { label: string; value: string }[] | undefined = undefined;
       let botProducts: any[] | undefined = undefined;
 
-      const allNodes = settings?.custom_rules_nodes || [];
-      const prods = settings?.products || [];
+        const allNodes = settings?.custom_rules_nodes || [];
+        const prods = settings?.products || [];
+        const schedulingStateActive = schedulingState?.phase;
 
-      // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
-      if (inCatalogView && !isNaN(parseInt(clean, 10))) {
+        const parseServiceList = (arr: any[]) => arr
+          .map((prod, idx) => ({
+            id: idx + 1,
+            name: prod?.name || `Serviço ${idx + 1}`,
+            price: prod?.price,
+            durationMin: Number(prod?.duration_min || prod?.duration || 60),
+          }))
+          .filter((service) => service.name && service.name.trim().length > 0);
+
+        if (schedulingStateActive) {
+          const currentState = schedulingState as SchedulingState;
+
+          if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
+            setSchedulingState(null);
+            setCurrentParentId(null);
+            setInCatalogView(false);
+            if (onActiveNodeChange) onActiveNodeChange(null);
+            const initial = generateBotInitialMenu();
+            botResponseText = initial.text;
+            botButtons = initial.buttons;
+          } else if (currentState.phase === "selectService") {
+            const index = parseInt(clean, 10) - 1;
+            const chosen = currentState.services[index];
+
+            if (!chosen) {
+              botResponseText = "❌ Opção inválida. Digite o número do serviço ou *0* para voltar.";
+              botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+            } else {
+              const dates = getNextSchedulingDates(settings).slice(0, 5);
+              if (dates.length === 0) {
+                setSchedulingState(null);
+                botResponseText = `📅 Não há datas disponíveis para *${chosen.name}* no momento. Escolha *0* para voltar e tentar novamente depois.`;
+                botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+              } else {
+                const mappedDates = dates.map((dateISO) => formatDateLabel(new Date(`${dateISO}T00:00:00`)));
+
+                setSchedulingState({
+                  phase: "selectDate",
+                  services: currentState.services,
+                  selectedService: chosen,
+                  availableDates: dates,
+                });
+
+                botResponseText = `📅 Você selecionou *${chosen.name}*.\n\nEscolha um dos dias disponíveis:`;
+                botResponseText += buildLabeledListText(mappedDates, "");
+                botResponseText += "\n\nDigite o número da data ou *0* para voltar.";
+                botButtons = buildDateButtons(dates);
+                botButtons.push({ label: "🏠 Voltar", value: "0" });
+              }
+            }
+          } else if (currentState.phase === "selectDate") {
+            const index = parseInt(clean, 10) - 1;
+            const availableDates = currentState.availableDates || [];
+            const selectedDateIso = availableDates[index];
+
+            if (!selectedDateIso) {
+              botResponseText = "❌ Data inválida. Digite o número da opção ou *0* para voltar.";
+              botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+            } else {
+              const duration = currentState.selectedService?.durationMin || 60;
+              const slots = getAvailableSlots(selectedDateIso, duration, settings);
+              const hasMorning = slots.some((slot) => parseInt(slot.split(":")[0], 10) < 12);
+              const hasAfternoon = slots.some((slot) => parseInt(slot.split(":")[0], 10) >= 12);
+
+              const chosenDate = new Date(`${selectedDateIso}T00:00:00`);
+              const dateLabel = formatDateLabel(chosenDate);
+
+              if (slots.length === 0) {
+                botResponseText = `❌ Não há horários disponíveis em *${dateLabel}*. Escolha outra data ou digite *0* para voltar.`;
+                botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+              } else if (!hasMorning || !hasAfternoon) {
+                const isOnlyMorning = hasMorning;
+                const periodSlots = isOnlyMorning
+                  ? slots.filter((s) => parseInt(s.split(":")[0], 10) < 12)
+                  : slots.filter((s) => parseInt(s.split(":")[0], 10) >= 12);
+
+                setSchedulingState({
+                  ...currentState,
+                  phase: "selectTime",
+                  selectedDateIso,
+                  selectedDateLabel: dateLabel,
+                  availableSlots: periodSlots,
+                });
+
+                botResponseText = `🕒 Horários disponíveis (${isOnlyMorning ? "Manhã" : "Tarde"}) para *${dateLabel}*:`;
+                periodSlots.forEach((slot, idx) => {
+                  botResponseText += `\n*${idx + 1}* - ${slot}`;
+                });
+                botResponseText += "\n\nDigite o número do horário ou *0* para voltar.";
+                botButtons = periodSlots.map((slot, idx) => ({ label: `${idx + 1} - ${slot}`, value: String(idx + 1) }));
+                botButtons.push({ label: "🏠 Voltar", value: "0" });
+              } else {
+                setSchedulingState({
+                  ...currentState,
+                  phase: "selectPeriod",
+                  selectedDateIso,
+                  selectedDateLabel: dateLabel,
+                });
+
+                botResponseText = `🕒 Data definida: *${dateLabel}*.\n\nEscolha o período desejado:`;
+                botButtons = [
+                  { label: "1 - Manhã", value: "1" },
+                  { label: "2 - Tarde", value: "2" },
+                  { label: "🏠 Voltar", value: "0" },
+                ];
+              }
+            }
+          } else if (currentState.phase === "selectPeriod") {
+            if (clean !== "1" && clean !== "2") {
+              botResponseText = "❌ Opção inválida. Digite *1* para Manhã ou *2* para Tarde.";
+              botButtons = [
+                { label: "1 - Manhã", value: "1" },
+                { label: "2 - Tarde", value: "2" },
+                { label: "🏠 Voltar", value: "0" },
+              ];
+            } else {
+              const chosenDateIso = currentState.selectedDateIso || "";
+              const duration = currentState.selectedService?.durationMin || 60;
+              const allSlots = getAvailableSlots(chosenDateIso, duration, settings);
+              const slotsByPeriod = allSlots.filter((slot) => {
+                const hour = parseInt(slot.split(":")[0], 10);
+                return clean === "1" ? hour < 12 : hour >= 12;
+              });
+
+              if (slotsByPeriod.length === 0) {
+                setSchedulingState((prev) => prev ? { ...prev, phase: "selectDate", selectedDateIso: undefined, selectedDateLabel: undefined, availableSlots: undefined } : prev);
+                botResponseText = `❌ Não há horários disponíveis nesse período em *${currentState.selectedDateLabel || "esta data"}*.\n\nEscolha outra data ou *0* para voltar.`;
+                botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+              } else {
+                setSchedulingState({
+                  ...currentState,
+                  phase: "selectTime",
+                  availableSlots: slotsByPeriod,
+                });
+
+                botResponseText = `🕒 *Horários disponíveis* (${clean === "1" ? "Manhã" : "Tarde"}):`;
+                slotsByPeriod.forEach((slot, idx) => {
+                  botResponseText += `\n*${idx + 1}* - ${slot}`;
+                });
+                botResponseText += "\n\nDigite o número do horário ou *0* para voltar.";
+                botButtons = slotsByPeriod.map((slot, idx) => ({ label: `${idx + 1} - ${slot}`, value: String(idx + 1) }));
+                botButtons.push({ label: "🏠 Voltar", value: "0" });
+              }
+            }
+          } else if (currentState.phase === "selectTime") {
+            const slots = currentState.availableSlots || [];
+            const index = parseInt(clean, 10) - 1;
+            const chosenTime = slots[index];
+
+            if (!chosenTime) {
+              botResponseText = "❌ Horário inválido. Digite o número do horário ou *0* para voltar.";
+              botButtons = (slots || []).map((slot, idx) => ({ label: `${idx + 1} - ${slot}`, value: String(idx + 1) }));
+              botButtons.push({ label: "🏠 Voltar", value: "0" });
+            } else {
+              setSchedulingState({
+                ...currentState,
+                phase: "confirm",
+                selectedTime: chosenTime,
+              });
+
+              const price = currentState.selectedService?.price ? `R$ ${currentState.selectedService.price}` : null;
+              const serviceName = currentState.selectedService?.name || "Serviço";
+              const dateLabel = currentState.selectedDateLabel || "Data";
+
+              botResponseText = `📋 Resumo do agendamento:\n\n- Serviço: *${serviceName}*\n`;
+              if (price) {
+                botResponseText += `- Valor: *${price}*\n`;
+              }
+              botResponseText += `- Data: *${dateLabel}*\n- Horário: *${chosenTime}*\n\nConfirma esse agendamento?`;
+
+              botButtons = [
+                { label: "✅ Confirmar", value: "1" },
+                { label: "🔁 Alterar horário", value: "2" },
+                { label: "🏠 Menu Principal", value: "0" },
+              ];
+            }
+          } else if (currentState.phase === "confirm") {
+            if (clean === "1") {
+              setSchedulingState(null);
+              botResponseText = `✅ *Agendamento confirmado!*
+
+Serviço: *${currentState.selectedService?.name || "Serviço"}*
+Data: *${currentState.selectedDateLabel || "-"}*
+Horário: *${currentState.selectedTime || "-"}*
+
+Seu agendamento foi registrado no simulador.`;
+            } else if (clean === "2") {
+              const dates = getNextSchedulingDates(settings).slice(0, 5);
+
+              setSchedulingState({
+                ...currentState,
+                phase: "selectDate",
+                availableDates: dates,
+                selectedDateIso: undefined,
+                selectedDateLabel: undefined,
+                availableSlots: undefined,
+                selectedTime: undefined,
+              });
+
+              botResponseText = "🔁 Perfeito! Escolha outro dia para seu agendamento:";
+              botResponseText += buildLabeledListText(dates.map((dateISO) => formatDateLabel(new Date(`${dateISO}T00:00:00`))), "");
+              botButtons = buildDateButtons(dates);
+              botButtons.push({ label: "🏠 Voltar", value: "0" });
+            } else {
+              botResponseText = "❌ Opção inválida. Digite *1* para Confirmar, *2* para Alterar horário ou *0* para voltar ao menu principal.";
+              botButtons = [
+                { label: "✅ Confirmar", value: "1" },
+                { label: "🔁 Alterar horário", value: "2" },
+                { label: "🏠 Menu Principal", value: "0" },
+              ];
+            }
+          }
+        }
+
+        if (schedulingStateActive) {
+          const botMsg: Message = {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: botResponseText,
+            timestamp: currentTime,
+            buttons: botButtons,
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          return;
+        }
+
+        // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
+        if (inCatalogView && !isNaN(parseInt(clean, 10))) {
         const prodIdx = parseInt(clean, 10) - 1;
         const selectedProd = prods[prodIdx];
 
@@ -354,14 +703,34 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
           botProducts = prods;
         } else if (matchedNode.actionType === "scheduling") {
           setInCatalogView(false);
-          botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
+          const services = parseServiceList(prods.filter((p: any) => (p.delivery_type || "") === "service").slice(0, 5));
+          const fallbackServices = services.length > 0 ? services : parseServiceList(prods);
+
+          const serviceIntro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
-            : "📅 *Agendamento de Atendimento*\n\nPor favor, escolha uma das datas disponíveis abaixo:\n\n1️⃣ Sexta-feira (24/07)\n2️⃣ Segunda-feira (27/07)\n3️⃣ Terça-feira (28/07)\n\nDigite o número ou a data desejada:";
-          botButtons = [
-            { label: "1 - Sex 24/07", value: "24/07" },
-            { label: "2 - Seg 27/07", value: "27/07" },
-            { label: "3 - Ter 28/07", value: "28/07" },
-          ];
+            : "📅 *Iniciar Agendamento*\n\nSelecione o número do serviço que deseja agendar:";
+
+          if (fallbackServices.length === 0) {
+            botResponseText = "📋 No momento não temos serviços disponíveis para agendamento.";
+            botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+          } else {
+            botResponseText = serviceIntro;
+            fallbackServices.forEach((service) => {
+              const price = service.price ? ` (R$ ${service.price})` : "";
+              botResponseText += `\n*${service.id}* - ${service.name}${price}`;
+            });
+            botResponseText += "\n\nDigite o número do serviço ou *0* para voltar.";
+            botButtons = fallbackServices.map((service) => ({
+              label: `${service.id} - ${service.name}`,
+              value: String(service.id),
+            }));
+            botButtons.push({ label: "🏠 Voltar", value: "0" });
+
+            setSchedulingState({
+              phase: "selectService",
+              services: fallbackServices,
+            });
+          }
         } else if (matchedNode.actionType === "human") {
           setInCatalogView(false);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
@@ -382,16 +751,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
           botResponseText += "\n\nDigite *0* para voltar ao menu principal.";
           botButtons = children.map((c: any) => ({ label: `${c.keyword} - ${c.title}`, value: c.keyword }));
         }
-      } else if (clean === "24/07" || clean === "27/07" || clean === "28/07") {
-        botResponseText = "🕒 *Horários Disponíveis para Agendamento*\n\nSelecione um dos horários livres:\n\n• 09:00\n• 10:30\n• 14:00\n• 16:30\n\nDigite o horário desejado (ex: 09:00):";
-        botButtons = [
-          { label: "09:00", value: "09:00" },
-          { label: "10:30", value: "10:30" },
-          { label: "14:00", value: "14:00" },
-        ];
-      } else if (clean === "09:00" || clean === "10:30" || clean === "14:00" || clean === "16:30") {
-        botResponseText = `✅ *Agendamento Confirmado!*\n\nSeu atendimento foi reservado com sucesso para às *${clean}*.\n\nEnviamos a confirmação para nossa equipe. Obrigado!`;
-      } else {
+        } else if (clean === "09:00" || clean === "10:30" || clean === "14:00" || clean === "16:30") {
+          botResponseText = `✅ *Horário aceito no simulador:* ${clean}.\n\nEsse fluxo simplifica para validação e não dispara agenda real no simulador.`;
+        } else {
         botResponseText = `Entendi sua mensagem: _"${userText}"_.\n\nPara navegar, escolha uma das opções ativas:\n\n` + generateBotInitialMenu().text;
         botButtons = generateBotInitialMenu().buttons;
       }
