@@ -5,6 +5,68 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
 
+function normalizePhone(value: string): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function getPhoneLookupList(rawPhone: string): string[] {
+  const normalized = normalizePhone(rawPhone);
+  if (!normalized) return [];
+
+  const candidates = new Set<string>([normalized]);
+
+  if (normalized.startsWith("55")) {
+    candidates.add(normalized.slice(2));
+  } else {
+    candidates.add(`55${normalized}`);
+  }
+
+  if (normalized.length > 8) {
+    candidates.add(normalized.slice(-9));
+    candidates.add(normalized.slice(-8));
+  }
+
+  return [...candidates].filter(Boolean);
+}
+
+function isPhoneMatch(recordedPhone: string | null | undefined, rawPhone: string): boolean {
+  const phone = normalizePhone(recordedPhone || "");
+  if (!phone) return false;
+
+  const wanted = getPhoneLookupList(rawPhone);
+  return wanted.some((candidate) => {
+    if (!candidate) return false;
+    if (phone.length < 8 || candidate.length < 8) return false;
+    return phone === candidate || phone.endsWith(candidate) || candidate.endsWith(phone);
+  });
+}
+
+function appointmentBelongsToContact(
+  appointment: { lead?: { phone?: string | null } | null; notes?: string | null },
+  rawPhone: string
+): boolean {
+  const variants = getPhoneLookupList(rawPhone);
+  if (!variants.length) return false;
+
+  const appointmentNotes = appointment.notes || "";
+  const hasNotesMatch = variants.some((v) => appointmentNotes.includes(`customer_phone:${v}`));
+  if (hasNotesMatch) return true;
+
+  const leadPhone = appointment.lead?.phone || null;
+  if (!leadPhone) return false;
+
+  return isPhoneMatch(leadPhone, rawPhone);
+}
+
+function extractContactPhone(payload: any): string {
+  const contact =
+    typeof payload?.contact_phone === "string" ? payload.contact_phone :
+    typeof payload?.contactPhone === "string" ? payload.contactPhone :
+    "";
+
+  return normalizePhone(contact);
+}
+
 // GET — lista agendamentos do tenant
 export async function GET(req: Request) {
   try {
@@ -119,9 +181,11 @@ export async function PATCH(req: Request) {
 
     const body = await req.json();
     const { id, status, notes } = body;
+    const requestContactPhone = extractContactPhone(body);
 
     const appointment = await prisma.appointment.findFirst({
       where: { id, tenant_id: session.tenant_id },
+      include: { lead: { select: { phone: true } } },
     });
 
     if (!appointment) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
@@ -132,6 +196,10 @@ export async function PATCH(req: Request) {
         where: { id: appointment.lead_id, partner_id: session.id },
       });
       if (!lead) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
+
+    if (requestContactPhone && !appointmentBelongsToContact(appointment, requestContactPhone)) {
+      return NextResponse.json({ error: "Acesso negado a este agendamento" }, { status: 403 });
     }
 
     const updated = await prisma.appointment.update({
@@ -154,17 +222,37 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const requestContactPhone = normalizePhone(searchParams.get("contact_phone") || "");
     if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
 
     // Parceiro só pode cancelar agendamento de lead próprio (ou sem lead)
     if (session.role === 'partner') {
-      const apt = await prisma.appointment.findUnique({ where: { id } });
+      const apt = await prisma.appointment.findUnique({
+        where: { id },
+        include: { lead: { select: { phone: true } } },
+      });
       if (!apt) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
       if (apt.lead_id) {
         const lead = await prisma.lead.findFirst({
           where: { id: apt.lead_id, partner_id: session.id },
         });
         if (!lead) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+      }
+
+      if (requestContactPhone && !appointmentBelongsToContact(apt, requestContactPhone)) {
+        return NextResponse.json({ error: "Acesso negado a este agendamento" }, { status: 403 });
+      }
+    }
+
+    if (session.role !== 'partner' && requestContactPhone) {
+      const apt = await prisma.appointment.findFirst({
+        where: { id, tenant_id: session.tenant_id },
+        include: { lead: { select: { phone: true } } },
+      });
+
+      if (!apt) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+      if (!appointmentBelongsToContact(apt, requestContactPhone)) {
+        return NextResponse.json({ error: "Acesso negado a este agendamento" }, { status: 403 });
       }
     }
 

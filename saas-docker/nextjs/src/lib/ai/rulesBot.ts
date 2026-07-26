@@ -3,6 +3,23 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+type ProductLike = {
+  id?: any;
+  name?: string;
+  price?: any;
+  description?: string;
+  type?: string;
+  monthly?: string;
+  image_url?: string;
+  send_photo?: boolean;
+  delivery_type?: string;
+  delivery_deadline?: string;
+  duration_min?: number;
+  duration?: number;
+  stock?: number;
+  requires_payment?: boolean | string;
+};
+
 // Removemos o Redis pois na Vercel Serverless isso causa timeout/erro.
 // Utilizaremos o SystemConfig do Prisma (Banco de Dados) como um key-value store temporário para o state do bot.
 
@@ -10,6 +27,101 @@ interface BotState {
   step: string;
   data: Record<string, any>;
   errorCount?: number;
+}
+
+function normalizePhone(value: any): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function getLeadLookupWhereClause(tenantId: string, rawPhone: string): any {
+  const clean = normalizePhone(rawPhone);
+  const or: Array<{ phone: string }> = [];
+
+  if (clean) or.push({ phone: clean });
+  if (clean.length > 8) {
+    const noCountry = clean.startsWith("55") ? clean.slice(2) : clean;
+    or.push({ phone: noCountry });
+  }
+
+  return {
+    tenant_id: tenantId,
+    ...(or.length > 0 ? { OR: or } : { phone: rawPhone }),
+  };
+}
+
+function normalizeTextForLookup(value: any): string {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getProductIdentifier(product: ProductLike | undefined): string {
+  if (!product) return "";
+  if (product.id !== undefined && product.id !== null) {
+    return String(product.id).trim();
+  }
+  return "";
+}
+
+function findProductByRef(products: any[], productRef: any): ProductLike | null {
+  if (!Array.isArray(products)) return null;
+
+  const ref = (productRef || "").toString().trim();
+  if (!ref) return null;
+
+  const idMatch = products.find((p: any) => getProductIdentifier(p) === ref);
+  if (idMatch) return idMatch as ProductLike;
+
+  const exactName = products.find((p: any) => (p?.name || "").trim() === ref);
+  if (exactName) return exactName as ProductLike;
+
+  const normalizedRef = normalizeTextForLookup(ref);
+  const normalizedNameMatch = products.find((p: any) => normalizeTextForLookup(p?.name || "") === normalizedRef);
+  if (normalizedNameMatch) return normalizedNameMatch as ProductLike;
+
+  const includesMatch = products.find((p: any) => {
+    const normalizedProductName = normalizeTextForLookup(p?.name || "");
+    return normalizedProductName.includes(normalizedRef) || normalizedRef.includes(normalizedProductName);
+  });
+  if (includesMatch) return includesMatch as ProductLike;
+
+  return null;
+}
+
+function resolveProductFromNode(products: any[], node: any): ProductLike | null {
+  if (!node) return null;
+  return findProductByRef(products, node.productId)
+    || findProductByRef(products, node.productName)
+    || findProductByRef(products, node.title);
+}
+
+function getProductDisplayPrice(prod: ProductLike | null): string {
+  if (!prod) return "";
+  return prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+}
+
+function isSchedulableProduct(prod: ProductLike | null | undefined): boolean {
+  if (!prod) return false;
+  const deliveryType = String(prod.delivery_type || "").trim().toLowerCase();
+  if (deliveryType) {
+    return deliveryType === "service";
+  }
+
+  const type = String(prod.type || "").trim().toLowerCase();
+  return type === "service";
+}
+
+function getSchedulableProducts(products: any[]): ProductLike[] {
+  if (!Array.isArray(products)) return [];
+  const explicit = products.filter((p) => isSchedulableProduct(p as ProductLike));
+
+  if (explicit.length > 0) {
+    return explicit as ProductLike[];
+  }
+
+  return products.filter((p) => String(p?.name || "").trim().length > 0) as ProductLike[];
 }
 
 export async function processMessageWithRules(
@@ -263,7 +375,7 @@ export async function processMessageWithRules(
       await saveState(state);
 
       // Show product info
-      const prod = (settings.products || []).find((p: any) => p.name === selectedProductNode.productId);
+      const prod = resolveProductFromNode(settings.products || [], selectedProductNode);
       let msg = `Você selecionou: *${selectedProductNode.title}*\n\n`;
       if (prod) {
         if (prod.description) msg += `${prod.description}\n\n`;
@@ -381,11 +493,15 @@ export async function processMessageWithRules(
   // Handle Scheduling steps
   if (state.step === "scheduling_select_service") {
     const optionIdx = parseInt(cleanText, 10) - 1;
-    const productsList = settings.products || [];
-    if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= productsList.length) {
+    const servicesList = getSchedulableProducts(settings.products || []);
+    if (servicesList.length === 0) {
+      return "📋 Não há serviços configurados para agendamento no momento. Digite *0* para cancelar ou *menu* para voltar.";
+    }
+
+    if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= servicesList.length) {
       return "❌ Opção inválida. Envie o número do serviço desejado ou *0* para cancelar.";
     }
-    const chosenService = productsList[optionIdx];
+    const chosenService = servicesList[optionIdx];
     const availableDates = obterProximosDiasDisponiveis(settings);
 
     state.step = "scheduling_select_date";
@@ -508,24 +624,87 @@ export async function processMessageWithRules(
 
   if (state.step === "scheduling_confirm") {
     if (cleanText === "1" || cleanText.includes("confirm") || cleanText.includes("sim")) {
-      const parsedDate = parseDateAndTime(state.data.date, state.data.time);
-      const startDateTime = parsedDate || new Date();
+      const stateDate = String(state.data.date || "");
+      const stateTime = String(state.data.time || "");
+      if (!stateDate || !stateTime) {
+        state = { step: "main_menu", data: {} };
+        await saveState(state);
+        return "⚠️ Não foi possível validar o horário selecionado. Digite *agendar* no menu para iniciar novamente.";
+      }
+
+      const parsedDate = parseDateAndTime(stateDate, stateTime);
+      if (!parsedDate) {
+        state = { step: "main_menu", data: {} };
+        await saveState(state);
+        return "⚠️ Não foi possível validar o horário selecionado. Digite *agendar* no menu para iniciar novamente.";
+      }
+
+      const durationMin = Number(state.data.duration || 60);
+      const startDateTime = parsedDate;
+      const availableNow = await isSlotAvailable(tenantId, startDateTime, durationMin);
+      if (!availableNow) {
+        const selectedDate = parseDateOnly(stateDate) || new Date(state.data.parsedDate || parsedDate);
+        const allSlots = await getAvailableSlots(tenantId, selectedDate, durationMin, settings);
+        const selectedPeriod = state.data.period;
+        const periodLabel = selectedPeriod === "tarde" ? "Tarde" : "Manhã";
+        const periodSlots = allSlots.filter((slot) => {
+          const hour = parseInt(slot.split(":")[0], 10);
+          const isMorning = selectedPeriod === "manha";
+          return selectedPeriod ? (isMorning ? hour < 12 : hour >= 12) : true;
+        });
+        const availableSlots = periodSlots.length > 0 ? periodSlots : allSlots;
+        const label = selectedPeriod ? `${periodLabel}` : "Dia inteiro";
+
+        if (!availableSlots.length) {
+          state.step = "scheduling_select_date";
+          state.data.availableSlots = [];
+          state.data.time = undefined;
+          state.data.period = undefined;
+          await saveState(state);
+          return `❌ O horário ${stateTime} foi ocupado no momento. Não há mais horários disponíveis para ${stateDate}. Escolha outra data ou digite *0* para cancelar.`;
+        }
+
+        state.step = "scheduling_select_time";
+        state.data.availableSlots = availableSlots;
+        state.data.time = undefined;
+        await saveState(state);
+
+        let response = `⚠️ O horário escolhido foi reservado antes da confirmação. Seguem os horários atualizados para *${stateDate}* (${label}):\n\n`;
+        availableSlots.forEach((slot, idx) => {
+          response += `${idx + 1}️⃣ ${slot}\n`;
+        });
+        response += `\nDigite o número do novo horário desejado ou *0* para voltar.`;
+        return response;
+      }
       
       let extraNotes = "";
       if (state.data.collected && Object.keys(state.data.collected).length > 0) {
         extraNotes = " | Dados Coletados: " + Object.entries(state.data.collected).map(([k, v]) => `${k}=${v}`).join(", ");
       }
 
-      await prisma.appointment.create({
-        data: {
-          tenant_id: tenantId,
-          service_name: state.data.serviceName,
-          duration_min: state.data.duration || 60,
-          scheduled_at: startDateTime,
-          status: "scheduled",
-          notes: `customer_phone:${contactNumber} | RulesBot Booking${extraNotes}`
-        }
-      });
+        const normalizedContact = normalizePhone(contactNumber);
+        const lead = await prisma.lead.findFirst({
+          where: getLeadLookupWhereClause(tenantId, normalizedContact || contactNumber),
+        }) || await prisma.lead.create({
+          data: {
+            tenant_id: tenantId,
+            phone: normalizedContact || contactNumber,
+            name: normalizedContact || contactNumber,
+            status: 'NEW'
+          }
+        });
+
+        await prisma.appointment.create({
+          data: {
+            tenant_id: tenantId,
+            lead_id: lead.id,
+            service_name: state.data.serviceName,
+            duration_min: durationMin,
+            scheduled_at: startDateTime,
+            status: "scheduled",
+            notes: `customer_phone:${normalizedContact || contactNumber} | RulesBot Booking${extraNotes}`
+          }
+        });
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
       return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n\nObrigado!`;
     }
@@ -567,9 +746,9 @@ export async function processMessageWithRules(
         if (productNodes.length > 0) {
           response = "📋 *Nossos Serviços e Preços:*\n\n";
           productNodes.forEach((pn: any, idx: number) => {
-            const prod = (settings.products || []).find((p: any) => p.name === pn.productId);
+            const prod = resolveProductFromNode(settings.products || [], pn);
             if (prod) {
-              const displayPrice = prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+              const displayPrice = getProductDisplayPrice(prod);
               response += `${idx + 1}️⃣ *${prod.name}* - R$ ${displayPrice}\n`;
               if (prod.description) response += `   _${prod.description}_\n\n`;
             } else {
@@ -600,13 +779,13 @@ export async function processMessageWithRules(
         }
       }
       else if (matchedNode.actionType === "scheduling") {
-        const productsList = settings.products || [];
-        if (productsList.length === 0) {
+        const servicesList = getSchedulableProducts(settings.products || []);
+        if (servicesList.length === 0) {
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
         let response = `📅 *Iniciar Agendamento*\nSelecione o número do serviço que deseja agendar:\n\n`;
-        productsList.forEach((p: any, idx: number) => {
+        servicesList.forEach((p: any, idx: number) => {
           const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
           response += `${idx + 1}️⃣ ${p.name} (R$ ${displayPrice})\n`;
         });
@@ -639,11 +818,11 @@ export async function processMessageWithRules(
         return matchedNode.textContent || "Por favor, digite a informação solicitada:";
       }
       else if (matchedNode.actionType === "product") {
-        const prod = (settings.products || []).find((p: any) => p.name === matchedNode.productId);
+        const prod = resolveProductFromNode(settings.products || [], matchedNode);
         if (!prod) {
           response = `📦 *${matchedNode.title}*`;
         } else {
-          const displayPrice = prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+          const displayPrice = getProductDisplayPrice(prod);
           response = `📦 *${prod.name}* - R$ ${displayPrice}\n\n`;
           if (prod.description) response += `${prod.description}\n\n`;
           if (prod.image_url && prod.send_photo !== false) response += `${prod.image_url}\n\n`;
@@ -660,14 +839,14 @@ export async function processMessageWithRules(
       }
       else if (matchedNode.actionType === "checkout") {
         const productsList = settings.products || [];
-        const chosen = productsList.find((p: any) => p.id === matchedNode.productId || p.name === matchedNode.productId);
+        const chosen = resolveProductFromNode(productsList, matchedNode);
         if (!chosen) {
           return "❌ Erro: Produto não encontrado no sistema.";
         }
         
         const collectedData = state.data.collected || {};
         
-        if (chosen.delivery_type === 'service') {
+        if (isSchedulableProduct(chosen)) {
           const availableDates = obterProximosDiasDisponiveis(settings);
           state.step = "scheduling_select_date";
           state.data = {
@@ -738,7 +917,7 @@ export async function processMessageWithRules(
     if (!isNaN(optionIdx) && optionIdx >= 0 && optionIdx < productsList.length) {
       const chosen = productsList[optionIdx];
       // Se for serviço com agendamento, vai pra etapa de agendar
-      if (chosen.delivery_type === 'service') {
+      if (isSchedulableProduct(chosen)) {
         const availableDates = obterProximosDiasDisponiveis(settings);
         state.step = "scheduling_select_date";
         state.data = {
@@ -839,7 +1018,7 @@ function getMainMenuMessage(settings: any): string {
         const idx = i + 1;
         const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
         
-        if (p.delivery_type === 'service') {
+        if (isSchedulableProduct(p)) {
           msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
         } else if (p.stock !== undefined && p.stock !== null) {
           msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
@@ -1006,6 +1185,39 @@ function parseDateOnly(dateStr: string): Date | null {
   }
 }
 
+async function isSlotAvailable(
+  tenantId: string,
+  scheduledAt: Date,
+  durationMin: number,
+  statusFilter: string[] = ["scheduled", "confirmed", "pending_payment"]
+): Promise<boolean> {
+  const start = new Date(scheduledAt.getTime());
+  const duration = Number(durationMin || 60);
+  const end = start.getTime() + duration * 60 * 1000;
+
+  const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0);
+  const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999);
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      tenant_id: tenantId,
+      scheduled_at: {
+        gte: dayStart,
+        lte: dayEnd,
+      },
+      status: {
+        in: statusFilter,
+      },
+    },
+  });
+
+  return !appointments.some((app) => {
+    const appStart = app.scheduled_at.getTime();
+    const appEnd = appStart + (app.duration_min || 60) * 60 * 1000;
+    return start.getTime() < appEnd && end > appStart;
+  });
+}
+
 async function getAvailableSlots(tenantId: string, date: Date, durationMin: number, settings: any): Promise<string[]> {
   const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
   const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
@@ -1018,7 +1230,7 @@ async function getAvailableSlots(tenantId: string, date: Date, durationMin: numb
         lte: dayEnd,
       },
       status: {
-        in: ["scheduled", "confirmed"],
+        in: ["scheduled", "confirmed", "pending_payment"],
       },
     },
   });

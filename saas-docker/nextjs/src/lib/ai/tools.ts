@@ -2,6 +2,26 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function normalizePhone(value: string | null | undefined): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function buildLeadLookupWhere(tenantId: string, rawPhone: string): any {
+  const clean = normalizePhone(rawPhone);
+  const or: Array<{ phone: string }> = [];
+
+  if (clean) or.push({ phone: clean });
+  if (clean.length > 8) {
+    const noCountry = clean.startsWith("55") ? clean.slice(2) : clean;
+    if (noCountry) or.push({ phone: noCountry });
+  }
+
+  return {
+    tenant_id: tenantId,
+    ...(or.length > 0 ? { OR: or } : { phone: clean || rawPhone }),
+  };
+}
+
 export const aiTools = [
   {
     type: "function",
@@ -323,19 +343,22 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
 
   if (toolCall.function.name === "agendar_compromisso") {
     try {
+      const normalizedContact = normalizePhone(contactNumber);
       // Salva no DB local
       const startDateTime = new Date(`${args.data}T${args.hora}:00`);
+      if (isNaN(startDateTime.getTime())) {
+        return `Erro ao agendar compromisso: data ou horário inválido.\nEx: 2026-07-30 às 14:00.`;
+      }
       if (startDateTime.getFullYear() < 2026) {
         startDateTime.setFullYear(2026);
       }
 
       // Buscar Lead
-      let lead = await prisma.lead.findFirst({
-        where: { tenant_id: tenantId, phone: contactNumber }
-      });
+      const leadWhere = buildLeadLookupWhere(tenantId, normalizedContact || contactNumber);
+      let lead = await prisma.lead.findFirst({ where: leadWhere });
       if (!lead) {
         lead = await prisma.lead.create({
-          data: { tenant_id: tenantId, phone: contactNumber, name: contactNumber, status: 'NEW' }
+          data: { tenant_id: tenantId, phone: normalizedContact || contactNumber, name: normalizedContact || contactNumber, status: 'NEW' }
         });
       }
 
@@ -344,20 +367,44 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
       let products: any[] = [];
       try { products = JSON.parse(tenant?.settings as string || '{}').products || []; } catch {}
       const productInfo = products.find((p: any) => p.name?.toLowerCase() === args.titulo.toLowerCase());
+      const durationMin = Number(productInfo?.duration_min || 60);
+
+      const dayStart = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate(), 0, 0, 0, 0);
+      const dayEnd = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate(), 23, 59, 59, 999);
+      const startTs = startDateTime.getTime();
+      const endTs = startTs + durationMin * 60 * 1000;
+
+      const existing = await prisma.appointment.findMany({
+        where: {
+          tenant_id: tenantId,
+          scheduled_at: { gte: dayStart, lte: dayEnd },
+          status: { in: ["scheduled", "confirmed", "pending_payment"] },
+        },
+      });
+
+      const hasConflict = existing.some((app) => {
+        const appStart = app.scheduled_at.getTime();
+        const appEnd = appStart + (app.duration_min || 60) * 60 * 1000;
+        return startTs < appEnd && endTs > appStart;
+      });
+
+      if (hasConflict) {
+        return `⚠️ O horário solicitado (${args.hora} em ${args.data}) já está ocupado por outro atendimento. Escolha outro horário antes de confirmar.`;
+      }
 
       const requiresPayment = productInfo?.requires_payment === true;
       const status = requiresPayment ? "pending_payment" : "scheduled";
 
       await prisma.appointment.create({
-        data: {
-          tenant_id: tenantId,
-          lead_id: lead.id,
-          service_name: args.titulo,
-          scheduled_at: startDateTime,
-          status: status,
-          notes: `customer_phone:${contactNumber}`
-        }
-      });
+          data: {
+            tenant_id: tenantId,
+            lead_id: lead.id,
+            service_name: args.titulo,
+            scheduled_at: startDateTime,
+            status: status,
+            notes: `customer_phone:${normalizedContact || contactNumber} | criado via IA`
+          }
+        });
 
       if (requiresPayment) {
         const checkoutUrl = `${process.env.APP_URL || 'http://localhost:3000'}/checkout/${tenantId}?product=${encodeURIComponent(args.titulo)}&phone=${encodeURIComponent(contactNumber)}`;

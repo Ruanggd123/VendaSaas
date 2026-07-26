@@ -80,6 +80,14 @@ function hasExplicitMenuSection(message: string): boolean {
   return menuLikeLines.length >= 2;
 }
 
+function isSchedulableProduct(product: any): boolean {
+  const deliveryType = String(product?.delivery_type || "").trim().toLowerCase();
+  if (deliveryType) return deliveryType === "service";
+
+  const type = String(product?.type || "").trim().toLowerCase();
+  return type === "service";
+}
+
 const WEEKDAY_NAMES_SIMULATOR = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 const BUSINESS_DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
@@ -216,6 +224,98 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
   };
 
+  const normalizeLookupValue = (value: any): string => {
+    return String(value || "")
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  };
+
+  const findProductByReference = (products: any[], productRef: any) => {
+    if (!Array.isArray(products) || !productRef) return null;
+
+    const ref = String(productRef).trim();
+    if (!ref) return null;
+
+    const byId = products.find((prod: any) => String(prod?.id || "") === ref);
+    if (byId) return byId;
+
+    const exactName = products.find((prod: any) => String(prod?.name || "") === ref);
+    if (exactName) return exactName;
+
+    const normalizedRef = normalizeLookupValue(ref);
+    const normalizedExact = products.find((prod: any) => normalizeLookupValue(prod?.name || "") === normalizedRef);
+    if (normalizedExact) return normalizedExact;
+
+    const fuzzyMatch = products.find((prod: any) => {
+      const candidate = normalizeLookupValue(prod?.name || "");
+      return candidate.includes(normalizedRef) || normalizedRef.includes(candidate);
+    });
+
+    return fuzzyMatch || null;
+  };
+
+  const resolveProductFromNode = (node: any) => {
+    if (!node) return null;
+    const products = settings?.products || [];
+    const refs = [node.productId, node.productName, node.title];
+    for (const ref of refs) {
+      const found = findProductByReference(products, ref);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const buildCheckoutFlow = (product: any, paymentMode: string, originNode: any, botPrefix = "") => {
+    if (!product) {
+      return {
+        text: "❌ Produto não encontrado no catálogo.",
+        buttons: [{ label: "🏠 Voltar ao Catálogo", value: "1" }, { label: "👤 Falar com Consultor", value: "4" }],
+      };
+    }
+
+    const nodePrefix = botPrefix || (originNode?.textContent && originNode.textContent.trim().length > 0
+      ? originNode.textContent
+      : `📦 *${product.name}*\n💰 *Valor:* R$ ${product.price || ""}`);
+    const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
+    const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name)}`;
+    const desc = product.description ? `\n${product.description}` : "";
+    const prefix = `${nodePrefix}${desc}`;
+
+    if (paymentMode === "pix") {
+      return {
+        text: `${prefix}\n\n👇 *Pagamento via Pix:* Clique abaixo para gerar o código Pix Copia e Cola instantâneo!`,
+        buttons: [
+          { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${product.name}` },
+          { label: "👤 Falar com Consultor", value: "4" },
+          { label: "⬅️ Voltar ao Catálogo", value: "1" },
+        ],
+      };
+    }
+
+    if (paymentMode === "link") {
+      return {
+        text: `${prefix}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):*\n${checkoutLink}`,
+        buttons: [
+          { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
+          { label: "👤 Falar com Consultor", value: "4" },
+          { label: "⬅️ Voltar ao Catálogo", value: "1" },
+        ],
+      };
+    }
+
+    return {
+      text: `${prefix}\n\n👇 *Escolha a forma de pagamento:*`,
+      buttons: [
+        { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${product.name}` },
+        { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
+        { label: "👤 Falar com Consultor", value: "4" },
+        { label: "⬅️ Voltar ao Catálogo", value: "1" },
+      ],
+    };
+  };
+
   const generateBotInitialMenu = (): Message => {
     const welcome = sanitizeWelcomeMessage(settings?.welcome_message || DEFAULT_SIMULATOR_WELCOME);
     const shouldAutoAppendMenu = settings?.welcome_menu_auto_append !== false;
@@ -330,14 +430,30 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
         const prods = settings?.products || [];
         const schedulingStateActive = schedulingState?.phase;
 
-        const parseServiceList = (arr: any[]) => arr
-          .map((prod, idx) => ({
-            id: idx + 1,
-            name: prod?.name || `Serviço ${idx + 1}`,
-            price: prod?.price,
-            durationMin: Number(prod?.duration_min || prod?.duration || 60),
-          }))
-          .filter((service) => service.name && service.name.trim().length > 0);
+        const parseServiceList = (arr: any[]) => {
+          const explicitServices = arr
+            .filter((prod) => isSchedulableProduct(prod))
+            .map((prod, idx) => ({
+              id: idx + 1,
+              name: prod?.name || `Serviço ${idx + 1}`,
+              price: prod?.price,
+              durationMin: Number(prod?.duration_min || prod?.duration || 60),
+            }))
+            .filter((service) => service.name && service.name.trim().length > 0);
+
+          if (explicitServices.length > 0) {
+            return explicitServices;
+          }
+
+          return arr
+            .filter((prod) => String(prod?.name || "").trim().length > 0)
+            .map((prod, idx) => ({
+              id: idx + 1,
+              name: prod?.name || `Serviço ${idx + 1}`,
+              price: prod?.price,
+              durationMin: Number(prod?.duration_min || prod?.duration || 60),
+            }));
+        };
 
         if (schedulingStateActive) {
           const currentState = schedulingState as SchedulingState;
@@ -558,12 +674,8 @@ Seu agendamento foi registrado no simulador.`;
 
         // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
         if (inCatalogView && !isNaN(parseInt(clean, 10))) {
-        const prodIdx = parseInt(clean, 10) - 1;
-        const selectedProd = prods[prodIdx];
-
-        if (selectedProd) {
-          const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
-          const checkoutLink = `${originUrl}/checkout/${tenantId || 'default'}?product=${encodeURIComponent(selectedProd.name)}`;
+          const prodIdx = parseInt(clean, 10) - 1;
+          const selectedProd = prods[prodIdx];
 
           // Procura se o usuário configurou um sub-nó específico para este produto
           const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
@@ -571,30 +683,24 @@ Seu agendamento foi registrado no simulador.`;
             ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(clean))
             : null;
 
-          const pMode = customSubNode?.paymentMode || "both";
-          const customIntro = customSubNode?.textContent || `📦 *${selectedProd.name}*\n💰 *Valor:* R$ ${selectedProd.price}\n\n${selectedProd.description || "Automação de alta performance para impulsionar suas vendas no WhatsApp."}`;
+          const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
 
-          if (pMode === "pix") {
-            botResponseText = `${customIntro}\n\n👇 *Pagamento via Pix:* Clique abaixo para gerar o código Pix Copia e Cola instantâneo!`;
-            botButtons = [
-              { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
-              { label: "👤 Falar com Consultor", value: "4" },
-              { label: "⬅️ Voltar ao Catálogo", value: "1" },
-            ];
-          } else if (pMode === "link") {
-            botResponseText = `${customIntro}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):*\n${checkoutLink}`;
-            botButtons = [
-              { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
-              { label: "👤 Falar com Consultor", value: "4" },
-              { label: "⬅️ Voltar ao Catálogo", value: "1" },
-            ];
+          if (productForCheckout) {
+            const pMode = customSubNode?.paymentMode || "both";
+            const checkoutFlow = buildCheckoutFlow(
+              productForCheckout,
+              pMode,
+              customSubNode,
+              customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${productForCheckout.price}`
+            );
+
+            botResponseText = checkoutFlow.text;
+            botButtons = checkoutFlow.buttons;
           } else {
-            botResponseText = `${customIntro}\n\n👇 *Escolha a forma de pagamento:*`;
+            botResponseText = "❌ Produto não encontrado no catálogo.";
             botButtons = [
-              { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${prodIdx}` },
-              { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
+              { label: "🏠 Menu Principal", value: "0" },
               { label: "👤 Falar com Consultor", value: "4" },
-              { label: "⬅️ Voltar ao Catálogo", value: "1" },
             ];
           }
 
@@ -608,29 +714,32 @@ Seu agendamento foi registrado no simulador.`;
           setMessages((prev) => [...prev, botMsg]);
           return;
         }
-      }
+        // SE CLICOU EM GERAR PIX NO CHAT
+        if (clean.startsWith("gen_pix_chat_")) {
+          const slug = clean.replace("gen_pix_chat_", "").trim();
+          const slugIndex = parseInt(slug, 10);
+          const matchedProduct =
+            resolveProductFromNode({ productName: slug }) ||
+            prods.find((prod: any) => normalizeLookupValue(prod?.name || "") === normalizeLookupValue(slug)) ||
+            (!isNaN(slugIndex) && slugIndex > 0 ? prods[slugIndex - 1] : null) ||
+            { name: "Produto", price: "147.00" };
 
-      // SE CLICOU EM GERAR PIX NO CHAT
-      if (clean.startsWith("gen_pix_chat_")) {
-        const pIdx = parseInt(clean.replace("gen_pix_chat_", ""), 10);
-        const prod = prods[pIdx] || { name: "Produto", price: "147.00" };
+          botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${matchedProduct.name}*\nValor: *R$ ${matchedProduct.price}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que efetuar a transferência Pix, o seu acesso é liberado instantaneamente! ✅`;
+          botButtons = [
+            { label: "✅ Já Realizei o Pagamento", value: "confirm_pix" },
+            { label: "🏠 Menu Principal", value: "0" },
+          ];
 
-        botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${prod.name}*\nValor: *R$ ${prod.price}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que efetuar a transferência Pix, o seu acesso é liberado instantaneamente! ✅`;
-        botButtons = [
-          { label: "✅ Já Realizei o Pagamento", value: "confirm_pix" },
-          { label: "🏠 Menu Principal", value: "0" },
-        ];
-
-        const botMsg: Message = {
-          id: "bot_" + Date.now(),
-          sender: "bot",
-          text: botResponseText,
-          timestamp: currentTime,
-          buttons: botButtons,
-        };
-        setMessages((prev) => [...prev, botMsg]);
-        return;
-      }
+          const botMsg: Message = {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: botResponseText,
+            timestamp: currentTime,
+            buttons: botButtons,
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          return;
+        }
 
       if (clean === "confirm_pix") {
         botResponseText = "🎉 *Pagamento em Processamento!*\n\nIdentificamos a solicitação de baixa! Nosso sistema liberará sua credencial em instantes no WhatsApp! 🚀";
@@ -704,26 +813,54 @@ Seu agendamento foi registrado no simulador.`;
             ? matchedNode.textContent
             : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para abrir o link de pagamento seguro em outra aba!";
           botProducts = prods;
+        } else if (matchedNode.actionType === "product" || matchedNode.actionType === "checkout") {
+          setInCatalogView(false);
+          const chosenProduct = resolveProductFromNode(matchedNode);
+
+          if (children.length > 0) {
+            if (chosenProduct) {
+              const intro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
+                ? matchedNode.textContent
+                : `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${chosenProduct.price || ""}`;
+              botResponseText = `${intro}\n\n${chosenProduct.description ? chosenProduct.description : ""}`;
+            } else {
+              botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*.`;
+            }
+          } else {
+            const checkoutFlow = buildCheckoutFlow(
+              chosenProduct,
+              matchedNode.paymentMode || "both",
+              matchedNode,
+              chosenProduct
+                ? `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${chosenProduct.price || ""}`
+                : matchedNode.textContent || `📦 *${matchedNode.title}*`
+            );
+
+            botResponseText = checkoutFlow.text;
+            botButtons = checkoutFlow.buttons;
+          }
         } else if (matchedNode.actionType === "scheduling") {
           setInCatalogView(false);
-          const services = parseServiceList(prods.filter((p: any) => (p.delivery_type || "") === "service").slice(0, 5));
-          const fallbackServices = services.length > 0 ? services : parseServiceList(prods);
+          const services = parseServiceList(prods).slice(0, 5);
 
           const serviceIntro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
             : "📅 *Iniciar Agendamento*\n\nSelecione o número do serviço que deseja agendar:";
+          const hasManualMenu = hasExplicitMenuSection(serviceIntro);
 
-          if (fallbackServices.length === 0) {
+          if (services.length === 0) {
             botResponseText = "📋 No momento não temos serviços disponíveis para agendamento.";
             botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
           } else {
             botResponseText = serviceIntro;
-            fallbackServices.forEach((service) => {
-              const price = service.price ? ` (R$ ${service.price})` : "";
-              botResponseText += `\n*${service.id}* - ${service.name}${price}`;
-            });
-            botResponseText += "\n\nDigite o número do serviço ou *0* para voltar.";
-            botButtons = fallbackServices.map((service) => ({
+            if (!hasManualMenu) {
+              services.forEach((service) => {
+                const price = service.price ? ` (R$ ${service.price})` : "";
+                botResponseText += `\n*${service.id}* - ${service.name}${price}`;
+              });
+              botResponseText += "\n\nDigite o número do serviço ou *0* para voltar.";
+            }
+            botButtons = services.map((service) => ({
               label: `${service.id} - ${service.name}`,
               value: String(service.id),
             }));
@@ -731,7 +868,7 @@ Seu agendamento foi registrado no simulador.`;
 
             setSchedulingState({
               phase: "selectService",
-              services: fallbackServices,
+              services,
             });
           }
         } else if (matchedNode.actionType === "human") {

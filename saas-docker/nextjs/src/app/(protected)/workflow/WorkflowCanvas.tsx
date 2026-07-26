@@ -185,16 +185,17 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
       if (parentEdge && parentEdge.source !== 'start') {
         parentId = parentEdge.source;
       }
-      custom_rules_nodes.push({
-        id: node.id,
-        parentId,
-        keyword: node.data.keyword || '0',
-        title: node.data.title || 'Nova Opção',
-        actionType: node.data.actionType || 'text',
-        textContent: node.data.textContent || '',
-        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
-        variableName: node.data.variableName || '',
-        productId: node.data.productId || '',
+        custom_rules_nodes.push({
+          id: node.id,
+          parentId,
+          keyword: node.data.keyword || '0',
+          title: node.data.title || 'Nova Opção',
+          actionType: node.data.actionType || 'text',
+          textContent: node.data.textContent || '',
+          paymentMode: node.data.paymentMode || 'both',
+          position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
+          variableName: node.data.variableName || '',
+          productId: node.data.productId || '',
         productPrice: node.data.productPrice || '',
         productDescription: node.data.productDescription || '',
         productName: node.data.productName || ''

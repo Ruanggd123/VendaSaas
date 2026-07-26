@@ -341,7 +341,10 @@ function NewAppointmentModal({
 }
 
 // ─── CARTÃO DE AGENDAMENTO ──────────────────────────────────────────────────
-function AppointmentCard({ appt, onStatusChange }: { appt: Appointment; onStatusChange: (id: string, status: string) => void }) {
+function AppointmentCard({ appt, onStatusChange }: {
+  appt: Appointment;
+  onStatusChange: (appt: Appointment, status: string) => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const st = STATUS_MAP[appt.status] || STATUS_MAP.scheduled;
   const endTime = new Date(new Date(appt.scheduled_at).getTime() + appt.duration_min * 60000);
@@ -382,7 +385,7 @@ function AppointmentCard({ appt, onStatusChange }: { appt: Appointment; onStatus
                 <button
                   key={key}
                   onClick={() => {
-                    onStatusChange(appt.id, key);
+                    onStatusChange(appt, key);
                     setMenuOpen(false);
                   }}
                   className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2.5 ${
@@ -480,12 +483,21 @@ export default function AgendaPage() {
       })
     : [];
 
-  const handleStatusChange = async (id: string, status: string) => {
+  const handleStatusChange = async (appt: Appointment, status: string) => {
+    const payload: { id: string; status: string; contact_phone?: string } = {
+      id: appt.id,
+      status,
+    };
+
+    if (appt.lead?.phone) {
+      payload.contact_phone = appt.lead.phone;
+    }
+
     try {
       await fetch("/api/appointments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify(payload),
       });
       fetchAppointments();
     } catch {}

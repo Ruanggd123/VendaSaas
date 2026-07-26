@@ -274,6 +274,111 @@ export default function WorkflowPage() {
     setAlert({ type: "success", msg: `Template "${tpl.title}" carregado com sucesso! ✅` });
   };
 
+  const selectedNode = (selectedNodeId && selectedNodeId !== "start")
+    ? settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId) || null
+    : null;
+
+  const selectedNodeIndex = selectedNodeId && selectedNodeId !== "start"
+    ? (settings.custom_rules_nodes || []).findIndex((n: any) => n.id === selectedNodeId)
+    : -1;
+
+  const setSelectedNodeField = (field: string, value: any) => {
+    if (!selectedNode || selectedNodeIndex < 0) return;
+    const newNodes = [...(settings.custom_rules_nodes || [])];
+    newNodes[selectedNodeIndex] = { ...newNodes[selectedNodeIndex], [field]: value };
+    updateField("custom_rules_nodes", newNodes);
+  };
+
+  const linkProductToNode = (productIdx: number) => {
+    if (!selectedNode || selectedNodeIndex < 0 || !selectedNode) return;
+    const product = (settings.products || [])[productIdx];
+    if (!product) {
+      const newNodes = [...(settings.custom_rules_nodes || [])];
+      newNodes[selectedNodeIndex] = {
+        ...newNodes[selectedNodeIndex],
+        productId: "",
+        productName: "",
+        productPrice: "",
+        productDescription: "",
+      };
+      updateField("custom_rules_nodes", newNodes);
+      return;
+    }
+
+    const newNodes = [...(settings.custom_rules_nodes || [])];
+    newNodes[selectedNodeIndex] = {
+      ...newNodes[selectedNodeIndex],
+      productId: product.id != null ? String(product.id) : "",
+      productName: product.name || "",
+      productPrice: product.price != null ? String(product.price) : "",
+      productDescription: product.description || "",
+    };
+    updateField("custom_rules_nodes", newNodes);
+  };
+
+  const productOptions = (settings.products || []).map((prod: any, idx: number) => ({
+    ...prod,
+    __idx: idx,
+  }));
+
+  const getProductOptionValue = (node: any): string => {
+    if (!node) return "";
+
+    if (node.productId) {
+      const byId = productOptions.find((p) => String(p.id || "") === String(node.productId));
+      if (byId) return String(byId.__idx);
+    }
+
+    if (node.productName) {
+      const byName = productOptions.find((p) => (p.name || "") === node.productName);
+      if (byName) return String(byName.__idx);
+    }
+
+    return "";
+  };
+
+  const currentProductOptionValue = getProductOptionValue(selectedNode);
+
+  const applyProductToNode = (nodeIdx: number, productIdx: number) => {
+    const newNodes = [...(settings.custom_rules_nodes || [])];
+    const node = newNodes[nodeIdx];
+    if (!node) return;
+
+    if (productIdx < 0) {
+      newNodes[nodeIdx] = {
+        ...node,
+        productId: "",
+        productName: "",
+        productPrice: "",
+        productDescription: "",
+      };
+      updateField("custom_rules_nodes", newNodes);
+      return;
+    }
+
+    const product = (settings.products || [])[productIdx];
+    if (!product) {
+      newNodes[nodeIdx] = {
+        ...node,
+        productId: "",
+        productName: "",
+        productPrice: "",
+        productDescription: "",
+      };
+      updateField("custom_rules_nodes", newNodes);
+      return;
+    }
+
+    newNodes[nodeIdx] = {
+      ...node,
+      productId: product.id != null ? String(product.id) : "",
+      productName: product.name || "",
+      productPrice: product.price != null ? String(product.price) : "",
+      productDescription: product.description || "",
+    };
+    updateField("custom_rules_nodes", newNodes);
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white -m-8 overflow-hidden font-sans">
       {/* HEADER SUPERIOR ESPAÇOSO E SEM SOBREPOSIÇÕES */}
@@ -339,69 +444,28 @@ export default function WorkflowPage() {
             </div>
           )}
 
-          {activeTab === "canvas" && (
-            <>
-              {/* TOGGLE MODO DE ATENDIMENTO */}
-              <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-white/10">
+            {activeTab === "canvas" && (
+              <>
                 <button
-                  onClick={() => updateField("bot_type", "regras")}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                    settings.bot_type === "regras"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  onClick={() => setShowTemplatesModal(true)}
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
                 >
-                  📋 Regras
+                  <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="hidden lg:inline">Templates</span>
                 </button>
+
                 <button
-                  onClick={() => updateField("bot_type", "ia")}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                    settings.bot_type === "ia"
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  onClick={() => {
+                    updateField("custom_rules_nodes", []);
+                    setSelectedNodeId("start");
+                    setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. 🧹" });
+                  }}
+                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-200 dark:border-rose-500/20"
+                  title="Limpar todas as regras para criar do zero"
                 >
-                  🤖 IA
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">Limpar</span>
                 </button>
-              </div>
-
-              <button
-                onClick={() => setShowTemplatesModal(true)}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-              >
-                <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="hidden lg:inline">Templates</span>
-              </button>
-
-              <button
-                onClick={() => setShowProductsModal(true)}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-              >
-                <Package className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="hidden lg:inline">Catálogo</span>
-              </button>
-
-              <button
-                onClick={() => setShowGroupsModal(true)}
-                className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-200 dark:border-purple-500/20"
-                title="Configurar Trava de Segurança para Grupos do WhatsApp"
-              >
-                <Layers className="w-3.5 h-3.5 text-purple-500" />
-                <span className="hidden lg:inline">👥 Grupos</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  updateField("custom_rules_nodes", []);
-                  setSelectedNodeId("start");
-                  setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. 🧹" });
-                }}
-                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-200 dark:border-rose-500/20"
-                title="Limpar todas as regras para criar do zero"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Limpar</span>
-              </button>
 
               <button
                 onClick={() => {
@@ -541,7 +605,7 @@ export default function WorkflowPage() {
                   </div>
                 )}
 
-                {selectedNodeId && selectedNodeId !== "start" && (
+                {selectedNode && (
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -549,12 +613,11 @@ export default function WorkflowPage() {
                       </label>
                       <input
                         type="text"
-                        value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.keyword || ""}
+                        value={selectedNode.keyword || ""}
                         onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
-                          if (idx > -1) {
-                            newNodes[idx].keyword = e.target.value;
+                          if (selectedNodeIndex > -1) {
+                            const newNodes = [...(settings.custom_rules_nodes || [])];
+                            newNodes[selectedNodeIndex].keyword = e.target.value;
                             updateField("custom_rules_nodes", newNodes);
                           }
                         }}
@@ -570,12 +633,11 @@ export default function WorkflowPage() {
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Título do Menu</label>
                       <input
                         type="text"
-                        value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.title || ""}
+                        value={selectedNode.title || ""}
                         onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
-                          if (idx > -1) {
-                            newNodes[idx].title = e.target.value;
+                          if (selectedNodeIndex > -1) {
+                            const newNodes = [...(settings.custom_rules_nodes || [])];
+                            newNodes[selectedNodeIndex].title = e.target.value;
                             updateField("custom_rules_nodes", newNodes);
                           }
                         }}
@@ -586,12 +648,11 @@ export default function WorkflowPage() {
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Tipo de Ação</label>
                       <select
-                        value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.actionType || "text"}
+                        value={selectedNode.actionType || "text"}
                         onChange={(e) => {
-                          const newNodes = [...(settings.custom_rules_nodes || [])];
-                          const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
-                          if (idx > -1) {
-                            newNodes[idx].actionType = e.target.value;
+                          if (selectedNodeIndex > -1) {
+                            const newNodes = [...(settings.custom_rules_nodes || [])];
+                            newNodes[selectedNodeIndex].actionType = e.target.value;
                             updateField("custom_rules_nodes", newNodes);
                           }
                         }}
@@ -599,22 +660,61 @@ export default function WorkflowPage() {
                       >
                         <option value="text">💬 Texto Personalizado / Submenu</option>
                         <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                        <option value="product">🧩 Produto (exibe e segue submenu)</option>
+                        <option value="checkout">🛒 Checkout / Pagamento</option>
                         <option value="scheduling">📅 Iniciar Agendamento</option>
                         <option value="human">👤 Transferir para Humano</option>
                       </select>
                     </div>
 
-                    {settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.actionType === "text" && (
+                    {(selectedNode.actionType === "checkout" || selectedNode.actionType === "product") && (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">💳 Forma de Pagamento</label>
+                        <select
+                          value={selectedNode.paymentMode || "both"}
+                          onChange={(e) => setSelectedNodeField("paymentMode", e.target.value)}
+                          className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
+                        >
+                          <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
+                          <option value="pix">⚡ Pix Direto no WhatsApp</option>
+                          <option value="link">🔗 Link de Checkout no Site</option>
+                        </select>
+
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Produto Vinculado</label>
+                        <select
+                          value={currentProductOptionValue}
+                          onChange={(e) => linkProductToNode(parseInt(e.target.value, 10))}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                        >
+                          <option value="">Selecione um produto</option>
+                          {productOptions.map((prod: any) => (
+                            <option key={prod.__idx} value={String(prod.__idx)}>
+                              {prod.name} - R$ {prod.price}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Nome do Produto (avulso)</label>
+                        <input
+                          type="text"
+                          value={selectedNode.productName || ""}
+                          onChange={(e) => setSelectedNodeField("productName", e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                          placeholder="Usado como fallback quando não houver id"
+                        />
+                      </div>
+                    )}
+
+                    {selectedNode.actionType === "text" && (
                       <div className="space-y-2">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Texto da Resposta</label>
                         <textarea
                           rows={4}
-                          value={settings.custom_rules_nodes?.find((n: any) => n.id === selectedNodeId)?.textContent || ""}
+                          value={selectedNode.textContent || ""}
                           onChange={(e) => {
-                            const newNodes = [...(settings.custom_rules_nodes || [])];
-                            const idx = newNodes.findIndex((n) => n.id === selectedNodeId);
-                            if (idx > -1) {
-                              newNodes[idx].textContent = e.target.value;
+                            if (selectedNodeIndex > -1) {
+                              const newNodes = [...(settings.custom_rules_nodes || [])];
+                              newNodes[selectedNodeIndex].textContent = e.target.value;
                               updateField("custom_rules_nodes", newNodes);
                             }
                           }}
@@ -829,20 +929,21 @@ export default function WorkflowPage() {
                               updateField("custom_rules_nodes", newNodes);
                             }}
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                          >
-                            <option value="text">💬 Exibir Resposta de Texto</option>
-                            <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                            <option value="checkout">💳 Pagamento / Checkout de Produto</option>
-                            <option value="scheduling">📅 Abrir Agendamento de Horário</option>
-                            <option value="human">👤 Transferir para Atendente Humano</option>
-                          </select>
+                            >
+                              <option value="text">💬 Exibir Resposta de Texto</option>
+                              <option value="catalog">📋 Exibir Catálogo de Produtos</option>
+                              <option value="product">🧩 Produto (exibe e segue submenu)</option>
+                              <option value="checkout">💳 Pagamento / Checkout de Produto</option>
+                              <option value="scheduling">📅 Abrir Agendamento de Horário</option>
+                              <option value="human">👤 Transferir para Atendente Humano</option>
+                            </select>
 
                           {/* MOSTRA FORMA DE PAGAMENTO APENAS SE FOR PAGAMENTO OU CHECKOUT! */}
-                          {(node.actionType === "checkout" || node.actionType === "product") && (
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">💳 Forma de Pagamento:</label>
-                              <select
-                                value={node.paymentMode || "both"}
+                            {(node.actionType === "checkout" || node.actionType === "product") && (
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">💳 Forma de Pagamento:</label>
+                                <select
+                                  value={node.paymentMode || "both"}
                                 onChange={(e) => {
                                   const newNodes = [...(settings.custom_rules_nodes || [])];
                                   newNodes[nodeIdx].paymentMode = e.target.value;
@@ -851,11 +952,38 @@ export default function WorkflowPage() {
                                 className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
                               >
                                 <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
-                                <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
-                                <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
-                              </select>
-                            </div>
-                          )}
+                                  <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
+                                  <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
+                                </select>
+
+                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">🛒 Produto Vinculado:</label>
+                                <select
+                                  value={getProductOptionValue(node)}
+                                  onChange={(e) => applyProductToNode(nodeIdx, parseInt(e.target.value, 10))}
+                                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-bold text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none"
+                                >
+                                  <option value="">Selecione</option>
+                                  {productOptions.map((prod: any) => (
+                                    <option key={prod.__idx} value={String(prod.__idx)}>
+                                      {prod.name} - R$ {prod.price}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">ou nome do produto:</label>
+                                <input
+                                  type="text"
+                                  value={node.productName || ""}
+                                  onChange={(e) => {
+                                    const newNodes = [...(settings.custom_rules_nodes || [])];
+                                    newNodes[nodeIdx].productName = e.target.value;
+                                    updateField("custom_rules_nodes", newNodes);
+                                  }}
+                                  placeholder="Fallback se não houver produto vinculado"
+                                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                                />
+                              </div>
+                            )}
 
                           {/* RESPOSTA DO ROBÔ */}
                           <textarea
@@ -879,17 +1007,21 @@ export default function WorkflowPage() {
                                 prods.forEach((prod: any, idx: number) => {
                                   const exists = newNodes.some((n) => n.parentId === node.id && n.keyword === String(idx + 1));
                                   if (!exists) {
-                                    newNodes.push({
-                                      id: "prod_node_" + Math.random().toString(36).substr(2, 9),
-                                      parentId: node.id,
-                                      keyword: String(idx + 1),
-                                      title: `${prod.name} (R$ ${prod.price})`,
-                                      actionType: "checkout",
-                                      paymentMode: "both",
-                                      textContent: `Você selecionou *${prod.name}* (R$ ${prod.price}). Escolha como deseja realizar o pagamento abaixo:`,
-                                    });
-                                  }
-                                });
+                                  newNodes.push({
+                                    id: "prod_node_" + Math.random().toString(36).substr(2, 9),
+                                    parentId: node.id,
+                                    keyword: String(idx + 1),
+                                    title: `${prod.name} (R$ ${prod.price})`,
+                                    actionType: "checkout",
+                                    paymentMode: "both",
+                                    textContent: `Você selecionou *${prod.name}* (R$ ${prod.price}). Escolha como deseja realizar o pagamento abaixo:`,
+                                    productId: prod.id != null ? String(prod.id) : "",
+                                    productName: prod.name || "",
+                                    productPrice: prod.price != null ? String(prod.price) : "",
+                                    productDescription: prod.description || "",
+                                  });
+                                }
+                              });
                                 updateField("custom_rules_nodes", newNodes);
                                 setAlert({ type: "success", msg: "Sub-nós de produtos gerados com sucesso! 📦" });
                               }}
