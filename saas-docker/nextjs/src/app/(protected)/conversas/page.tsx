@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Bot,
   Check,
+  Clock3,
   CircleAlert,
   FileText,
   Image as ImageIcon,
@@ -48,6 +49,14 @@ interface Message {
   clientStatus?: ClientStatus;
   clientPayload?: SendPayload;
   error?: string;
+}
+
+interface ResponseSlaState {
+  label: string;
+  minutes: number;
+  limit: number;
+  priority: Priority;
+  urgent: boolean;
 }
 
 interface Lead {
@@ -117,10 +126,16 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: "urgent", label: "Urgente" },
 ];
 const SERVICE_STATUS_OPTIONS: { value: ServiceStatus; label: string }[] = [
-  { value: "active", label: "Em atendimento" },
-  { value: "pending", label: "Aguardando cliente" },
-  { value: "resolved", label: "Resolvido" },
+  { value: "active", label: "Atendimento em andamento" },
+  { value: "pending", label: "Aguardando retorno" },
+  { value: "resolved", label: "Concluído" },
 ];
+const RESPONSE_LIMIT_BY_PRIORITY: Record<Priority, number> = {
+  urgent: 10,
+  high: 30,
+  normal: 120,
+  low: 240,
+};
 const QUICK_FILTERS: { value: QuickFilter; label: string; description: string }[] = [
   { value: "all", label: "Todas", description: "Todas as conversas" },
   { value: "unread", label: "Não lidas", description: "Apenas novas mensagens recebidas" },
@@ -163,6 +178,42 @@ function timeAgo(iso?: string | null) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} h`;
   return `${Math.floor(hours / 24)} d`;
+}
+
+function minutesSince(iso?: string | null) {
+  if (!iso) return null;
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return null;
+  const diff = Math.max(0, Date.now() - time);
+  return Math.floor(diff / 60_000);
+}
+
+function responseLimitForPriority(priority: Priority) {
+  return RESPONSE_LIMIT_BY_PRIORITY[priority];
+}
+
+function formatResponseDelay(minutes: number) {
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h`;
+  return `${Math.floor(hours / 24)} d`;
+}
+
+function responseSlaState(conversation: Conversation): ResponseSlaState | null {
+  const latest = latestMessage(conversation);
+  if (!latest || latest.direction === "outbound" || latest.direction === "outgoing") return null;
+  const category = parseLeadCategory(conversation.leads?.[0]?.category);
+  const minutes = minutesSince(latest.created_at);
+  if (minutes === null) return null;
+  const limit = responseLimitForPriority(category.priority);
+  return {
+    label: formatResponseDelay(minutes),
+    minutes,
+    limit,
+    priority: category.priority,
+    urgent: minutes > limit,
+  };
 }
 
 function formatTime(iso: string) {
@@ -290,6 +341,7 @@ export default function ConversasPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [sessionUser, setSessionUser] = useState<{ id: string; role: string; name?: string | null } | null>(null);
   const [search, setSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
   const [assignedFilter, setAssignedFilter] = useState("all");
   const [queueFilter, setQueueFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -344,6 +396,16 @@ export default function ConversasPage() {
   const selectedCategory = parseLeadCategory(selectedLead?.category);
   const selectedServiceStatus = serviceStatusOf(selected?.status);
   const selectedLeadNotes = selectedLead?.notes || "";
+  const historySearchTerm = historySearch.trim().toLocaleLowerCase("pt-BR");
+  const visibleMessages = useMemo(() => {
+    if (!historySearchTerm) return messages;
+    return messages.filter((message) => (message.content || "").toLocaleLowerCase("pt-BR").includes(historySearchTerm));
+  }, [historySearchTerm, messages]);
+  const hasHistoryFilter = historySearchTerm.length > 0;
+  const selectedResponseSla = useMemo(
+    () => (selected ? responseSlaState(selected) : null),
+    [selected],
+  );
 
   const quickCounts = useMemo(() => {
     const userId = sessionUser?.id;
@@ -460,6 +522,13 @@ export default function ConversasPage() {
   const canTransfer = Boolean(
     sessionUser && ["manager", "admin", "superadmin"].includes(sessionUser.role),
   );
+
+  const canAssignToMe = Boolean(
+    selected && sessionUser &&
+    ((sessionUser.role === "agent" && (selected.assigned_to === null || selected.assigned_to === sessionUser.id)) ||
+      canTransfer),
+  );
+  const canUnassign = Boolean(canTransfer);
 
   const saveSeen = useCallback((conversationId: string, message?: Message) => {
     if (!message || message.direction === "outbound" || message.direction === "outgoing") return;
@@ -617,6 +686,10 @@ export default function ConversasPage() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!selectedId) setHistorySearch("");
+  }, [selectedId]);
+
+  useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
@@ -761,6 +834,7 @@ export default function ConversasPage() {
   const selectConversation = (conversation: Conversation) => {
     setSelectedId(conversation.id);
     setNotesDraft(conversation.leads?.[0]?.notes || "");
+    setHistorySearch("");
     setNotesDirty(false);
     setComposerError("");
     saveSeen(conversation.id, latestMessage(conversation));
@@ -1445,6 +1519,7 @@ export default function ConversasPage() {
           ) : filtered.map((conversation) => {
             const latest = latestMessage(conversation);
             const lastSeen = seen[conversation.id];
+            const responseSla = responseSlaState(conversation);
             const unread = Boolean(
               latest &&
               latest.direction !== "outbound" &&
@@ -1487,10 +1562,23 @@ export default function ConversasPage() {
                     <span className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">{labelFor(QUEUE_OPTIONS, category.queue)}</span>
                     <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${serviceStatus === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : serviceStatus === "pending" ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400"}`}>{labelFor(SERVICE_STATUS_OPTIONS, serviceStatus)}</span>
                     <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${priorityClass}`}>{labelFor(PRIORITY_OPTIONS, category.priority)}</span>
-                  </div>
-                  <div className="mt-1.5 flex min-w-0 items-center gap-1 text-[9px] font-bold text-slate-400">
+                </div>
+                  <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1 text-[9px] font-bold text-slate-400">
                     <UserCheck className="size-3 shrink-0" />
                     <span className="truncate">{conversation.assignee?.name || "Sem atendente"}</span>
+                    {responseSla ? (
+                      <span
+                        className={`truncate rounded-md px-1.5 py-0.5 ${
+                          responseSla.urgent
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+                            : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400"
+                        }`}
+                        title={`Sem resposta há ${responseSla.label} (meta ${responseSla.limit} min)`}
+                      >
+                        {responseSla.urgent ? <Clock3 className="mr-1 inline size-3" /> : null}
+                        Sem resposta: {responseSla.label}
+                      </span>
+                    ) : null}
                     <span className="ml-auto shrink-0">{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
                   </div>
                 </div>
@@ -1517,71 +1605,132 @@ export default function ConversasPage() {
           </div>
         ) : (
           <>
-            <header className="flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-slate-900/90 sm:px-5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
-                <div className="min-w-0">
-                   <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
-                   <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                     {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
-                     <span className="truncate">{selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "WhatsApp"}: {selectedInstance?.status === "open" ? "conectado" : "desconectado"}</span>
-                   </p>
-                 </div>
-               </div>
-               <div className="flex shrink-0 items-center gap-1.5">
-                 {sessionUser?.role === "agent" ? (
+            <header className="space-y-2 border-b border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-white/10 dark:bg-slate-900/90 sm:px-5">
+              <div className="flex min-h-16 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                    <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
+                      <span className="truncate">{selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "WhatsApp"}: {selectedInstance?.status === "open" ? "conectado" : "desconectado"}</span>
+                    </p>
+                    {selectedResponseSla ? (
+                      <p className={`mt-1 flex items-center gap-1 text-[10px] font-bold ${selectedResponseSla.urgent ? "text-rose-600 dark:text-rose-300" : "text-slate-500"}`}>
+                        <Clock3 className="size-3" />
+                        Sem resposta há {selectedResponseSla.label}
+                        <span className="hidden font-medium text-slate-400 sm:inline">(meta {selectedResponseSla.limit} min)</span>
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {sessionUser?.role === "agent" ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(controlLoading)}
+                      onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
+                      className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 xl:inline-flex 2xl:hidden"
+                    >
+                      {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
+                      <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
+                    </button>
+                  ) : canTransfer && sessionUser ? (
+                    <label className="hidden max-w-44 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold dark:border-white/10 dark:bg-white/5 xl:flex 2xl:hidden">
+                      <span className="sr-only">Atribuir conversa</span>
+                      {controlLoading === "assignment" ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <UserCheck className="size-3.5 shrink-0" />}
+                      <select
+                        value={selected.assigned_to || ""}
+                        disabled={Boolean(controlLoading)}
+                        onChange={(event) => void patchConversation("assignment", { assigned_to: event.target.value || null })}
+                        className="min-w-0 flex-1 bg-transparent py-2 outline-none disabled:opacity-50"
+                      >
+                        <option value="">Liberar para fila</option>
+                        {!team.some((member) => member.id === sessionUser.id) && (
+                          <option value={sessionUser.id}>{sessionUser.name || "Minha conta"} (eu)</option>
+                        )}
+                        {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
+                        {selected.assigned_to &&
+                          selected.assigned_to !== sessionUser.id &&
+                          !team.some((member) => member.id === selected.assigned_to) && (
+                            <option value={selected.assigned_to}>{selected.assignee?.name || "Responsável atual"}</option>
+                          )}
+                      </select>
+                    </label>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setManagementOpen(true)}
+                    aria-expanded={managementOpen}
+                    aria-controls="contact-management-drawer"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 sm:text-xs 2xl:hidden"
+                  >
+                    <FileText className="size-3.5" />
+                    <span className="hidden sm:inline">Contexto</span>
+                  </button>
                   <button
                     type="button"
                     disabled={Boolean(controlLoading)}
-                    onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
-                    className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 xl:inline-flex 2xl:hidden"
+                    onClick={() => void patchConversation("ai", { ai_paused: !selected.ai_paused })}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-black transition disabled:opacity-50 sm:text-xs ${selected.ai_paused ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"}`}
                   >
-                    {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
-                    <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
+                    {controlLoading === "ai" ? <Loader2 className="size-3.5 animate-spin" /> : <Bot className="size-3.5" />}
+                    <span className="hidden sm:inline">{selected.ai_paused ? "Ativar IA" : "Pausar IA"}</span>
                   </button>
-                ) : canTransfer && sessionUser ? (
-                  <label className="hidden max-w-44 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold dark:border-white/10 dark:bg-white/5 xl:flex 2xl:hidden">
-                    <span className="sr-only">Atribuir conversa</span>
-                    {controlLoading === "assignment" ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <UserCheck className="size-3.5 shrink-0" />}
-                    <select
-                      value={selected.assigned_to || ""}
-                      disabled={Boolean(controlLoading)}
-                      onChange={(event) => void patchConversation("assignment", { assigned_to: event.target.value || null })}
-                      className="min-w-0 flex-1 bg-transparent py-2 outline-none disabled:opacity-50"
-                    >
-                      <option value="">Liberar para fila</option>
-                      {!team.some((member) => member.id === sessionUser.id) && (
-                        <option value={sessionUser.id}>{sessionUser.name || "Minha conta"} (eu)</option>
-                      )}
-                      {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
-                      {selected.assigned_to &&
-                        selected.assigned_to !== sessionUser.id &&
-                        !team.some((member) => member.id === selected.assigned_to) && (
-                          <option value={selected.assigned_to}>{selected.assignee?.name || "Responsável atual"}</option>
-                        )}
-                    </select>
-                  </label>
+                </div>
+              </div>
+
+              <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() => void patchConversation("metadata", { service_status: "active" })}
+                  disabled={controlLoading === "metadata" || selectedServiceStatus === "active"}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[10px] font-black text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-500/30 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+                >
+                  {controlLoading === "metadata" ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+                  Atendimento em andamento
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void patchConversation("metadata", { service_status: "pending" })}
+                  disabled={controlLoading === "metadata" || selectedServiceStatus === "pending"}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[10px] font-black text-sky-700 transition hover:bg-sky-50 disabled:opacity-50 dark:border-sky-500/30 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                >
+                  {controlLoading === "metadata" ? <Loader2 className="size-3 animate-spin" /> : <Clock3 className="size-3" />}
+                  Aguardando retorno
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void patchConversation("metadata", { service_status: "resolved" })}
+                  disabled={controlLoading === "metadata" || selectedServiceStatus === "resolved"}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-full border border-purple-200 bg-white px-2.5 py-1 text-[10px] font-black text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-slate-900 dark:text-purple-300 dark:hover:bg-purple-500/10"
+                >
+                  {controlLoading === "metadata" ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+                  Concluído
+                </button>
+                {sessionUser && canAssignToMe && selected?.assigned_to !== sessionUser.id ? (
+                  <button
+                    type="button"
+                    onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
+                    disabled={Boolean(controlLoading)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-white px-2.5 py-1 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-500/30 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                  >
+                    {controlLoading === "assignment" ? <Loader2 className="size-3 animate-spin" /> : <UserCheck className="size-3" />}
+                    Assumir
+                  </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => setManagementOpen(true)}
-                  aria-expanded={managementOpen}
-                  aria-controls="contact-management-drawer"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 sm:text-xs 2xl:hidden"
-                >
-                  <FileText className="size-3.5" />
-                  <span className="hidden sm:inline">Contexto</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(controlLoading)}
-                  onClick={() => void patchConversation("ai", { ai_paused: !selected.ai_paused })}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-black transition disabled:opacity-50 sm:text-xs ${selected.ai_paused ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"}`}
-                >
-                  {controlLoading === "ai" ? <Loader2 className="size-3.5 animate-spin" /> : <Bot className="size-3.5" />}
-                  <span className="hidden sm:inline">{selected.ai_paused ? "Ativar IA" : "Pausar IA"}</span>
-                </button>
+                {canUnassign ? (
+                  <button
+                    type="button"
+                    onClick={() => void patchConversation("assignment", { assigned_to: null })}
+                    disabled={Boolean(controlLoading) || !selected?.assigned_to}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
+                  >
+                    {controlLoading === "assignment" ? <Loader2 className="size-3 animate-spin" /> : <UserCheck className="size-3" />}
+                    Liberar para fila
+                  </button>
+                ) : null}
               </div>
             </header>
 
@@ -1610,13 +1759,47 @@ export default function ConversasPage() {
                 {messagesError && (
                   <div className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"><CircleAlert className="size-4 shrink-0" /><span className="flex-1">{messagesError}</span><button type="button" onClick={() => void fetchMessages(selected.id, messages.length ? "delta" : "initial")} className="font-bold">Tentar novamente</button></div>
                 )}
-                <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-slate-100/50 px-3 py-5 dark:bg-slate-950/50 sm:px-7">
-                  {messagesLoading && messages.length === 0 ? (
-                    <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando histórico</div>
-                  ) : messages.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center text-center text-slate-500"><MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" /><p className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma mensagem ainda</p><p className="mt-1 text-xs">Envie uma mensagem para iniciar o atendimento.</p></div>
-                  ) : (
-                      <div className="space-y-2">
+                 <div className="shrink-0 px-3 py-2 text-[10px] text-slate-500 dark:text-slate-400">
+                   <label className="relative inline-flex w-full max-w-[420px] items-center">
+                     <Search className="pointer-events-none absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                     <input
+                       value={historySearch}
+                       onChange={(event) => setHistorySearch(event.target.value)}
+                       placeholder="Buscar no histórico"
+                       className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2 pl-9 text-[10px] font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
+                     />
+                     {hasHistoryFilter ? (
+                       <button
+                         type="button"
+                         onClick={() => setHistorySearch("")}
+                         aria-label="Limpar busca no histórico"
+                         className="absolute right-2 rounded-full p-1 text-slate-500 transition hover:bg-slate-200/70 dark:hover:bg-white/5"
+                       >
+                         <X className="size-3.5" />
+                       </button>
+                     ) : null}
+                   </label>
+                   {hasHistoryFilter ? (
+                      <p className="mt-1 text-[9px] font-bold text-slate-400">
+                        {visibleMessages.length} de {messages.length} mensagem{messages.length === 1 ? "" : "s"} correspondem.
+                      </p>
+                   ) : null}
+                 </div>
+                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-slate-100/50 px-3 py-5 dark:bg-slate-950/50 sm:px-7">
+                   {messagesLoading && visibleMessages.length === 0 ? (
+                     <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando histórico</div>
+                   ) : visibleMessages.length === 0 ? (
+                     <div className="flex h-full flex-col items-center justify-center text-center text-slate-500">
+                       <MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" />
+                       <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                         {hasHistoryFilter ? "Nenhuma mensagem encontrada" : "Nenhuma mensagem ainda"}
+                       </p>
+                       <p className="mt-1 text-xs">
+                         {hasHistoryFilter ? "Ajuste a busca do histórico ou carregue mensagens anteriores." : "Envie uma mensagem para iniciar o atendimento."}
+                       </p>
+                     </div>
+                   ) : (
+                         <div className="space-y-2">
                         {hasMoreMessages && (
                           <div className="flex justify-center pb-2">
                           <button
@@ -1630,10 +1813,10 @@ export default function ConversasPage() {
                           </button>
                         </div>
                         )}
-                        {messages.map((message, index) => {
-                          const outgoing = message.direction === "outbound" || message.direction === "outgoing";
-                          const previous = messages[index - 1];
-                          const firstInGroup = !previous || previous.direction !== message.direction;
+                         {visibleMessages.map((message, index) => {
+                           const outgoing = message.direction === "outbound" || message.direction === "outgoing";
+                           const previous = visibleMessages[index - 1];
+                           const firstInGroup = !previous || previous.direction !== message.direction;
                           const showDateDivider = !previous || !isSameDay(message.created_at, previous.created_at);
                           const media = parseMetadata(message);
                           return (
