@@ -218,6 +218,59 @@ function sanitizeWelcomeMessage(message: any): string {
   return clean;
 }
 
+function normalizeLookupValueText(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function isCatalogRequestMessage(value: unknown): boolean {
+  const normalized = normalizeLookupValueText(value)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.includes("catalogo") || normalized.includes("catalog") || normalized.includes("cardapio");
+}
+
+function findCatalogNode(nodes: any[], message: unknown): any | null {
+  const catalogNodes = ensureArray<any>(nodes).filter((node: any) => String(node?.actionType || "").trim().toLowerCase() === "catalog");
+
+  if (catalogNodes.length === 0) {
+    return null;
+  }
+
+  const messageNormalized = normalizeLookupValueText(message);
+
+  const exactKeyword = catalogNodes.find((node: any) => normalizeLookupValueText(node?.keyword) === messageNormalized);
+  if (exactKeyword) {
+    return exactKeyword;
+  }
+
+  const exactTitle = catalogNodes.find((node: any) => normalizeLookupValueText(node?.title) === messageNormalized);
+  if (exactTitle) {
+    return exactTitle;
+  }
+
+  const containsMatch = catalogNodes.find((node: any) => {
+    const titleNormalized = normalizeLookupValueText(node?.title);
+    return titleNormalized.includes(messageNormalized) || messageNormalized.includes(titleNormalized);
+  });
+
+  if (containsMatch) {
+    return containsMatch;
+  }
+
+  const catalogRoots = catalogNodes.filter((node: any) => !node?.parentId);
+  return catalogRoots.length > 0 ? catalogRoots[0] : catalogNodes[0];
+}
+
 function hasExplicitMenuSection(message: string): boolean {
   const normalized = message
     .normalize("NFD")
@@ -387,11 +440,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   };
 
   const normalizeLookupValue = (value: any): string => {
-    return String(value || "")
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+    return normalizeLookupValueText(value);
   };
 
   const findProductByReference = (products: any[], productRef: any) => {
@@ -583,6 +632,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const processUserInput = (userText: string) => {
     const safeUserText = normalizeTextValue(userText);
     const clean = safeUserText.trim().toLowerCase();
+    const cleanLookup = normalizeLookupValue(clean);
     const currentTime = getFormattedTime();
 
     // Mensagem do Usuário
@@ -904,120 +954,128 @@ Seu agendamento foi registrado no simulador.`;
 
         // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
         if (inCatalogView) {
-          const catalogChoice = parseInt(clean, 10);
-
-          if (!isNaN(catalogChoice) && catalogChoice <= 0) {
+          if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
             setCurrentParentId(null);
             setInCatalogView(false);
             const initial = generateBotInitialMenu();
             botResponseText = initial.text;
             botButtons = initial.buttons;
-          } else if (!isNaN(catalogChoice)) {
-            const prodIdx = catalogChoice - 1;
-            const selectedProd = prods[prodIdx];
+          } else {
+            const catalogChoice = parseInt(clean, 10);
 
-            // Procura se o usuário configurou um sub-nó específico para este produto
-            const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
-            const customSubNode = catalogNode
-              ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(catalogChoice))
-              : null;
+            if (!isNaN(catalogChoice) && catalogChoice <= 0) {
+              setCurrentParentId(null);
+              setInCatalogView(false);
+              const initial = generateBotInitialMenu();
+              botResponseText = initial.text;
+              botButtons = initial.buttons;
+            } else if (!isNaN(catalogChoice)) {
+              const prodIdx = catalogChoice - 1;
+              const selectedProd = prods[prodIdx];
 
-            const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
-            const paymentMode = customSubNode?.paymentMode || "both";
+              // Procura se o usuário configurou um sub-nó específico para este produto
+              const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
+              const customSubNode = catalogNode
+                ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(catalogChoice))
+                : null;
 
-            setCheckoutDeliveryState(null);
+              const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
+              const paymentMode = customSubNode?.paymentMode || "both";
 
-            if (!productForCheckout) {
-              botResponseText = "❌ Produto não encontrado no catálogo.";
-              botButtons = [
-                { label: "🏠 Menu Principal", value: "0" },
-                { label: "👤 Falar com Consultor", value: "4" },
-              ];
-            } else if (isSchedulableProduct(productForCheckout)) {
-              const selectedService = serviceListForScheduling.find(
-                (service) => normalizeLookupValue(service.name) === normalizeLookupValue(productForCheckout.name)
-              ) || {
-                id: catalogChoice,
-                name: productForCheckout.name || `Serviço ${catalogChoice}`,
-                price: productForCheckout.price,
-                durationMin: normalizeDurationMinutes(productForCheckout.duration_min || productForCheckout.duration, 60),
-              };
+              setCheckoutDeliveryState(null);
 
-              const dates = getNextSchedulingDates(settings).slice(0, 5);
-              if (dates.length === 0) {
-                botResponseText = `📅 Não há datas disponíveis para *${selectedService.name}* no momento. Escolha *0* para voltar e tentar novamente depois.`;
-                botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+              if (!productForCheckout) {
+                botResponseText = "❌ Produto não encontrado no catálogo.";
+                botButtons = [
+                  { label: "🏠 Menu Principal", value: "0" },
+                  { label: "👤 Falar com Consultor", value: "4" },
+                ];
+              } else if (isSchedulableProduct(productForCheckout)) {
+                const selectedService = serviceListForScheduling.find(
+                  (service) => normalizeLookupValue(service.name) === normalizeLookupValue(productForCheckout.name)
+                ) || {
+                  id: catalogChoice,
+                  name: productForCheckout.name || `Serviço ${catalogChoice}`,
+                  price: productForCheckout.price,
+                  durationMin: normalizeDurationMinutes(productForCheckout.duration_min || productForCheckout.duration, 60),
+                };
+
+                const dates = getNextSchedulingDates(settings).slice(0, 5);
+                if (dates.length === 0) {
+                  botResponseText = `📅 Não há datas disponíveis para *${selectedService.name}* no momento. Escolha *0* para voltar e tentar novamente depois.`;
+                  botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+                } else {
+                  const mappedDates = dates.map((dateISO) => formatDateLabel(new Date(`${dateISO}T00:00:00`)));
+
+                  setSchedulingState({
+                    phase: "selectDate",
+                    services: serviceListForScheduling,
+                    selectedService,
+                    availableDates: dates,
+                  });
+
+                  botResponseText = `📅 Você selecionou *${selectedService.name}*.\n\nEscolha um dos dias disponíveis:`;
+                  botResponseText += buildLabeledListText(mappedDates, "");
+                  botResponseText += "\n\nDigite o número da data ou *0* para voltar.";
+                  botButtons = buildDateButtons(dates);
+                  botButtons.push({ label: "🏠 Voltar", value: "0" });
+                }
               } else {
-                const mappedDates = dates.map((dateISO) => formatDateLabel(new Date(`${dateISO}T00:00:00`)));
+                const deliveryType = getProductDeliveryType(productForCheckout);
 
-                setSchedulingState({
-                  phase: "selectDate",
-                  services: serviceListForScheduling,
-                  selectedService,
-                  availableDates: dates,
-                });
+                if (deliveryType === "both" || (deliveryType !== "virtual_instant" && deliveryType !== "virtual_deadline" && deliveryType !== "service")) {
+                  setCheckoutDeliveryState({
+                    phase: "chooseDeliveryMethod",
+                    product: productForCheckout,
+                    paymentMode,
+                    deliveryType: deliveryType === "both" ? "both" : "delivery",
+                    deadline: productForCheckout.delivery_deadline || "imediato",
+                  });
 
-                botResponseText = `📅 Você selecionou *${selectedService.name}*.\n\nEscolha um dos dias disponíveis:`;
-                botResponseText += buildLabeledListText(mappedDates, "");
-                botResponseText += "\n\nDigite o número da data ou *0* para voltar.";
-                botButtons = buildDateButtons(dates);
-                botButtons.push({ label: "🏠 Voltar", value: "0" });
+                  setInCatalogView(false);
+                  setSchedulingState(null);
+
+                  const digitalLabel = deliveryType === "both"
+                    ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})`
+                    : "Entrega (Delivery)";
+                  const physicalLabel = deliveryType === "both"
+                    ? "Entrega Física no meu endereço"
+                    : "Retirada na Loja / Presencial";
+                  const intro = `🛒 *Você selecionou:* ${productForCheckout.name}\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}\n\n`;
+
+                  if (deliveryType === "both") {
+                    botResponseText = `${intro}Este produto está disponível nas opções Digital e Física. Como prefere receber?\n`;
+                  } else {
+                    botResponseText = `${intro}Como deseja receber o produto/serviço?\n`;
+                  }
+
+                  botResponseText += `1️⃣ ${digitalLabel}\n2️⃣ ${physicalLabel}\n\nResponda com o número correspondente (*1* ou *2*):`;
+                  botButtons = [
+                    { label: `1 - ${digitalLabel}`, value: "1" },
+                    { label: `2 - ${physicalLabel}`, value: "2" },
+                    { label: "👤 Falar com Consultor", value: "4" },
+                    { label: "⬅️ Voltar ao Catálogo", value: "0" },
+                  ];
+                } else {
+                  const checkoutFlow = buildCheckoutFlow(
+                    productForCheckout,
+                    paymentMode,
+                    customSubNode,
+                    customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}`,
+                    deliveryType === "virtual_deadline" ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})` : "Envio Digital Imediato"
+                  );
+
+                  setInCatalogView(false);
+                  setSchedulingState(null);
+
+                  botResponseText = checkoutFlow.text;
+                  botButtons = checkoutFlow.buttons;
+                }
               }
             } else {
-              const deliveryType = getProductDeliveryType(productForCheckout);
-
-              if (deliveryType === "both" || (deliveryType !== "virtual_instant" && deliveryType !== "virtual_deadline" && deliveryType !== "service")) {
-                setCheckoutDeliveryState({
-                  phase: "chooseDeliveryMethod",
-                  product: productForCheckout,
-                  paymentMode,
-                  deliveryType: deliveryType === "both" ? "both" : "delivery",
-                  deadline: productForCheckout.delivery_deadline || "imediato",
-                });
-
-                setInCatalogView(false);
-                setSchedulingState(null);
-
-                const digitalLabel = deliveryType === "both"
-                  ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})`
-                  : "Entrega (Delivery)";
-                const physicalLabel = deliveryType === "both"
-                  ? "Entrega Física no meu endereço"
-                  : "Retirada na Loja / Presencial";
-                const intro = `🛒 *Você selecionou:* ${productForCheckout.name}\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}\n\n`;
-
-                if (deliveryType === "both") {
-                  botResponseText = `${intro}Este produto está disponível nas opções Digital e Física. Como prefere receber?\n`;
-                } else {
-                  botResponseText = `${intro}Como deseja receber o produto/serviço?\n`;
-                }
-
-                botResponseText += `1️⃣ ${digitalLabel}\n2️⃣ ${physicalLabel}\n\nResponda com o número correspondente (*1* ou *2*):`;
-                botButtons = [
-                  { label: `1 - ${digitalLabel}`, value: "1" },
-                  { label: `2 - ${physicalLabel}`, value: "2" },
-                  { label: "👤 Falar com Consultor", value: "4" },
-                  { label: "⬅️ Voltar ao Catálogo", value: "0" },
-                ];
-              } else {
-                const checkoutFlow = buildCheckoutFlow(
-                  productForCheckout,
-                  paymentMode,
-                  customSubNode,
-                  customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}`,
-                  deliveryType === "virtual_deadline" ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})` : "Envio Digital Imediato"
-                );
-
-                setInCatalogView(false);
-                setSchedulingState(null);
-
-                botResponseText = checkoutFlow.text;
-                botButtons = checkoutFlow.buttons;
-              }
+              botResponseText = "Digite um número válido para escolher um item do catálogo.";
+              botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
             }
-          } else {
-            botResponseText = "Digite um número válido para escolher um item do catálogo.";
-            botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
           }
 
           const botMsg: Message = {
@@ -1102,14 +1160,25 @@ Seu agendamento foi registrado no simulador.`;
         ? allNodes.filter((n: any) => n.parentId === currentParentId)
         : allNodes.filter((n: any) => !n.parentId);
 
-      let matchedNode = currentLevelNodes.find(
-        (n: any) => n.keyword?.trim().toLowerCase() === clean || n.title?.toLowerCase().includes(clean)
-      );
+      const requestedCatalog = isCatalogRequestMessage(safeUserText);
+      const catalogNodeFromIntent = requestedCatalog
+        ? (findCatalogNode(currentLevelNodes, safeUserText) || findCatalogNode(allNodes, safeUserText))
+        : null;
+
+      const nodeMatcher = (node: any) => {
+        const nodeKeyword = normalizeLookupValue(node?.keyword);
+        const nodeTitle = normalizeLookupValue(node?.title);
+        return (
+          nodeKeyword === cleanLookup ||
+          nodeTitle === cleanLookup ||
+          (cleanLookup.length > 0 && cleanLookup.length <= 28 && nodeTitle.includes(cleanLookup))
+        );
+      };
+
+      let matchedNode = catalogNodeFromIntent || currentLevelNodes.find((n: any) => nodeMatcher(n));
 
       if (!matchedNode) {
-        matchedNode = allNodes.find(
-          (n: any) => n.keyword?.trim().toLowerCase() === clean || n.title?.toLowerCase().includes(clean)
-        );
+        matchedNode = allNodes.find((n: any) => nodeMatcher(n));
       }
 
       if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
