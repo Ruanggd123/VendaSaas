@@ -21,6 +21,18 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const initialized = useRef(false);
+  const nodesRef = useRef<Node[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSyncRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   // Carrega custom_rules_nodes em React Flow Nodes
   useEffect(() => {
@@ -147,6 +159,60 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
     setEdges(initialEdges);
   }, [settings.welcome_message, settings.custom_rules_nodes]);
 
+  const syncGraphToBackend = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
+    const custom_rules_nodes: any[] = [];
+    currentNodes.forEach((node) => {
+      if (node.id === 'start') return;
+      const parentEdge = currentEdges.find((e) => e.target === node.id);
+      let parentId = null;
+      if (parentEdge && parentEdge.source !== 'start') {
+        parentId = parentEdge.source;
+      }
+
+      custom_rules_nodes.push({
+        id: node.id,
+        parentId,
+        keyword: node.data.keyword || '0',
+        title: node.data.title || 'Nova Opção',
+        actionType: node.data.actionType || 'text',
+        textContent: node.data.textContent || '',
+        paymentMode: node.data.paymentMode || 'both',
+        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
+        variableName: node.data.variableName || '',
+        productId: node.data.productId || '',
+        productPrice: node.data.productPrice || '',
+        productDescription: node.data.productDescription || '',
+        productName: node.data.productName || ''
+      });
+    });
+
+    updateField('custom_rules_nodes', custom_rules_nodes);
+  }, [updateField]);
+
+  const queueSyncGraph = useCallback((nextNodes: Node[], nextEdges: Edge[]) => {
+    pendingSyncRef.current = { nodes: nextNodes, edges: nextEdges };
+
+    if (syncTimerRef.current !== null) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = setTimeout(() => {
+      syncTimerRef.current = null;
+      const payload = pendingSyncRef.current;
+      if (!payload) return;
+      syncGraphToBackend(payload.nodes, payload.edges);
+      pendingSyncRef.current = null;
+    }, 0);
+  }, [syncGraphToBackend]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current !== null) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, []);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
@@ -157,52 +223,17 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
     []
   );
 
-  const onConnect = useCallback(
-    (params: Connection | Edge) => {
-      setEdges((eds) => addEdge(params, eds));
-      syncGraphToBackend(nodes, addEdge(params, edges));
-    },
-    [nodes]
-  );
+  const onConnect = useCallback((params: Connection | Edge) => {
+    const nextEdges = addEdge(params, edgesRef.current);
+    setEdges(nextEdges);
+    queueSyncGraph(nodesRef.current, nextEdges);
+  }, [queueSyncGraph]);
 
-  const onNodeDragStop = useCallback(
-    (_: any, node: Node) => {
-      setNodes((prevNodes) => {
-        const updated = prevNodes.map((n) => (n.id === node.id ? { ...n, position: node.position } : n));
-        syncGraphToBackend(updated, edges);
-        return updated;
-      });
-    },
-    [edges]
-  );
-
-  const syncGraphToBackend = (currentNodes: Node[], currentEdges: Edge[]) => {
-    const custom_rules_nodes: any[] = [];
-    currentNodes.forEach(node => {
-      if (node.id === 'start') return;
-      const parentEdge = currentEdges.find(e => e.target === node.id);
-      let parentId = null;
-      if (parentEdge && parentEdge.source !== 'start') {
-        parentId = parentEdge.source;
-      }
-        custom_rules_nodes.push({
-          id: node.id,
-          parentId,
-          keyword: node.data.keyword || '0',
-          title: node.data.title || 'Nova Opção',
-          actionType: node.data.actionType || 'text',
-          textContent: node.data.textContent || '',
-          paymentMode: node.data.paymentMode || 'both',
-          position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
-          variableName: node.data.variableName || '',
-          productId: node.data.productId || '',
-        productPrice: node.data.productPrice || '',
-        productDescription: node.data.productDescription || '',
-        productName: node.data.productName || ''
-      });
-    });
-    updateField("custom_rules_nodes", custom_rules_nodes);
-  };
+  const onNodeDragStop = useCallback((_: any, node: Node) => {
+    const updated = nodesRef.current.map((n) => (n.id === node.id ? { ...n, position: node.position } : n));
+    setNodes(updated);
+    queueSyncGraph(updated, edgesRef.current);
+  }, [queueSyncGraph]);
 
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
