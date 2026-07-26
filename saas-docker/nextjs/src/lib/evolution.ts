@@ -12,7 +12,16 @@ if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
  */
 export async function sendWhatsAppMessage(instanceName: string, number: string, text: string) {
   try {
-    const res = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instanceName}`, {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      console.error("Evolution sendText indisponível: configuração ausente", {
+        instanceName,
+        hasUrl: Boolean(EVOLUTION_API_URL),
+        hasKey: Boolean(EVOLUTION_API_KEY),
+      });
+      return false;
+    }
+
+    const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(instanceName)}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -21,12 +30,16 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
       body: JSON.stringify({
         number: number,
         text: text,
-        delay: 1200,
+        delay: 280,
       }),
     });
 
     if (!res.ok) {
-      console.error(`Erro ao enviar mensagem para ${number} na instância ${instanceName}:`, await res.text());
+      console.error("Evolution sendText recusou a mensagem", {
+        instanceName,
+        status: res.status,
+        statusText: res.statusText,
+      });
       return false;
     }
     return true;
@@ -63,6 +76,15 @@ export async function getProfilePicture(instanceName: string, number: string) {
  */
 export async function sendWhatsAppMedia(instanceName: string, number: string, mediaUrl: string, caption?: string, explicitMediaType?: string) {
   try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      console.error("Evolution sendMedia indisponível: configuração ausente", {
+        instanceName,
+        hasUrl: Boolean(EVOLUTION_API_URL),
+        hasKey: Boolean(EVOLUTION_API_KEY),
+      });
+      return false;
+    }
+
     // Inferir o mediatype baseado na extensão da URL
     const urlLower = mediaUrl.toLowerCase();
     let mediaType = explicitMediaType || "document"; // Padrão seguro para PDFs, ZIPs, etc.
@@ -77,7 +99,7 @@ export async function sendWhatsAppMedia(instanceName: string, number: string, me
       }
     }
 
-    const res = await fetch(`${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`, {
+    const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendMedia/${encodeURIComponent(instanceName)}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -88,12 +110,16 @@ export async function sendWhatsAppMedia(instanceName: string, number: string, me
         media: mediaUrl,
         mediatype: mediaType,
         caption: caption || "",
-        delay: 1200,
+        delay: 280,
       }),
     });
 
     if (!res.ok) {
-      console.error(`Erro ao enviar media para ${number} na instância ${instanceName}:`, await res.text());
+      console.error("Evolution sendMedia recusou a mídia", {
+        instanceName,
+        status: res.status,
+        statusText: res.statusText,
+      });
       return false;
     }
     return true;

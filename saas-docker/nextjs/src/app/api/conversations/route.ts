@@ -1,9 +1,37 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
+
+const SERVICE_QUEUES = ["geral", "vendas", "suporte", "financeiro", "pos_venda"] as const;
+const SERVICE_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+const SERVICE_STATUSES = ["active", "pending", "resolved"] as const;
+
+type ServiceQueue = (typeof SERVICE_QUEUES)[number];
+type ServicePriority = (typeof SERVICE_PRIORITIES)[number];
+
+function isServiceQueue(value: unknown): value is ServiceQueue {
+  return typeof value === "string" && SERVICE_QUEUES.includes(value as ServiceQueue);
+}
+
+function isServicePriority(value: unknown): value is ServicePriority {
+  return typeof value === "string" && SERVICE_PRIORITIES.includes(value as ServicePriority);
+}
+
+function isServiceStatus(value: unknown): value is (typeof SERVICE_STATUSES)[number] {
+  return typeof value === "string" && SERVICE_STATUSES.includes(value as (typeof SERVICE_STATUSES)[number]);
+}
+
+function parseServiceCategory(category: string | null | undefined) {
+  const parts = category?.split("|") || [];
+  const [queue, priority] = parts;
+  if (parts.length === 2 && isServiceQueue(queue) && isServicePriority(priority)) {
+    return { queue, priority };
+  }
+  return { queue: "geral" as ServiceQueue, priority: "normal" as ServicePriority };
+}
 
 export async function GET(req: Request) {
   try {
@@ -28,7 +56,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Cursor de mensagens inválido" }, { status: 400 });
       }
 
-      const conversationWhere: any = {
+      const conversationWhere: Prisma.ConversationWhereInput = {
         id,
         tenant_id: session.tenant_id,
         ...(session.role === "agent"
@@ -42,7 +70,7 @@ export async function GET(req: Request) {
       const conversation = await prisma.conversation.findFirst({
         where: conversationWhere,
         include: {
-          leads: { select: { id: true, name: true, status: true, value: true } },
+          leads: { select: { id: true, name: true, status: true, value: true, category: true, notes: true } },
         },
       });
 
@@ -102,8 +130,48 @@ export async function GET(req: Request) {
     // Determina a instância ativa (não força a primeira se vier vazio, para permitir "Todas as instâncias")
     const activeInstanceName = instance_name && instance_name !== "all" ? instance_name : undefined;
     const assigned_to = searchParams.get("assigned_to");
+    const rawQueue = searchParams.get("queue");
+    const rawPriority = searchParams.get("priority");
+    const rawServiceStatus = searchParams.get("service_status");
+    const queue = isServiceQueue(rawQueue) ? rawQueue : undefined;
+    const priority = isServicePriority(rawPriority) ? rawPriority : undefined;
+    const serviceStatus = isServiceStatus(rawServiceStatus) ? rawServiceStatus : undefined;
 
-    const whereConditions: any[] = [{ tenant_id: session.tenant_id }];
+    const whereConditions: Prisma.ConversationWhereInput[] = [{ tenant_id: session.tenant_id }];
+
+    if (serviceStatus) {
+      whereConditions.push({ status: serviceStatus });
+    }
+
+    if (queue || priority) {
+      const encodedCategory = queue && priority
+        ? { equals: `${queue}|${priority}` }
+        : queue
+          ? { startsWith: `${queue}|` }
+          : { endsWith: `|${priority}` };
+      const includesLegacyDefault = (!queue || queue === "geral") && (!priority || priority === "normal");
+      const categoryConditions: Prisma.ConversationWhereInput[] = [
+        { leads: { some: { category: encodedCategory } } },
+      ];
+
+      if (includesLegacyDefault) {
+        categoryConditions.push(
+          { leads: { none: {} } },
+          {
+            leads: {
+              some: {
+                OR: [
+                  { category: null },
+                  { category: { not: { contains: "|" } } },
+                ],
+              },
+            },
+          },
+        );
+      }
+
+      whereConditions.push({ OR: categoryConditions });
+    }
 
     if (activeInstanceName) {
       const matched = instances.find((i) => i.name === activeInstanceName || i.connectionName === activeInstanceName);
@@ -135,7 +203,9 @@ export async function GET(req: Request) {
         where: { partner_id: session.id, conversation_id: { not: null } },
         select: { conversation_id: true },
       });
-      const convIds = partnerLeadConversationIds.map((l) => l.conversation_id).filter(Boolean);
+      const convIds = partnerLeadConversationIds
+        .map((lead) => lead.conversation_id)
+        .filter((conversationId): conversationId is string => Boolean(conversationId));
       whereConditions.push({ id: { in: convIds } });
     }
 
@@ -146,7 +216,7 @@ export async function GET(req: Request) {
       where: whereClause,
       orderBy: { last_message_at: "desc" },
       include: {
-        leads: { select: { id: true, name: true, status: true, value: true } },
+        leads: { select: { id: true, name: true, status: true, value: true, category: true, notes: true } },
         assignee: { select: { id: true, name: true, email: true } },
         messages: { orderBy: { created_at: "desc" }, take: 1 },
         _count: { select: { messages: true } },
@@ -166,10 +236,35 @@ export async function PATCH(req: Request) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json();
-    const { id, ai_paused, assigned_to } = body;
+    const { id, ai_paused, assigned_to, queue, priority, service_status, notes } = body;
+    const hasRoutingUpdate = queue !== undefined || priority !== undefined || notes !== undefined;
+    const hasUpdate = typeof ai_paused === "boolean"
+      || assigned_to !== undefined
+      || hasRoutingUpdate
+      || service_status !== undefined;
 
-    if (!id || (typeof ai_paused !== "boolean" && assigned_to === undefined)) {
+    if (typeof id !== "string" || !id || !hasUpdate) {
       return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
+    }
+
+    if (queue !== undefined && !isServiceQueue(queue)) {
+      return NextResponse.json({ error: "Fila de atendimento inválida" }, { status: 400 });
+    }
+
+    if (priority !== undefined && !isServicePriority(priority)) {
+      return NextResponse.json({ error: "Prioridade de atendimento inválida" }, { status: 400 });
+    }
+
+    if (service_status !== undefined && !isServiceStatus(service_status)) {
+      return NextResponse.json({ error: "Status de atendimento inválido" }, { status: 400 });
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== "string") {
+      return NextResponse.json({ error: "Observações inválidas" }, { status: 400 });
+    }
+
+    if (typeof notes === "string" && notes.length > 4000) {
+      return NextResponse.json({ error: "Observações devem ter no máximo 4000 caracteres" }, { status: 400 });
     }
 
     if (session.role === "agent" && assigned_to !== undefined && assigned_to !== null && assigned_to !== session.id) {
@@ -195,6 +290,12 @@ export async function PATCH(req: Request) {
           ? { leads: { some: { partner_id: session.id } } }
           : {}),
       },
+      include: {
+        leads: {
+          select: { id: true, category: true, partner_id: true, created_at: true },
+          orderBy: [{ created_at: "asc" }, { id: "asc" }],
+        },
+      },
     });
 
     if (!conversation) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 });
@@ -209,19 +310,64 @@ export async function PATCH(req: Request) {
       }
     }
 
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.ConversationUncheckedUpdateInput = {};
     if (typeof ai_paused === "boolean") dataToUpdate.ai_paused = ai_paused;
+    if (service_status !== undefined) dataToUpdate.status = service_status;
     if (assigned_to !== undefined) {
       dataToUpdate.assigned_to = assigned_to;
       if (assigned_to) dataToUpdate.ai_paused = true;
     }
 
-    // Atualiza a conversa
-    const updated = await prisma.conversation.update({
-      where: { id },
-      data: dataToUpdate,
-      include: { assignee: { select: { id: true, name: true } } }
-    });
+    const responseInclude = {
+      assignee: { select: { id: true, name: true } },
+      leads: { select: { id: true, name: true, status: true, value: true, category: true, notes: true } },
+    };
+    let updated;
+
+    if (hasRoutingUpdate) {
+      const lead = session.role === "partner"
+        ? conversation.leads.find((item) => item.partner_id === session.id)
+        : conversation.leads[0];
+      const currentCategory = parseServiceCategory(lead?.category);
+      const category = `${queue ?? currentCategory.queue}|${priority ?? currentCategory.priority}`;
+
+      updated = await prisma.$transaction(async (tx) => {
+        if (Object.keys(dataToUpdate).length > 0) {
+          await tx.conversation.update({ where: { id }, data: dataToUpdate });
+        }
+
+        if (lead) {
+          await tx.lead.update({
+            where: { id: lead.id },
+            data: {
+              ...(queue !== undefined || priority !== undefined ? { category } : {}),
+              ...(notes !== undefined ? { notes } : {}),
+            },
+          });
+        } else {
+          await tx.lead.create({
+            data: {
+              tenant_id: session.tenant_id,
+              conversation_id: conversation.id,
+              name: conversation.contact_name || conversation.contact_number,
+              phone: conversation.contact_number,
+              status: "novo",
+              category,
+              ...(notes !== undefined ? { notes } : {}),
+              ...(session.role === "partner" ? { partner_id: session.id } : {}),
+            },
+          });
+        }
+
+        return tx.conversation.findUnique({ where: { id }, include: responseInclude });
+      });
+    } else {
+      updated = await prisma.conversation.update({
+        where: { id },
+        data: dataToUpdate,
+        include: responseInclude,
+      });
+    }
 
     return NextResponse.json({ conversation: updated });
   } catch (err) {

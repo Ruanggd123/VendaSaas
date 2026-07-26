@@ -7,7 +7,6 @@ import {
   Bot,
   Check,
   CircleAlert,
-  Clock,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -32,6 +31,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type MediaType = "image" | "audio" | "video" | "document";
 type ClientStatus = "sending" | "sent" | "failed";
 type MessageFetchMode = "initial" | "delta" | "before";
+type Queue = "geral" | "vendas" | "suporte" | "financeiro" | "pos_venda";
+type Priority = "low" | "normal" | "high" | "urgent";
+type ServiceStatus = "active" | "pending" | "resolved";
+type ControlKind = "assignment" | "ai" | "metadata" | "notes";
 
 interface Message {
   id: string;
@@ -50,6 +53,8 @@ interface Lead {
   name?: string | null;
   status?: string | null;
   value?: number | null;
+  category?: string | null;
+  notes?: string | null;
 }
 
 interface Conversation {
@@ -96,7 +101,48 @@ const QUICK_REPLIES = [
   "Vou verificar para você.",
   "Obrigado pelo contato!",
 ];
+const QUEUE_OPTIONS: { value: Queue; label: string }[] = [
+  { value: "geral", label: "Geral" },
+  { value: "vendas", label: "Vendas" },
+  { value: "suporte", label: "Suporte" },
+  { value: "financeiro", label: "Financeiro" },
+  { value: "pos_venda", label: "Pós-venda" },
+];
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: "low", label: "Baixa" },
+  { value: "normal", label: "Normal" },
+  { value: "high", label: "Alta" },
+  { value: "urgent", label: "Urgente" },
+];
+const SERVICE_STATUS_OPTIONS: { value: ServiceStatus; label: string }[] = [
+  { value: "active", label: "Em atendimento" },
+  { value: "pending", label: "Aguardando cliente" },
+  { value: "resolved", label: "Resolvido" },
+];
+const QUICK_NOTES = ["Preço", "Prazo", "Dúvida técnica", "Cancelamento", "Urgente"];
 const SEEN_STORAGE_KEY = "conversations:last-seen:v1";
+
+function parseLeadCategory(category?: string | null): { queue: Queue; priority: Priority } {
+  const [rawQueue, rawPriority] = (category || "")
+    .toLocaleLowerCase("pt-BR")
+    .split("|")
+    .map((value) => value.trim());
+  const validQueue = QUEUE_OPTIONS.some((option) => option.value === rawQueue);
+  const validPriority = PRIORITY_OPTIONS.some((option) => option.value === rawPriority);
+  return validQueue && validPriority
+    ? { queue: rawQueue as Queue, priority: rawPriority as Priority }
+    : { queue: "geral", priority: "normal" };
+}
+
+function serviceStatusOf(status?: string | null): ServiceStatus {
+  return SERVICE_STATUS_OPTIONS.some((option) => option.value === status)
+    ? (status as ServiceStatus)
+    : "active";
+}
+
+function labelFor<T extends string>(options: { value: T; label: string }[], value: T) {
+  return options.find((option) => option.value === value)?.label || value;
+}
 
 function timeAgo(iso?: string | null) {
   if (!iso) return "sem mensagens";
@@ -201,6 +247,10 @@ export default function ConversasPage() {
   const [sessionUser, setSessionUser] = useState<{ id: string; role: string; name?: string | null } | null>(null);
   const [search, setSearch] = useState("");
   const [assignedFilter, setAssignedFilter] = useState("all");
+  const [queueFilter, setQueueFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [serviceStatusFilter, setServiceStatusFilter] = useState("all");
+  const [liveOpenInstanceName, setLiveOpenInstanceName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -217,7 +267,11 @@ export default function ConversasPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [showNewMessages, setShowNewMessages] = useState(false);
   const [seen, setSeen] = useState<Record<string, SeenValue>>({});
-  const [controlLoading, setControlLoading] = useState<"assignment" | "ai" | null>(null);
+  const [controlLoading, setControlLoading] = useState<ControlKind | null>(null);
+  const [controlError, setControlError] = useState("");
+  const [managementOpen, setManagementOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [notesDirty, setNotesDirty] = useState(false);
 
   const listRequestRef = useRef(false);
   const messageRequestRef = useRef<{ conversationId: string; version: number } | null>(null);
@@ -239,6 +293,10 @@ export default function ConversasPage() {
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
     [conversations, selectedId],
   );
+  const selectedLead = selected?.leads?.[0];
+  const selectedCategory = parseLeadCategory(selectedLead?.category);
+  const selectedServiceStatus = serviceStatusOf(selected?.status);
+  const selectedLeadNotes = selectedLead?.notes || "";
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -252,14 +310,24 @@ export default function ConversasPage() {
   }, [conversations, search]);
 
   const selectedInstance = useMemo(() => {
-    if (!selected?.instance_name) return null;
-    return (
-      instances.find(
+    if (!selected) return null;
+    const exact = selected.instance_name
+      ? instances.find(
         (instance) =>
           instance.name === selected.instance_name || instance.connectionName === selected.instance_name,
-      ) ?? null
-    );
-  }, [instances, selected]);
+      )
+      : null;
+    const live = liveOpenInstanceName
+      ? instances.find((instance) => instance.name === liveOpenInstanceName)
+      : null;
+    if (exact?.status === "open") return exact;
+    if (live) return { ...live, status: "open" };
+    return exact ?? instances.find((instance) => instance.status === "open") ?? null;
+  }, [instances, liveOpenInstanceName, selected]);
+
+  const canTransfer = Boolean(
+    sessionUser && ["manager", "admin", "superadmin"].includes(sessionUser.role),
+  );
 
   const saveSeen = useCallback((conversationId: string, message?: Message) => {
     if (!message || message.direction === "outbound" || message.direction === "outgoing") return;
@@ -292,6 +360,9 @@ export default function ConversasPage() {
       const params = new URLSearchParams();
       if (activeInstance && activeInstance !== "all") params.set("instance_name", activeInstance);
       if (assignedFilter !== "all") params.set("assigned_to", assignedFilter);
+      if (queueFilter !== "all") params.set("queue", queueFilter);
+      if (priorityFilter !== "all") params.set("priority", priorityFilter);
+      if (serviceStatusFilter !== "all") params.set("service_status", serviceStatusFilter);
       const response = await fetch(`/api/conversations?${params.toString()}`, { cache: "no-store" });
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível carregar as conversas."));
@@ -311,7 +382,7 @@ export default function ConversasPage() {
       setIsLoading(false);
       listRequestRef.current = false;
     }
-  }, [activeInstance, assignedFilter]);
+  }, [activeInstance, assignedFilter, priorityFilter, queueFilter, serviceStatusFilter]);
 
   const fetchMessages = useCallback(async (conversationId: string, mode: MessageFetchMode = "delta") => {
     if (messageRequestRef.current?.conversationId === conversationId || (mode === "delta" && document.hidden)) return;
@@ -414,6 +485,24 @@ export default function ConversasPage() {
   }, [messages]);
 
   useEffect(() => {
+    if (!notesDirty) setNotesDraft(selectedLeadNotes);
+  }, [notesDirty, selectedLeadNotes]);
+
+  useEffect(() => {
+    setManagementOpen(false);
+    setControlError("");
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!managementOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setManagementOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [managementOpen]);
+
+  useEffect(() => {
     try {
       const stored: unknown = JSON.parse(localStorage.getItem(SEEN_STORAGE_KEY) || "{}");
       if (typeof stored === "object" && stored !== null) setSeen(stored as Record<string, SeenValue>);
@@ -445,6 +534,34 @@ export default function ConversasPage() {
         if (Array.isArray(data.team)) setTeam(data.team as unknown as TeamMember[]);
       })
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const refreshStatus = async () => {
+      if (document.hidden) return;
+      try {
+        const response = await fetch("/api/whatsapp/status", { cache: "no-store" });
+        const data = await readJson(response);
+        if (!active || !response.ok) return;
+        setLiveOpenInstanceName(
+          data.status === "open" && typeof data.instanceName === "string" ? data.instanceName : null,
+        );
+      } catch {
+        // Keep the last known status during temporary network failures.
+      }
+    };
+    void refreshStatus();
+    const interval = window.setInterval(() => void refreshStatus(), 30_000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) void refreshStatus();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -507,6 +624,8 @@ export default function ConversasPage() {
 
   const selectConversation = (conversation: Conversation) => {
     setSelectedId(conversation.id);
+    setNotesDraft(conversation.leads?.[0]?.notes || "");
+    setNotesDirty(false);
     setComposerError("");
     saveSeen(conversation.id, latestMessage(conversation));
   };
@@ -757,10 +876,11 @@ export default function ConversasPage() {
     setRecording(false);
   };
 
-  const patchConversation = async (kind: "assignment" | "ai", patch: Record<string, unknown>) => {
-    if (!selected || controlLoading) return;
+  const patchConversation = async (kind: ControlKind, patch: Record<string, unknown>) => {
+    if (!selected || controlLoading) return false;
     setControlLoading(kind);
     setMessagesError("");
+    setControlError("");
     try {
       const response = await fetch("/api/conversations", {
         method: "PATCH",
@@ -773,11 +893,21 @@ export default function ConversasPage() {
       if (!updated) throw new Error("A resposta não trouxe a conversa atualizada.");
       setConversations((current) =>
         current.map((conversation) =>
-          conversation.id === updated.id ? { ...conversation, ...updated } : conversation,
+          conversation.id === updated.id
+            ? { ...conversation, ...updated, messages: conversation.messages ?? updated.messages }
+            : conversation,
         ),
       );
+      if (kind === "notes") {
+        setNotesDraft(updated.leads?.[0]?.notes || "");
+        setNotesDirty(false);
+      }
+      return true;
     } catch (error) {
-      setMessagesError(error instanceof Error ? error.message : "Não foi possível atualizar a conversa.");
+      const message = error instanceof Error ? error.message : "Não foi possível atualizar a conversa.";
+      setMessagesError(message);
+      setControlError(message);
+      return false;
     } finally {
       setControlLoading(null);
     }
@@ -798,6 +928,195 @@ export default function ConversasPage() {
 
   const formatRecordingTime = (seconds: number) =>
     `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+
+  const appendQuickNote = (note: string) => {
+    setNotesDraft((current) => {
+      const content = current.trimEnd();
+      return `${content}${content ? "\n" : ""}- ${note}: `;
+    });
+    setNotesDirty(true);
+  };
+
+  const renderContactPanel = (idPrefix: string, closeButton: boolean) => {
+    if (!selected) return null;
+    const titleId = `${idPrefix}-contact-title`;
+    const notesId = `${idPrefix}-contact-notes`;
+    const connectionName =
+      selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "Não informada";
+
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-white dark:bg-slate-900">
+        <div className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 dark:border-white/10">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500">Atendimento humano</p>
+            <h3 id={titleId} className="mt-0.5 text-sm font-black">Contexto do contato</h3>
+          </div>
+          {closeButton && (
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setManagementOpen(false)}
+              className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/5"
+              aria-label="Fechar contexto do contato"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">
+                {(selectedLead?.name || selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black">{selectedLead?.name || selected.contact_name || "Contato sem nome"}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-slate-500"><Phone className="size-3" />+{selected.contact_number}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 pt-3 text-[10px] dark:border-white/10">
+              <div><span className="block font-bold text-slate-400">Status do lead</span><strong className="mt-0.5 block truncate text-slate-700 dark:text-slate-200">{selectedLead?.status || "Não informado"}</strong></div>
+              <div><span className="block font-bold text-slate-400">Valor</span><strong className="mt-0.5 block truncate text-slate-700 dark:text-slate-200">{selectedLead?.value == null ? "Não informado" : selectedLead.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></div>
+              <div><span className="block font-bold text-slate-400">Última atividade</span><strong className="mt-0.5 block text-slate-700 dark:text-slate-200">{timeAgo(selected.last_message_at || selected.created_at)}</strong></div>
+              <div><span className="block font-bold text-slate-400">Conexão</span><strong className={`mt-0.5 block truncate ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{connectionName}</strong></div>
+            </div>
+          </div>
+
+          <section className="mt-6" aria-labelledby={`${idPrefix}-service-title`}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 id={`${idPrefix}-service-title`} className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Organização da fila</h4>
+              {controlLoading === "metadata" && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-500"><Loader2 className="size-3 animate-spin" />Atualizando</span>}
+            </div>
+            <div className="space-y-3">
+              <label className="block text-[10px] font-bold text-slate-500">
+                Fila
+                <select
+                  value={selectedCategory.queue}
+                  disabled={Boolean(controlLoading)}
+                  onChange={(event) => void patchConversation("metadata", { queue: event.target.value })}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  {QUEUE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-[10px] font-bold text-slate-500">
+                  Prioridade
+                  <select
+                    value={selectedCategory.priority}
+                    disabled={Boolean(controlLoading)}
+                    onChange={(event) => void patchConversation("metadata", { priority: event.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block text-[10px] font-bold text-slate-500">
+                  Etapa
+                  <select
+                    value={selectedServiceStatus}
+                    disabled={Boolean(controlLoading)}
+                    onChange={(event) => void patchConversation("metadata", { service_status: event.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {SERVICE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6" aria-labelledby={`${idPrefix}-assignment-title`}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 id={`${idPrefix}-assignment-title`} className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Responsável</h4>
+              {controlLoading === "assignment" && <Loader2 className="size-3.5 animate-spin text-indigo-500" />}
+            </div>
+            {sessionUser?.role === "agent" ? (
+              <button
+                type="button"
+                disabled={Boolean(controlLoading) || selected.assigned_to === sessionUser.id}
+                onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-black text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-default disabled:opacity-60 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300"
+              >
+                <UserCheck className="size-4" />
+                {selected.assigned_to === sessionUser.id ? "Atendimento com você" : "Assumir atendimento"}
+              </button>
+            ) : canTransfer && sessionUser ? (
+              <label className="block text-[10px] font-bold text-slate-500">
+                Atendente atual
+                <select
+                  value={selected.assigned_to || ""}
+                  disabled={Boolean(controlLoading)}
+                  onChange={(event) => void patchConversation("assignment", { assigned_to: event.target.value || null })}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  <option value="">Liberar para fila</option>
+                  {!team.some((member) => member.id === sessionUser.id) && <option value={sessionUser.id}>{sessionUser.name || "Minha conta"} (eu)</option>}
+                  {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
+                  {selected.assigned_to && selected.assigned_to !== sessionUser.id && !team.some((member) => member.id === selected.assigned_to) && <option value={selected.assigned_to}>{selected.assignee?.name || "Responsável atual"}</option>}
+                </select>
+              </label>
+            ) : (
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold dark:border-white/10 dark:bg-slate-950">
+                <UserCheck className="size-4 text-slate-400" />
+                {selected.assignee?.name || "Não atribuído"}
+              </div>
+            )}
+          </section>
+
+          <section className="mt-6" aria-labelledby={`${idPrefix}-notes-title`}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 id={`${idPrefix}-notes-title`} className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Contexto do cliente</h4>
+              {controlLoading === "notes" && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-500"><Loader2 className="size-3 animate-spin" />Salvando</span>}
+            </div>
+            <label htmlFor={notesId} className="text-[10px] font-bold text-slate-500">Dores, contexto e objeções</label>
+            <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Atalhos para notas">
+              {QUICK_NOTES.map((note) => (
+                <button
+                  type="button"
+                  key={note}
+                  disabled={Boolean(controlLoading)}
+                  onClick={() => appendQuickNote(note)}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[9px] font-black text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                >
+                  + {note}
+                </button>
+              ))}
+            </div>
+            <textarea
+              id={notesId}
+              rows={6}
+              value={notesDraft}
+              disabled={controlLoading === "notes"}
+              onChange={(event) => {
+                setNotesDraft(event.target.value);
+                setNotesDirty(true);
+              }}
+              placeholder="Registre necessidades, objeções e combinados importantes..."
+              className="mt-2.5 w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-relaxed outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 disabled:opacity-60 dark:border-white/10 dark:bg-slate-950"
+            />
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-[9px] font-medium text-slate-400">Salvas somente ao confirmar</span>
+              <button
+                type="button"
+                disabled={!notesDirty || Boolean(controlLoading)}
+                onClick={() => void patchConversation("notes", { notes: notesDraft.trim() })}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-[10px] font-black text-white transition hover:bg-indigo-600 disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-indigo-400"
+              >
+                {controlLoading === "notes" ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+                Salvar notas
+              </button>
+            </div>
+          </section>
+
+          <div aria-live="polite" className="mt-4 min-h-5">
+            {controlError && <p className="flex items-start gap-1.5 text-[10px] font-bold text-rose-600 dark:text-rose-400"><CircleAlert className="mt-0.5 size-3 shrink-0" />{controlError}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="-m-4 flex h-[calc(100dvh-64px-2rem)] overflow-hidden border-b border-slate-200 bg-slate-50 text-slate-900 dark:border-white/10 dark:bg-[#030712] dark:text-white md:-m-8 md:h-[calc(100dvh-4rem)]">
@@ -830,6 +1149,45 @@ export default function ConversasPage() {
         </div>
 
         <div className="space-y-2.5 border-b border-slate-200/80 p-3 dark:border-white/10">
+          <label className="relative block">
+            <span className="sr-only">Buscar conversa</span>
+            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar nome ou número"
+              className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-3 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              aria-label="Filtrar por fila"
+              value={queueFilter}
+              onChange={(event) => setQueueFilter(event.target.value)}
+              className="min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+            >
+              <option value="all">Todas as filas</option>
+              {QUEUE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select
+              aria-label="Filtrar por prioridade"
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+              className="min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+            >
+              <option value="all">Prioridades</option>
+              {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select
+              aria-label="Filtrar por etapa do atendimento"
+              value={serviceStatusFilter}
+              onChange={(event) => setServiceStatusFilter(event.target.value)}
+              className="col-span-2 min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+            >
+              <option value="all">Todas as etapas</option>
+              {SERVICE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
           {sessionUser?.role !== "agent" && sessionUser?.role !== "partner" && (
             <select
               aria-label="Filtrar por atendente"
@@ -842,16 +1200,6 @@ export default function ConversasPage() {
               {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
             </select>
           )}
-          <label className="relative block">
-            <span className="sr-only">Buscar conversa</span>
-            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar nome ou número"
-              className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-3 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
-            />
-          </label>
         </div>
 
         {listError && (
@@ -883,6 +1231,13 @@ export default function ConversasPage() {
             );
             const active = selectedId === conversation.id;
             const name = conversation.contact_name || `+${conversation.contact_number}`;
+            const category = parseLeadCategory(conversation.leads?.[0]?.category);
+            const serviceStatus = serviceStatusOf(conversation.status);
+            const priorityClass = category.priority === "urgent"
+              ? "bg-rose-600 text-white shadow-sm shadow-rose-500/30"
+              : category.priority === "high"
+                ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
+                : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400";
             return (
               <button
                 type="button"
@@ -905,10 +1260,15 @@ export default function ConversasPage() {
                     <span className={`shrink-0 text-[10px] font-bold ${unread ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`}>{timeAgo(latest?.created_at || conversation.last_message_at || conversation.created_at)}</span>
                   </div>
                   <p className={`mt-1 truncate text-xs ${unread ? "font-bold text-slate-800 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>{messagePreview(latest)}</p>
-                  <div className="mt-2 flex items-center gap-1.5 overflow-hidden text-[9px] font-black uppercase tracking-wide">
-                    <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">WhatsApp</span>
-                    <span className={`rounded-md px-1.5 py-0.5 ${conversation.ai_paused ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400"}`}>{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
-                    <span className="truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-white/5 dark:text-slate-400">{conversation.status || "sem status"}</span>
+                  <div className="mt-2 flex items-center gap-1.5 overflow-hidden text-[9px] font-black tracking-wide">
+                    <span className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">{labelFor(QUEUE_OPTIONS, category.queue)}</span>
+                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${serviceStatus === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : serviceStatus === "pending" ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400"}`}>{labelFor(SERVICE_STATUS_OPTIONS, serviceStatus)}</span>
+                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${priorityClass}`}>{labelFor(PRIORITY_OPTIONS, category.priority)}</span>
+                  </div>
+                  <div className="mt-1.5 flex min-w-0 items-center gap-1 text-[9px] font-bold text-slate-400">
+                    <UserCheck className="size-3 shrink-0" />
+                    <span className="truncate">{conversation.assignee?.name || "Sem atendente"}</span>
+                    <span className="ml-auto shrink-0">{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
                   </div>
                 </div>
               </button>
@@ -939,26 +1299,26 @@ export default function ConversasPage() {
                 <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
-                  <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
-                    {selectedInstance?.status === "open" ? "WhatsApp conectado" : "WhatsApp desconectado"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {sessionUser?.role === "agent" ? (
+                   <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                   <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                     {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
+                     <span className="truncate">{selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "WhatsApp"}: {selectedInstance?.status === "open" ? "conectado" : "desconectado"}</span>
+                   </p>
+                 </div>
+               </div>
+               <div className="flex shrink-0 items-center gap-1.5">
+                 {sessionUser?.role === "agent" ? (
                   <button
                     type="button"
                     disabled={Boolean(controlLoading)}
                     onClick={() => void patchConversation("assignment", { assigned_to: sessionUser.id })}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:text-xs"
+                    className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-bold transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 xl:inline-flex 2xl:hidden"
                   >
                     {controlLoading === "assignment" ? <Loader2 className="size-3.5 animate-spin" /> : <UserCheck className="size-3.5" />}
                     <span className="hidden sm:inline">{selected.assignee?.name?.split(" ")[0] || "Assumir"}</span>
                   </button>
-                ) : sessionUser && sessionUser.role !== "partner" ? (
-                  <label className="flex max-w-32 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 text-[10px] font-bold dark:border-white/10 dark:bg-white/5 sm:max-w-44 sm:text-xs">
+                ) : canTransfer && sessionUser ? (
+                  <label className="hidden max-w-44 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-bold dark:border-white/10 dark:bg-white/5 xl:flex 2xl:hidden">
                     <span className="sr-only">Atribuir conversa</span>
                     {controlLoading === "assignment" ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <UserCheck className="size-3.5 shrink-0" />}
                     <select
@@ -982,6 +1342,16 @@ export default function ConversasPage() {
                 ) : null}
                 <button
                   type="button"
+                  onClick={() => setManagementOpen(true)}
+                  aria-expanded={managementOpen}
+                  aria-controls="contact-management-drawer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 sm:text-xs 2xl:hidden"
+                >
+                  <FileText className="size-3.5" />
+                  <span className="hidden sm:inline">Contexto</span>
+                </button>
+                <button
+                  type="button"
                   disabled={Boolean(controlLoading)}
                   onClick={() => void patchConversation("ai", { ai_paused: !selected.ai_paused })}
                   className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-black transition disabled:opacity-50 sm:text-xs ${selected.ai_paused ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"}`}
@@ -994,10 +1364,11 @@ export default function ConversasPage() {
 
             <div className="hidden min-h-10 shrink-0 items-center gap-5 overflow-x-auto border-b border-slate-200 bg-white/80 px-5 text-[10px] dark:border-white/10 dark:bg-slate-900/60 lg:flex 2xl:hidden">
               <span className="flex shrink-0 items-center gap-1.5 font-bold text-slate-500"><Phone className="size-3" /><strong className="text-slate-800 dark:text-slate-200">+{selected.contact_number}</strong></span>
-              <span className="shrink-0 font-bold text-slate-500">Lead: <strong className="text-slate-800 dark:text-slate-200">{selected.leads?.[0]?.status || "não informado"}</strong></span>
-              <span className="shrink-0 font-bold text-slate-500">Valor: <strong className="text-slate-800 dark:text-slate-200">{selected.leads?.[0]?.value == null ? "não informado" : selected.leads[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Fila: <strong className="text-slate-800 dark:text-slate-200">{labelFor(QUEUE_OPTIONS, selectedCategory.queue)}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Etapa: <strong className="text-slate-800 dark:text-slate-200">{labelFor(SERVICE_STATUS_OPTIONS, selectedServiceStatus)}</strong></span>
+              <span className={`shrink-0 rounded-full px-2 py-1 font-black ${selectedCategory.priority === "urgent" ? "bg-rose-600 text-white" : selectedCategory.priority === "high" ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300" : "bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300"}`}>{labelFor(PRIORITY_OPTIONS, selectedCategory.priority)}</span>
               <span className="shrink-0 font-bold text-slate-500">Atendente: <strong className="text-slate-800 dark:text-slate-200">{selected.assignee?.name || "não atribuído"}</strong></span>
-              <span className="shrink-0 font-bold text-slate-500">Instância: <strong className="text-slate-800 dark:text-slate-200">{selectedInstance?.connectionName || selected.instance_name || "não informada"}</strong></span>
+              <span className="shrink-0 font-bold text-slate-500">Instância: <strong className="text-slate-800 dark:text-slate-200">{selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "não informada"}</strong></span>
             </div>
 
             <div className="flex min-h-0 flex-1">
@@ -1114,22 +1485,32 @@ export default function ConversasPage() {
                 </div>
               </section>
 
-              <aside className="hidden w-64 shrink-0 border-l border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900/80 2xl:block">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Contexto do contato</p>
-                <dl className="mt-5 space-y-4 text-xs">
-                  <div><dt className="mb-1 flex items-center gap-1.5 font-bold text-slate-400"><Phone className="size-3.5" />Telefone</dt><dd className="font-bold">+{selected.contact_number}</dd></div>
-                  <div><dt className="mb-1 font-bold text-slate-400">Lead</dt><dd className="font-bold">{selected.leads?.[0]?.name || selected.contact_name || "Não vinculado"}</dd></div>
-                  <div><dt className="mb-1 font-bold text-slate-400">Status do lead</dt><dd className="inline-flex rounded-lg bg-slate-100 px-2 py-1 font-bold dark:bg-white/5">{selected.leads?.[0]?.status || "Não informado"}</dd></div>
-                  <div><dt className="mb-1 font-bold text-slate-400">Valor</dt><dd className="font-bold">{selected.leads?.[0]?.value == null ? "Não informado" : selected.leads[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</dd></div>
-                  <div><dt className="mb-1 font-bold text-slate-400">Atendente</dt><dd className="font-bold">{selected.assignee?.name || "Não atribuído"}</dd></div>
-                  <div><dt className="mb-1 font-bold text-slate-400">Instância</dt><dd className="font-bold">{selectedInstance?.connectionName || selected.instance_name || "Não informada"}</dd></div>
-                  <div><dt className="mb-1 flex items-center gap-1.5 font-bold text-slate-400"><Clock className="size-3.5" />Última atividade</dt><dd className="font-bold">{timeAgo(selected.last_message_at || selected.created_at)}</dd></div>
-                </dl>
+              <aside aria-labelledby="sidebar-contact-title" className="hidden w-80 shrink-0 border-l border-slate-200 dark:border-white/10 2xl:block">
+                {renderContactPanel("sidebar", false)}
               </aside>
             </div>
           </>
         )}
       </main>
+      {selected && managementOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] 2xl:hidden"
+            onClick={() => setManagementOpen(false)}
+            aria-label="Fechar contexto do contato"
+          />
+          <aside
+            id="contact-management-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="drawer-contact-title"
+            className="fixed inset-y-0 right-0 z-50 w-[min(92vw,360px)] border-l border-slate-200 shadow-2xl dark:border-white/10 2xl:hidden"
+          >
+            {renderContactPanel("drawer", true)}
+          </aside>
+        </>
+      )}
     </div>
   );
 }

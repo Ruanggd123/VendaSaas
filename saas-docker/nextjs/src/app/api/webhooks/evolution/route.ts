@@ -270,7 +270,8 @@ export async function POST(req: Request) {
             }
           },
           update: {
-            ...(fromMe ? {} : { contact_name: contactName }) // Só atualiza o nome se não for eu enviando (para não sobreescrever os clientes com o meu nome)
+            instance_name: instanceName,
+            ...(fromMe ? {} : { contact_name: contactName, status: "active" }) // Só atualiza o nome se não for eu enviando (para não sobreescrever os clientes com o meu nome)
           },
           create: {
             tenant_id: tenantId,
@@ -526,7 +527,7 @@ export async function POST(req: Request) {
                     body: JSON.stringify({ 
                       number: contactNumber,
                       text: iaResponse,
-                      delay: 1200
+                      delay: 280
                     })
                   });
                   if (!sendResponse.ok) {
@@ -561,6 +562,17 @@ export async function POST(req: Request) {
     }
 
     if (rawEvent === "connection.update" && instanceName) {
+      const connectionState = body.data?.state;
+      const persistedStatus = connectionState === "open"
+        ? "open"
+        : connectionState === "connecting"
+          ? "connecting"
+          : "disconnected";
+      await prisma.whatsappInstance.updateMany({
+        where: { name: instanceName },
+        data: { status: persistedStatus },
+      });
+
       if (body.data?.state === "open" && body.sender) {
         const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
         const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
