@@ -472,6 +472,16 @@ export async function POST(req: Request) {
             console.log(`⏸️ IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
           }
         } else {
+          // Se o cliente enviou nova mensagem, reativa a IA automaticamente
+          if (conversation.ai_paused) {
+            await prisma.conversation.updateMany({
+              where: { tenant_id: tenantId, contact_number: contactNumber },
+              data: { ai_paused: false }
+            });
+            conversation.ai_paused = false;
+            console.log(`🔓 IA reativada automaticamente para ${contactNumber} (nova mensagem do cliente).`);
+          }
+
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
             console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);

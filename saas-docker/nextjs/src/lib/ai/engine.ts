@@ -341,7 +341,11 @@ O cliente se chama ${clientName}.
       where: {
         tenant_id: tenantId,
         status: "pending",
-        notes: { contains: `customer_phone:${contactNumber}` }
+        OR: [
+          { notes: { contains: `customer_phone:${contactNumber}` } },
+          { notes: { contains: `customer_phone:${contactNumber.replace(/\D/g, "").replace(/^55/, "")}` } },
+          { notes: { contains: `customer_phone:55${contactNumber.replace(/\D/g, "").replace(/^55/, "")}` } },
+        ]
       },
       orderBy: { created_at: "desc" }
     });

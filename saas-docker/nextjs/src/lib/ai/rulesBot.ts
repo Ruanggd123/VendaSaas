@@ -183,16 +183,26 @@ export async function processMessageWithRules(
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, "");
 
   const customNodes = settings.custom_rules_nodes || [];
 
   // Check for pending debt / unpaid sale for this customer
+  const phoneDigits = contactNumber.replace(/\D/g, "");
+  const phoneFormats = [phoneDigits];
+  if (phoneDigits.startsWith("55")) {
+    phoneFormats.push(phoneDigits.slice(2));
+  } else {
+    phoneFormats.push("55" + phoneDigits);
+  }
   const pendingSale = await prisma.sale.findFirst({
     where: {
       tenant_id: tenantId,
       status: "pending",
-      notes: { contains: `customer_phone:${contactNumber}` }
+      OR: phoneFormats.map(pf => ({
+        notes: { contains: `customer_phone:${pf}` }
+      }))
     },
     orderBy: { created_at: "desc" }
   });
