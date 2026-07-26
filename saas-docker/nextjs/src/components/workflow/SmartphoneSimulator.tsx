@@ -34,6 +34,14 @@ interface SchedulingState {
   selectedTime?: string;
 }
 
+interface CheckoutDeliveryState {
+  phase: "chooseDeliveryMethod";
+  product: any;
+  paymentMode: string;
+  deliveryType: "both" | "delivery";
+  deadline?: string;
+}
+
 interface SmartphoneSimulatorProps {
   settings: any;
   tenantId?: string;
@@ -57,6 +65,97 @@ function normalizeDurationMinutes(value: unknown, fallback = 60): number {
     return fallback;
   }
   return Math.max(1, Math.round(parsed));
+}
+
+function parseProductPrice(value: unknown): number {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  if (value == null) {
+    return NaN;
+  }
+
+  const normalized = String(value)
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^0-9.,-]/g, "");
+
+  if (!normalized) {
+    return NaN;
+  }
+
+  const hasExplicitSign = normalized.startsWith("-");
+  const unsigned = hasExplicitSign ? normalized.slice(1) : normalized;
+
+  if (!/[0-9]/.test(unsigned)) {
+    return NaN;
+  }
+
+  const hasComma = unsigned.includes(",");
+  const hasDot = unsigned.includes(".");
+
+  if (!hasComma && !hasDot) {
+    const parsed = Number(unsigned);
+    if (!Number.isFinite(parsed)) {
+      return NaN;
+    }
+    return hasExplicitSign ? -parsed : parsed;
+  }
+
+  const lastComma = unsigned.lastIndexOf(",");
+  const lastDot = unsigned.lastIndexOf(".");
+  const separatorIndex = Math.max(lastComma, lastDot);
+  const integerPart = unsigned.slice(0, separatorIndex);
+  const decimalPart = unsigned.slice(separatorIndex + 1);
+
+  let parsedValue = "";
+
+  if (decimalPart.length > 0 && decimalPart.length <= 2) {
+    parsedValue = `${integerPart.replace(/[.,]/g, "")}.${decimalPart}`;
+  } else {
+    parsedValue = unsigned.replace(/[.,]/g, "");
+  }
+
+  let parsed = Number(parsedValue);
+  if (!Number.isFinite(parsed)) {
+    const parsedFallback = Number(unsigned.replace(/[^0-9]/g, ""));
+    if (!Number.isFinite(parsedFallback)) {
+      return NaN;
+    }
+
+    parsed = parsedFallback;
+  }
+
+  return hasExplicitSign ? -parsed : parsed;
+}
+
+function formatProductPrice(value: unknown): string {
+  const parsed = parseProductPrice(value);
+  if (!Number.isFinite(parsed)) {
+    return "0.00";
+  }
+
+  return parsed.toFixed(2);
+}
+
+function isPaymentRequired(product: any): boolean {
+  const value = product?.requires_payment;
+  return !(value === false || String(value).toLowerCase() === "false");
+}
+
+function getProductDeliveryType(product: any): string {
+  return String(product?.delivery_type || "virtual_instant").trim().toLowerCase() || "virtual_instant";
+}
+
+function buildNoPaymentMessage(product: any, addressLabel = "Envio Digital Imediato"): string {
+  const name = product?.name || "Produto";
+  const value = formatProductPrice(product?.price);
+  return `🛒 *Produto:* ${name}\n💰 *Valor:* R$ ${value}\n🚚 *Método/Endereço:* ${addressLabel}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
 }
 
 function normalizeButtons(buttons: any): { label: string; value: string }[] {
@@ -274,9 +373,11 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const [isTyping, setIsTyping] = useState(false);
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [schedulingState, setSchedulingState] = useState<SchedulingState | null>(null);
+  const [checkoutDeliveryState, setCheckoutDeliveryState] = useState<CheckoutDeliveryState | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [inCatalogView, setInCatalogView] = useState(false);
+  const [bubbleMaxWidthPercent, setBubbleMaxWidthPercent] = useState(88);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -328,7 +429,13 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return null;
   };
 
-  const buildCheckoutFlow = (product: any, paymentMode: string, originNode: any, botPrefix = "") => {
+  const buildCheckoutFlow = (
+    product: any,
+    paymentMode: string,
+    originNode: any,
+    botPrefix = "",
+    addressLabel = "Envio Digital Imediato"
+  ) => {
     if (!product) {
       return {
         text: "❌ Produto não encontrado no catálogo.",
@@ -336,19 +443,27 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       };
     }
 
+    if (!isPaymentRequired(product)) {
+      return {
+        text: buildNoPaymentMessage(product, addressLabel),
+        buttons: [{ label: "🏠 Menu Principal", value: "0" }],
+      };
+    }
+
     const nodePrefix = botPrefix || (originNode?.textContent && originNode.textContent.trim().length > 0
       ? originNode.textContent
-      : `📦 *${product.name}*\n💰 *Valor:* R$ ${product.price || ""}`);
+      : `📦 *${product.name}*\n💰 *Valor:* R$ ${formatProductPrice(product.price)}`);
     const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
     const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name)}`;
     const desc = product.description ? `\n${product.description}` : "";
     const prefix = `${nodePrefix}${desc}`;
+    const summary = `🛒 *Resumo do Pedido:* ${product.name}\n💰 *Valor:* R$ ${formatProductPrice(product.price)}\n📍 *Entrega:* ${addressLabel}`;
 
     if (paymentMode === "pix") {
       return {
-        text: `${prefix}\n\n👇 *Pagamento via Pix:* Clique abaixo para gerar o código Pix Copia e Cola instantâneo!`,
+        text: `${prefix}\n\n${summary}\n\n🔗 *Acesse o link para concluir a compra:* ${checkoutLink}`,
         buttons: [
-          { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${product.name}` },
+          { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
           { label: "👤 Falar com Consultor", value: "4" },
           { label: "⬅️ Voltar ao Catálogo", value: "1" },
         ],
@@ -357,7 +472,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     if (paymentMode === "link") {
       return {
-        text: `${prefix}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):*\n${checkoutLink}`,
+        text: `${prefix}\n\n${summary}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):* ${checkoutLink}`,
         buttons: [
           { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
           { label: "👤 Falar com Consultor", value: "4" },
@@ -367,9 +482,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     }
 
     return {
-      text: `${prefix}\n\n👇 *Escolha a forma de pagamento:*`,
+      text: `${prefix}\n\n${summary}\n\nEscolha a forma de pagamento:`,
       buttons: [
-        { label: "⚡ Gerar Pix no Chat", value: `gen_pix_chat_${product.name}` },
+        { label: "⚡ Pagar no Site", value: `open_link_${checkoutLink}` },
         { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
         { label: "👤 Falar com Consultor", value: "4" },
         { label: "⬅️ Voltar ao Catálogo", value: "1" },
@@ -441,6 +556,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setInput("");
     setCurrentParentId(null);
     setSchedulingState(null);
+    setCheckoutDeliveryState(null);
     setInCatalogView(false);
     if (onActiveNodeChange) onActiveNodeChange(null);
   };
@@ -492,9 +608,13 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
         const allNodes = ensureArray<any>(settings?.custom_rules_nodes);
         const prods = ensureArray<any>(settings?.products);
         const schedulingStateActive = schedulingState?.phase;
+        const checkoutDeliveryStateActive = checkoutDeliveryState?.phase;
+
+        const serviceListForScheduling = parseSchedulingServiceList(prods);
 
         if (schedulingStateActive) {
           const currentState = schedulingState as SchedulingState;
+          setInCatalogView(false);
 
           if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
             setSchedulingState(null);
@@ -644,7 +764,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
                 selectedTime: chosenTime,
               });
 
-              const price = currentState.selectedService?.price ? `R$ ${currentState.selectedService.price}` : null;
+              const price = currentState.selectedService?.price
+                ? `R$ ${formatProductPrice(currentState.selectedService.price)}`
+                : null;
               const serviceName = currentState.selectedService?.name || "Serviço";
               const dateLabel = currentState.selectedDateLabel || "Data";
 
@@ -712,48 +834,203 @@ Seu agendamento foi registrado no simulador.`;
           return;
         }
 
-        // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
-        if (inCatalogView && !isNaN(parseInt(clean, 10))) {
-          const prodIdx = parseInt(clean, 10) - 1;
-          const selectedProd = prods[prodIdx];
+        if (checkoutDeliveryStateActive) {
+          const currentCheckoutState = checkoutDeliveryState as CheckoutDeliveryState;
+          const selectedProduct = currentCheckoutState.product;
 
-          // Procura se o usuário configurou um sub-nó específico para este produto
-          const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
-          const customSubNode = catalogNode
-            ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(clean))
-            : null;
+          setInCatalogView(false);
 
-          const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
+          if (clean === "4") {
+            setCheckoutDeliveryState(null);
+            botResponseText = "👤 *Transferindo para Atendente Humano*\n\nAguarde um instante! Um dos nossos consultores irá assumir a conversa para te atender pessoalmente.";
+            botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+          } else if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
+            setCheckoutDeliveryState(null);
+            setInCatalogView(false);
+            setCurrentParentId(null);
+            if (onActiveNodeChange) onActiveNodeChange(null);
+            const initial = generateBotInitialMenu();
+            botResponseText = initial.text;
+            botButtons = initial.buttons;
+          } else if (!selectedProduct) {
+            setCheckoutDeliveryState(null);
+            botResponseText = "⚠️ Não localizei o item selecionado para compra. Tente novamente pelo catálogo.";
+            botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+          } else if (clean !== "1" && clean !== "2") {
+            const digitalLabel = currentCheckoutState.deliveryType === "both"
+              ? `Envio Digital (Prazo: ${currentCheckoutState.deadline || "imediato"})`
+              : "Entrega (Delivery)";
+            const physicalLabel = currentCheckoutState.deliveryType === "both"
+              ? "Entrega Física no meu endereço"
+              : "Retirada na Loja / Presencial";
 
-          if (productForCheckout) {
-            const pMode = customSubNode?.paymentMode || "both";
+            botResponseText = `⚠️ Opção inválida. Responda *1* para *${digitalLabel}* ou *2* para *${physicalLabel}* ou *0* para voltar ao menu principal.`;
+            botButtons = [
+              { label: `1 - ${digitalLabel}`, value: "1" },
+              { label: `2 - ${physicalLabel}`, value: "2" },
+              { label: "🏠 Voltar", value: "0" },
+            ];
+          } else {
+            const isDigital = clean === "1";
+            const addressLabel = currentCheckoutState.deliveryType === "both"
+              ? (isDigital ? `Envio Digital (Prazo: ${currentCheckoutState.deadline || "imediato"})` : "Entrega Física no meu endereço")
+              : (isDigital ? "Entrega (Delivery)" : "Retirada na Loja / Presencial");
+
             const checkoutFlow = buildCheckoutFlow(
-              productForCheckout,
-              pMode,
-              customSubNode,
-              customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${productForCheckout.price}`
+              selectedProduct,
+              currentCheckoutState.paymentMode,
+              null,
+              `📦 *${selectedProduct.name}*\n💰 *Valor:* R$ ${formatProductPrice(selectedProduct.price)}`,
+              addressLabel
             );
 
+            setInCatalogView(false);
+            setCheckoutDeliveryState(null);
             botResponseText = checkoutFlow.text;
             botButtons = checkoutFlow.buttons;
-          } else {
-            botResponseText = "❌ Produto não encontrado no catálogo.";
-            botButtons = [
-              { label: "🏠 Menu Principal", value: "0" },
-              { label: "👤 Falar com Consultor", value: "4" },
-            ];
           }
 
-            const botMsg: Message = {
-              id: "bot_" + Date.now(),
-              sender: "bot",
-              text: normalizeTextValue(botResponseText),
-              timestamp: currentTime,
-              buttons: normalizeButtons(botButtons),
-            };
-            setMessages((prev) => [...prev, botMsg]);
-            return;
+          const finalButtons = normalizeButtons(botButtons);
+          const botMsg: Message = {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: normalizeTextValue(botResponseText),
+            timestamp: currentTime,
+            buttons: finalButtons,
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          return;
+        }
+
+        // SE O CLIENTE ESTÁ NAVEGANDO NO CATÁLOGO E ESCOLHEU UM NÚMERO (1, 2, 3, etc)
+        if (inCatalogView) {
+          const catalogChoice = parseInt(clean, 10);
+
+          if (!isNaN(catalogChoice) && catalogChoice <= 0) {
+            setCurrentParentId(null);
+            setInCatalogView(false);
+            const initial = generateBotInitialMenu();
+            botResponseText = initial.text;
+            botButtons = initial.buttons;
+          } else if (!isNaN(catalogChoice)) {
+            const prodIdx = catalogChoice - 1;
+            const selectedProd = prods[prodIdx];
+
+            // Procura se o usuário configurou um sub-nó específico para este produto
+            const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
+            const customSubNode = catalogNode
+              ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(catalogChoice))
+              : null;
+
+            const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
+            const paymentMode = customSubNode?.paymentMode || "both";
+
+            setCheckoutDeliveryState(null);
+
+            if (!productForCheckout) {
+              botResponseText = "❌ Produto não encontrado no catálogo.";
+              botButtons = [
+                { label: "🏠 Menu Principal", value: "0" },
+                { label: "👤 Falar com Consultor", value: "4" },
+              ];
+            } else if (isSchedulableProduct(productForCheckout)) {
+              const selectedService = serviceListForScheduling.find(
+                (service) => normalizeLookupValue(service.name) === normalizeLookupValue(productForCheckout.name)
+              ) || {
+                id: catalogChoice,
+                name: productForCheckout.name || `Serviço ${catalogChoice}`,
+                price: productForCheckout.price,
+                durationMin: normalizeDurationMinutes(productForCheckout.duration_min || productForCheckout.duration, 60),
+              };
+
+              const dates = getNextSchedulingDates(settings).slice(0, 5);
+              if (dates.length === 0) {
+                botResponseText = `📅 Não há datas disponíveis para *${selectedService.name}* no momento. Escolha *0* para voltar e tentar novamente depois.`;
+                botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+              } else {
+                const mappedDates = dates.map((dateISO) => formatDateLabel(new Date(`${dateISO}T00:00:00`)));
+
+                setSchedulingState({
+                  phase: "selectDate",
+                  services: serviceListForScheduling,
+                  selectedService,
+                  availableDates: dates,
+                });
+
+                botResponseText = `📅 Você selecionou *${selectedService.name}*.\n\nEscolha um dos dias disponíveis:`;
+                botResponseText += buildLabeledListText(mappedDates, "");
+                botResponseText += "\n\nDigite o número da data ou *0* para voltar.";
+                botButtons = buildDateButtons(dates);
+                botButtons.push({ label: "🏠 Voltar", value: "0" });
+              }
+            } else {
+              const deliveryType = getProductDeliveryType(productForCheckout);
+
+              if (deliveryType === "both" || (deliveryType !== "virtual_instant" && deliveryType !== "virtual_deadline" && deliveryType !== "service")) {
+                setCheckoutDeliveryState({
+                  phase: "chooseDeliveryMethod",
+                  product: productForCheckout,
+                  paymentMode,
+                  deliveryType: deliveryType === "both" ? "both" : "delivery",
+                  deadline: productForCheckout.delivery_deadline || "imediato",
+                });
+
+                setInCatalogView(false);
+                setSchedulingState(null);
+
+                const digitalLabel = deliveryType === "both"
+                  ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})`
+                  : "Entrega (Delivery)";
+                const physicalLabel = deliveryType === "both"
+                  ? "Entrega Física no meu endereço"
+                  : "Retirada na Loja / Presencial";
+                const intro = `🛒 *Você selecionou:* ${productForCheckout.name}\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}\n\n`;
+
+                if (deliveryType === "both") {
+                  botResponseText = `${intro}Este produto está disponível nas opções Digital e Física. Como prefere receber?\n`;
+                } else {
+                  botResponseText = `${intro}Como deseja receber o produto/serviço?\n`;
+                }
+
+                botResponseText += `1️⃣ ${digitalLabel}\n2️⃣ ${physicalLabel}\n\nResponda com o número correspondente (*1* ou *2*):`;
+                botButtons = [
+                  { label: `1 - ${digitalLabel}`, value: "1" },
+                  { label: `2 - ${physicalLabel}`, value: "2" },
+                  { label: "👤 Falar com Consultor", value: "4" },
+                  { label: "⬅️ Voltar ao Catálogo", value: "0" },
+                ];
+              } else {
+                const checkoutFlow = buildCheckoutFlow(
+                  productForCheckout,
+                  paymentMode,
+                  customSubNode,
+                  customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}`,
+                  deliveryType === "virtual_deadline" ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})` : "Envio Digital Imediato"
+                );
+
+                setInCatalogView(false);
+                setSchedulingState(null);
+
+                botResponseText = checkoutFlow.text;
+                botButtons = checkoutFlow.buttons;
+              }
+            }
+          } else {
+            botResponseText = "Digite um número válido para escolher um item do catálogo.";
+            botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
           }
+
+          const botMsg: Message = {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: normalizeTextValue(botResponseText),
+            timestamp: currentTime,
+            buttons: normalizeButtons(botButtons),
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          return;
+        }
+
         // SE CLICOU EM GERAR PIX NO CHAT
         if (clean.startsWith("gen_pix_chat_")) {
           const slug = clean.replace("gen_pix_chat_", "").trim();
@@ -764,7 +1041,7 @@ Seu agendamento foi registrado no simulador.`;
             (!isNaN(slugIndex) && slugIndex > 0 ? prods[slugIndex - 1] : null) ||
             { name: "Produto", price: "147.00" };
 
-          botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${matchedProduct.name}*\nValor: *R$ ${matchedProduct.price}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que efetuar a transferência Pix, o seu acesso é liberado instantaneamente! ✅`;
+          botResponseText = `⚡ *Chave Pix para Pagamento Instantâneo*\n\nPedido: *${matchedProduct.name}*\nValor: *R$ ${formatProductPrice(matchedProduct.price)}*\n\n🔑 *Chave Pix Copia e Cola:*\n\`00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA\`\n\nAssim que efetuar a transferência Pix, o seu acesso é liberado instantaneamente! ✅`;
           botButtons = [
             { label: "✅ Já Realizei o Pagamento", value: "confirm_pix" },
             { label: "🏠 Menu Principal", value: "0" },
@@ -861,7 +1138,7 @@ Seu agendamento foi registrado no simulador.`;
             if (chosenProduct) {
               const intro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
                 ? matchedNode.textContent
-                : `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${chosenProduct.price || ""}`;
+                : `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${formatProductPrice(chosenProduct.price)}`;
               botResponseText = `${intro}\n\n${chosenProduct.description ? chosenProduct.description : ""}`;
             } else {
               botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*.`;
@@ -872,7 +1149,7 @@ Seu agendamento foi registrado no simulador.`;
               matchedNode.paymentMode || "both",
               matchedNode,
               chosenProduct
-                ? `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${chosenProduct.price || ""}`
+                ? `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${formatProductPrice(chosenProduct.price)}`
                 : matchedNode.textContent || `📦 *${matchedNode.title}*`
             );
 
@@ -895,7 +1172,7 @@ Seu agendamento foi registrado no simulador.`;
             botResponseText = serviceIntro;
             if (!hasManualMenu) {
               services.forEach((service) => {
-                const price = service.price ? ` (R$ ${service.price})` : "";
+                const price = service.price ? ` (R$ ${formatProductPrice(service.price)})` : "";
                 botResponseText += `\n*${service.id}* - ${service.name}${price}`;
               });
               botResponseText += "\n\nDigite o número do serviço ou *0* para voltar.";
@@ -1047,17 +1324,31 @@ Seu agendamento foi registrado no simulador.`;
           </span>
         </div>
 
+        <div className="flex items-center gap-2 text-[9px] text-slate-600 dark:text-slate-300 px-1 pb-1">
+          <span className="whitespace-nowrap">Largura da caixinha:</span>
+          <input
+            type="range"
+            min={70}
+            max={100}
+            value={bubbleMaxWidthPercent}
+            onChange={(e) => setBubbleMaxWidthPercent(Number(e.target.value))}
+            className="w-full h-1.5 accent-emerald-600"
+          />
+          <span className="w-10 text-right font-bold">{bubbleMaxWidthPercent}%</span>
+        </div>
+
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex flex-col group relative ${msg.sender === "user" ? "items-end" : "items-start"}`}
           >
             <div
-              className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm space-y-2 relative transition-all ${
+              className={`rounded-2xl px-3.5 py-2.5 shadow-sm space-y-2 relative transition-all ${
                 msg.sender === "user"
                   ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-none"
                   : "bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-none"
               }`}
+              style={{ maxWidth: `${bubbleMaxWidthPercent}%` }}
             >
               {/* BOTÃO DE EDIÇÃO DIRETO NO BALÃO */}
               {msg.sender === "bot" && editingMessageId !== msg.id && (
@@ -1076,8 +1367,8 @@ Seu agendamento foi registrado no simulador.`;
                   <textarea
                     value={editingText}
                     onChange={(e) => setEditingText(e.target.value)}
-                    rows={4}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500 rounded-xl p-2 text-[11px] text-slate-900 dark:text-white font-medium focus:outline-none leading-relaxed"
+                    rows={6}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500 rounded-xl p-2 text-[11px] text-slate-900 dark:text-white font-medium focus:outline-none leading-relaxed resize overflow-auto"
                   />
                   <div className="flex items-center justify-end gap-1">
                     <button
@@ -1113,7 +1404,7 @@ Seu agendamento foi registrado no simulador.`;
                         {pIdx + 1}. {prod.name}
                       </div>
                       <span className="font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                        R$ {prod.price}
+                         R$ {formatProductPrice(prod.price)}
                       </span>
                     </div>
                   ))}

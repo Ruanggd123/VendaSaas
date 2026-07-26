@@ -94,13 +94,18 @@ export async function POST(req: Request) {
     }
     let settings = {};
     try { settings = JSON.parse(tenant.settings || "{}"); } catch(e) {}
-    settings = { 
-      ...settings, 
-      asaasApiKey: apiKey, 
+    settings = {
+      ...settings,
+      asaasApiKey: apiKey,
+      asaas_environment_key: apiKey,
+      asaasApiKeyMode: environment,
       asaasEnvironment: environment,
       asaasWebhookConfigured: true,
       asaasWebhookUrl: webhookUrl,
-      asaasConnectedAt: new Date().toISOString()
+      asaasConnectedAt: new Date().toISOString(),
+      ...(environment === 'production'
+        ? { asaas_api_key: apiKey }
+        : { asaas_test_api_key: apiKey }),
     };
     await prisma.tenant.update({
       where: { id: targetTenantId },

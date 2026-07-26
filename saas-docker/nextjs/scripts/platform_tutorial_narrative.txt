@@ -1,0 +1,15 @@
+Este é um tutorial rápido da plataforma Nexus.
+
+Vamos acessar a área de Fluxo do Bot para montar o atendimento de forma visual.
+
+Primeiro, entramos no painel e abrimos a aba de Fluxo do Bot.
+
+No fluxo visual, você consegue criar opções, editar cada nó e definir ações como texto, catálogo, checkout e agendamento.
+
+Depois, usamos o simulador ao vivo para testar o comportamento real da conversa, incluindo respostas automáticas e botões de atalho.
+
+Se quiser revisar o texto de cada mensagem, clique em editar no balão e ajuste a linguagem sem sair do fluxo.
+
+No final, clique em Salvar para registrar as mudanças no backend da sua instância.
+
+Com isso, seu atendimento fica pronto para responder clientes no WhatsApp com padrão profissional.

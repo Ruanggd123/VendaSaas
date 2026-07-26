@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "media:tutorial": "node scripts/platform_tutorial_media.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
