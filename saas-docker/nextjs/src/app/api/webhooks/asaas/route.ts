@@ -5,6 +5,28 @@ import { sendWhatsAppMessage } from '@/lib/evolution';
 
 const prisma = new PrismaClient();
 
+function pickAsaasTokens(rawSettings: unknown): string[] {
+  if (!rawSettings || typeof rawSettings !== "object") return [];
+
+  const settings = rawSettings as Record<string, unknown>;
+  const candidates = [
+    "asaas_api_key",
+    "asaas_test_api_key",
+    "asaas_webhook_secret",
+    "asaasApiKey",
+    "asaasTestApiKey",
+    "asaasWebhookSecret",
+  ];
+
+  return candidates
+    .map((key) => {
+      const value = settings[key];
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((value) => !!value)
+    .filter((value, index, arr) => arr.indexOf(value) === index);
+}
+
 function generatePassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
   let pwd = '';
@@ -17,25 +39,72 @@ const APP_URL = getAppBaseUrl();
 
 export async function POST(req: Request) {
   try {
+    const safeParseSettings = (raw: unknown) => {
+      try {
+        return typeof raw === 'string' ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    };
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Payload inválido' }, { status: 400 });
+    }
+
     // Validar token de acesso do Asaas (obrigatório)
-    const accessToken = req.headers.get('asaas-access-token');
+    const accessToken =
+      req.headers.get('asaas-access-token')?.trim() ||
+      req.headers.get('x-asaas-access-token')?.trim() ||
+      req.headers.get('authorization')?.replace(/^bearer\s+/i, '').trim();
     if (!accessToken) {
       return NextResponse.json({ error: 'Token de acesso não fornecido' }, { status: 401 });
     }
+
     // Busca tenant com token exato (evita substring match)
     const allTenants = await prisma.tenant.findMany({ select: { id: true, settings: true } });
-    const matchedTenant = allTenants.find(t => {
-      try {
-        const s = JSON.parse(t.settings as string || '{}');
-        const tokens = [s.asaas_api_key, s.asaas_test_api_key, s.asaas_webhook_secret].filter(Boolean);
-        return tokens.some((tk: string) => tk === accessToken);
-      } catch { return false; }
+    let matchedTenant = allTenants.find(t => {
+      const s = safeParseSettings(t.settings);
+      const tokens = pickAsaasTokens(s);
+      return tokens.some((tk: string) => tk === accessToken);
     });
+
+    // Fallback para casos em que a sessão do webhook veio sem token esperado (ex.: configuração salva em `asaasApiKey`)
+    if (!matchedTenant) {
+      const externalRef = body?.payment?.externalReference;
+      if (typeof externalRef === 'string' && externalRef.includes('_')) {
+        const parts = externalRef.split('_');
+        const saleId = parts[parts.length - 1];
+        if (saleId) {
+          const sale = await prisma.sale.findUnique({
+            where: { id: saleId },
+            select: { tenant_id: true }
+          });
+
+          if (sale?.tenant_id) {
+            const fallbackTenant = allTenants.find((t) => t.id === sale.tenant_id);
+            if (fallbackTenant) {
+              const fallbackSettings = safeParseSettings(fallbackTenant.settings);
+              const fallbackTokens = pickAsaasTokens(fallbackSettings);
+
+              if (fallbackTokens.length > 0 && !fallbackTokens.includes(accessToken)) {
+                return NextResponse.json({ error: 'Token não vinculado ao tenant da venda' }, { status: 401 });
+              }
+
+              console.warn(
+                '[Webhook Asaas] Não encontrando token por varredura global. Usando tenant da venda como fallback de compatibilidade.'
+              );
+              matchedTenant = fallbackTenant;
+            }
+          }
+        }
+      }
+    }
+
     if (!matchedTenant) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const body = await req.json();
     console.log("🔔 [Webhook Asaas] Recebido evento:", body.event);
 
     // O Asaas envia um evento PAYMENT_RECEIVED ou PAYMENT_CONFIRMED
@@ -481,9 +550,9 @@ export async function POST(req: Request) {
         const [tenantId, saleId] = externalRef.split("_");
         if (saleId) {
           console.log(`↺ [Webhook Asaas] Pagamento REEMBOLSADO para a venda ${saleId}`);
-          await prisma.sale.update({
+            await prisma.sale.update({
             where: { id: saleId },
-            data: { status: "refunded" }
+            data: { status: "canceled" }
           }).catch(() => {});
         }
       }

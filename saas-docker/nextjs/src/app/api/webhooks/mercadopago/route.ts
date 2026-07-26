@@ -5,6 +5,12 @@ import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
+function normalizePhone(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const cleaned = value.replace(/\D/g, "");
+  return cleaned || null;
+}
+
 export async function POST(req: Request) {
   try {
     // Validar assinatura do Mercado Pago se presente
@@ -38,13 +44,13 @@ export async function POST(req: Request) {
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get("type") || url.searchParams.get("topic");
-    const body = await req.json();
+      const action = url.searchParams.get("type") || url.searchParams.get("topic");
+      const body = await req.json();
 
     console.log("🔔 [Webhook MercadoPago] Ação:", action, "| ID:", body?.data?.id || "(sem ID)");
 
-    if (action === "payment" && body.data?.id) {
-      const paymentId = body.data.id;
+      if (action === "payment" && body.data?.id) {
+        const paymentId = body.data.id;
 
       // 1. Encontrar o token do lojista correto testando o fetch (pois MP não manda o tenant no webhook inicial)
       const tenants = await prisma.tenant.findMany({ select: { id: true, settings: true } });
@@ -72,8 +78,8 @@ export async function POST(req: Request) {
 
       // 2. Temos o paymentInfo! O external_reference pode ser:
       //    "checkout_tenantId_saleId" (checkout) ou "tenantId_contactNumber_timestamp" (whatsapp)
-      const externalRef = paymentInfo.external_reference;
-      if (!externalRef) return NextResponse.json({ success: true });
+        const externalRef = paymentInfo.external_reference;
+        if (!externalRef) return NextResponse.json({ success: true });
 
       const parts = externalRef.split("_");
       let tenantId: string, contactNumber: string | null = null, saleId: string | null = null;
@@ -155,7 +161,9 @@ export async function POST(req: Request) {
             where: { tenant_id: tenantId, status: "open" }
           });
 
-          if (instance && contactNumber) {
+          const finalContact = normalizePhone(contactNumber) || normalizePhone(sale.lead?.phone);
+
+          if (instance && finalContact) {
             const productName = sale.product_name;
             const tenantSettings = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
             let products: any[] = [];
@@ -241,12 +249,12 @@ export async function POST(req: Request) {
               mensagem += `\n\nSeu pedido já está sendo encaminhado para separação/entrega! 🚀`;
             }
 
-            await sendWhatsAppMessage(instance.name, contactNumber, mensagem);
+            await sendWhatsAppMessage(instance.name, finalContact, mensagem);
             if (mediaToSend) {
               const { sendWhatsAppMedia } = await import('@/lib/evolution');
-              await sendWhatsAppMedia(instance.name, contactNumber, mediaToSend);
+              await sendWhatsAppMedia(instance.name, finalContact, mediaToSend);
             }
-            console.log(`✅ [Webhook] Mensagem de confirmação enviada para ${contactNumber}`);
+            console.log(`✅ [Webhook] Mensagem de confirmação enviada para ${finalContact}`);
           }
         }
       }

@@ -87,6 +87,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     }
     const realTenantId = tenant.id;
 
+    const normalizedPhone = phone.replace(/\D/g, '');
+
     let settings: any = {};
     try { settings = JSON.parse(tenant.settings as string); } catch {}
 
@@ -113,7 +115,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
       }
     });
 
-    const notesData: any = {};
+    const notesData: any = {
+      customer_phone: normalizedPhone,
+    };
     if (cart) notesData.cart = cart;
     if (scheduled_at) notesData.scheduled_at = scheduled_at;
 
@@ -182,7 +186,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     }
 
     // Asaas gateway resolution
-    let asaasKey = settings.asaas_api_key || settings.asaas_test_api_key;
+    let asaasKey = settings.asaas_api_key
+      || settings.asaasApiKey
+      || settings.asaas_test_api_key
+      || settings.asaasTestApiKey
+      || settings.asaas_environment_key;
+
     if (!asaasKey) {
       const sysConfig = await prisma.systemConfig.findUnique({ where: { key: "asaas_api_key" } });
       if (sysConfig?.value) asaasKey = sysConfig.value;
