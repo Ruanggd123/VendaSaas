@@ -1,5 +1,7 @@
 # Fluxos do n8n para a Máquina de Vendas
 
+> Para o fluxo de desenvolvimento e entrega do código (validações, commits, submódulos e push), veja `WORKFLOW_OPERACIONAL.md` na raiz do projeto.
+
 Nesta pasta, você guardará os backups dos seus fluxos do n8n.
 Como você rodará o n8n localmente, você poderá criar os fluxos visualmente de forma muito mais fácil.
 
