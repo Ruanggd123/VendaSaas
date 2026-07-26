@@ -36,6 +36,7 @@ type Priority = "low" | "normal" | "high" | "urgent";
 type ServiceStatus = "active" | "pending" | "resolved";
 type ControlKind = "assignment" | "ai" | "metadata" | "notes";
 type QuickFilter = "all" | "unread" | "mine" | "urgent" | "unassigned";
+type ActiveFilterChip = { id: string; label: string; clear: () => void };
 
 interface Message {
   id: string;
@@ -384,39 +385,42 @@ export default function ConversasPage() {
   );
 
   const activeQuickFilter = useMemo(() => QUICK_FILTERS.find((item) => item.value === quickFilter), [quickFilter]);
-  const hasActiveFilters = useMemo(() => {
+  const activeFilterChips = useMemo((): ActiveFilterChip[] => {
+    const chips: ActiveFilterChip[] = [];
     const term = search.trim();
-    const assigneeFilterLabel = assignedFilter !== "all" && team.length > 0
-      ? team.find((member) => member.id === assignedFilter)?.name || "atendente"
-      : null;
-    return Boolean(
-      term ||
-        quickFilter !== "all" ||
-        activeInstance ||
-        queueFilter !== "all" ||
-        priorityFilter !== "all" ||
-        serviceStatusFilter !== "all" ||
-        (canFilterByAssigned && Boolean(assigneeFilterLabel)),
-    );
-  }, [activeInstance, assignedFilter, canFilterByAssigned, priorityFilter, queueFilter, quickFilter, search, serviceStatusFilter, team]);
 
-  const activeFilterLabels = useMemo(() => {
-    const labels: string[] = [];
-    const term = search.trim();
-    if (term) labels.push(`busca "${term}"`);
-    if (quickFilter !== "all" && activeQuickFilter) labels.push(activeQuickFilter.label);
+    if (term) {
+      chips.push({ id: "search", label: `Busca: ${term}`, clear: () => setSearch("") });
+    }
+    if (quickFilter !== "all" && activeQuickFilter) {
+      chips.push({ id: `quick-${quickFilter}`, label: `Rápido: ${activeQuickFilter.label}`, clear: () => setQuickFilter("all") });
+    }
     if (activeInstance) {
       const instance = instances.find((item) => item.name === activeInstance);
-      labels.push(`instância ${instance?.connectionName || activeInstance}`);
+      chips.push({ id: "instance", label: `Instância: ${instance?.connectionName || activeInstance}`, clear: () => setActiveInstance("") });
     }
-    if (queueFilter !== "all") labels.push(`fila ${labelFor(QUEUE_OPTIONS, queueFilter as Queue)}`);
-    if (priorityFilter !== "all") labels.push(`prioridade ${labelFor(PRIORITY_OPTIONS, priorityFilter as Priority)}`);
-    if (serviceStatusFilter !== "all") labels.push(`status ${labelFor(SERVICE_STATUS_OPTIONS, serviceStatusFilter as ServiceStatus)}`);
+    if (queueFilter !== "all") {
+      chips.push({ id: `queue-${queueFilter}`, label: `Fila: ${labelFor(QUEUE_OPTIONS, queueFilter as Queue)}`, clear: () => setQueueFilter("all") });
+    }
+    if (priorityFilter !== "all") {
+      chips.push({ id: `priority-${priorityFilter}`, label: `Prioridade: ${labelFor(PRIORITY_OPTIONS, priorityFilter as Priority)}`, clear: () => setPriorityFilter("all") });
+    }
+    if (serviceStatusFilter !== "all") {
+      chips.push({ id: `status-${serviceStatusFilter}`, label: `Etapa: ${labelFor(SERVICE_STATUS_OPTIONS, serviceStatusFilter as ServiceStatus)}`, clear: () => setServiceStatusFilter("all") });
+    }
     if (canFilterByAssigned && assignedFilter !== "all") {
-      labels.push(`atendente ${team.find((member) => member.id === assignedFilter)?.name || "não atribuído"}`);
+      chips.push({
+        id: `assigned-${assignedFilter}`,
+        label: `Atendente: ${team.find((member) => member.id === assignedFilter)?.name || "não atribuído"}`,
+        clear: () => setAssignedFilter("all"),
+      });
     }
-    return labels;
+
+    return chips;
   }, [activeInstance, canFilterByAssigned, assignedFilter, instances, priorityFilter, queueFilter, search, quickFilter, serviceStatusFilter, team, activeQuickFilter]);
+
+  const hasActiveFilters = activeFilterChips.length > 0;
+  const activeFilterLabels = useMemo(() => activeFilterChips.map((chip) => chip.label), [activeFilterChips]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -1362,6 +1366,36 @@ export default function ConversasPage() {
               <option value="unassigned">Fila geral</option>
               {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
             </select>
+          )}
+
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[9px] text-slate-600 dark:border-white/10 dark:bg-slate-950">
+              <span className="font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Filtros:</span>
+              {activeFilterChips.map((chip) => (
+                <span
+                  key={chip.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 font-bold text-slate-600 dark:border-white/10 dark:bg-slate-900"
+                >
+                  {chip.label}
+                  <button
+                    type="button"
+                    aria-label={`Remover filtro ${chip.label}`}
+                    onClick={() => chip.clear()}
+                    className="rounded-full p-0.5 transition hover:bg-slate-100 dark:hover:bg-white/10"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                aria-label="Limpar todos os filtros"
+                onClick={clearAllFilters}
+                className="ml-auto rounded-full border border-slate-200 bg-white px-2.5 py-1 font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-indigo-400/40"
+              >
+                Limpar todos
+              </button>
+            </div>
           )}
         </div>
 
