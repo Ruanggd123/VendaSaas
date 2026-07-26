@@ -59,12 +59,14 @@ function sanitizeWelcomeMessage(message: any): string {
 }
 
 function hasExplicitMenuSection(message: string): boolean {
-  const normalized = message.toLowerCase().trim();
+  const normalized = message
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
   if (
     normalized.includes("escolha uma das opcoes abaixo") ||
-    normalized.includes("escolha uma das opções abaixo") ||
-    normalized.includes("selecione uma das opcoes abaixo") ||
-    normalized.includes("selecione uma das opções abaixo")
+    normalized.includes("selecione uma das opcoes abaixo")
   ) {
     return true;
   }
@@ -74,7 +76,8 @@ function hasExplicitMenuSection(message: string): boolean {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  return lines.filter((line) => /^\*?\d+\*?\s*[-–:]\s*/.test(line)).length >= 2;
+  const menuLikeLines = lines.filter((line) => /^\*?\d+\*?\s+/.test(line));
+  return menuLikeLines.length >= 2;
 }
 
 const WEEKDAY_NAMES_SIMULATOR = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
