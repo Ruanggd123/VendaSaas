@@ -1,0 +1,273 @@
+{
+  "name": "Template - Fluxo do Bot do WhatsApp",
+  "description": "Esqueleto JSON para iniciar um fluxo novo no n8n com as se\u00e7\u00f5es: Fluxo Visual, Simulador, Regras, IA, Templates, Cat\u00e1logo, Grupos e opera\u00e7\u00f5es (Limpar/JSON/Salvar).",
+  "version": 1,
+  "notes": "Substitua credenciais, URLs e textos antes de publicar.",
+  "nodes": [
+    {
+      "id": "n1_entrada",
+      "name": "1 - Entrada WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [280, 220],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bot-whatsapp",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "n2_normalizar",
+      "name": "2 - Fluxo Visual: normalizar mensagem",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [520, 220],
+      "parameters": {
+        "functionCode": "const data = $json.body || $json;\nconst text = (data?.text || data?.message || data?.body || '').toString().trim().toLowerCase();\nconst normalized = text.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nreturn [{ json: { ...data, menu_hint: normalized, from: data?.from || data?.sender || data?.remoteJid || 'desconhecido', received_at: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "n3_router",
+      "name": "3 - Menus e automa\u00e7\u00f5es do WhatsApp (roteador)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [760, 220],
+      "parameters": {
+        "functionCode": "const item = $json;\nconst hint = (item.menu_hint || '').replace(/\\./g, '').trim();\nlet route = 'fallback';\nif (hint.includes('simulador')) route = 'simulador';\nelse if (hint.includes('regra')) route = 'regras';\nelse if (hint.includes('ia') || hint.includes('bot')) route = 'ia';\nelse if (hint.includes('template')) route = 'templates';\nelse if (hint.includes('catalogo') || hint.includes('cat\u00e1logo')) route = 'catalogo';\nelse if (hint.includes('grupo') || hint.includes('grupos')) route = 'grupos';\nelse if (hint.includes('limpar')) route = 'limpar';\nelse if (hint.includes('salvar') || hint.includes('opcao') || hint.includes('op\u00e7\u00e3o')) route = 'salvar';\nitem.route = route;\nreturn [item];"
+      }
+    },
+    {
+      "id": "n4_simulador",
+      "name": "4 - Simulador",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 80],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Entrada enviada para o bloco Simulador. Aqui ficam testes de regra, IA e menu sem impacto.' } }];"
+      }
+    },
+    {
+      "id": "n5_regras",
+      "name": "5 - Regras",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 160],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Bloco de Regras: valida\u00e7\u00f5es de hor\u00e1rio, escopo e exce\u00e7\u00f5es.' } }];"
+      }
+    },
+    {
+      "id": "n6_ia",
+      "name": "6 - IA",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 240],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Bloco de IA: substitua por chamada ao modelo e classifica\u00e7\u00e3o de inten\u00e7\u00e3o.' } }];"
+      }
+    },
+    {
+      "id": "n7_templates",
+      "name": "7 - Templates",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 320],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Bloco de Templates: defina mensagens boas-vindas, falta de retorno e follow-up.' } }];"
+      }
+    },
+    {
+      "id": "n8_catalogo",
+      "name": "8 - Cat\u00e1logo",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 400],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Bloco de Cat\u00e1logo: conecte aqui produtos/pre\u00e7os/benef\u00edcios.' } }];"
+      }
+    },
+    {
+      "id": "n9_grupos",
+      "name": "9 - Grupos",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 480],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Bloco de Grupos: segmenta clientes, campanhas e funis por nicho.' } }];"
+      }
+    },
+    {
+      "id": "n10_limpar",
+      "name": "10 - Limpar contexto",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 560],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Contexto limpo com sucesso. Iniciando nova conversa.', menu_hint: 'menu' } }];"
+      }
+    },
+    {
+      "id": "n11_json",
+      "name": "11 - JSON (backup/restore)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 640],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'A\u00e7\u00e3o de JSON: exporta/importa estado do fluxo para auditoria.' } }];"
+      }
+    },
+    {
+      "id": "n12_salvar",
+      "name": "12 - Salvar fluxo",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 720],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'Fluxo pronto para salvar/publicar. Registre vers\u00e3o e commit de mudan\u00e7a.' } }];"
+      }
+    },
+    {
+      "id": "n13_fallback",
+      "name": "13 - Fallback",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1020, 800],
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, response_text: 'N\u00e3o entendi o comando. Menu: simulador, regras, ia, templates, catalogo, grupos, limpar, salvar.' } }];"
+      }
+    },
+    {
+      "id": "n14_enviar",
+      "name": "14 - Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [1260, 420],
+      "parameters": {
+        "method": "POST",
+        "url": "https://SEU_EVO_HOST/v1/messages/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SEU_TOKEN_EVOLUTION"
+            }
+          ]
+        },
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{$json.from}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$json.response_text}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n15_resposta",
+      "name": "15 - Resposta final",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1520, 420],
+      "parameters": {
+        "responseData": "={{$node['14 - Enviar WhatsApp'].json}}"
+      }
+    }
+  ],
+  "connections": {
+    "n1_entrada": {
+      "main": [
+        [
+          {
+            "node": "n2_normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n2_normalizar": {
+      "main": [
+        [
+          {
+            "node": "n3_router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n3_router": {
+      "main": [
+        [
+          { "node": "n4_simulador", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n5_regras", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n6_ia", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n7_templates", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n8_catalogo", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n9_grupos", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n10_limpar", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n11_json", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n12_salvar", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "n13_fallback", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "n4_simulador": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n5_regras": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n6_ia": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n7_templates": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n8_catalogo": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n9_grupos": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n10_limpar": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n11_json": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n12_salvar": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n13_fallback": {
+      "main": [[{ "node": "n14_enviar", "type": "main", "index": 0 }]]
+    },
+    "n14_enviar": {
+      "main": [[{ "node": "n15_resposta", "type": "main", "index": 0 }]]
+    }
+  }
+}

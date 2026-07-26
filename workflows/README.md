@@ -1,26 +1,101 @@
-# Fluxos do n8n para a Máquina de Vendas
+# Fluxos e automações do WhatsApp
 
-> Para o fluxo de desenvolvimento e entrega do código (validações, commits, submódulos e push), veja `WORKFLOW_OPERACIONAL.md` na raiz do projeto.
+> Para padrão de entrega, validações e commits, consulte `WORKFLOW_OPERACIONAL.md`.
 
-Nesta pasta, você guardará os backups dos seus fluxos do n8n.
-Como você rodará o n8n localmente, você poderá criar os fluxos visualmente de forma muito mais fácil.
+Esta pasta guarda os backups dos fluxos do n8n e o guia de operação da automação de WhatsApp.
 
-## O que você deve criar no n8n:
+## Estrutura recomendada
 
-### 1. Fluxo de Prospecção (Inbound/Outbound)
-**Nós (Nodes) sugeridos:**
-1. **Webhook (Trigger):** Para receber os leads do seu site (se houver). Ou um nó de "Read/Write File" se for importar o CSV que o nosso Scraper gera.
-2. **HTTP Request:** Para conectar com a API do WhatsApp (WATI ou Evolution API) e enviar a primeira mensagem fria ou de boas-vindas.
-3. **HubSpot (Action):** Para criar o Contato e o Negócio (Deal) na fase de "Prospecção" do seu pipeline.
-4. **OpenAI:** Para ler a resposta do cliente no WhatsApp e dizer se ele é um "Lead Quente" ou "Lead Frio".
+- `workflows/00_template_fluxo_bot.json` (esqueleto de estrutura)
+- `workflows/01_fluxo_prospeccao.json` (novo)
+- `workflows/02_pos_venda.json` (novo)
+- `workflows/05_roteamento_multi_cliente.json` (já usado no deploy)
+- `workflows/prompt_vendedor_ollama.txt` (prompt da IA)
 
-### 2. Fluxo de Pós-Pagamento (Onboarding)
-**Nós (Nodes) sugeridos:**
-1. **Webhook (Trigger):** Configure o link deste webhook lá no Asaas. Quando o cliente pagar, o Asaas avisa o n8n.
-2. **HubSpot:** Move o card do cliente para a coluna "Fechado / Ganhos".
-3. **HTTP Request (WhatsApp):** Envia uma mensagem para o cliente: *"Pagamento recebido! Para começarmos, por favor preencha este formulário de briefing: [Link do Tally.so]"*
+## Template de JSON do fluxo
 
----
+Use `workflows/00_template_fluxo_bot.json` como ponto de partida para documentar e versionar o fluxo.
+Ele organiza os blocos solicitados (`Fluxo Visual`, `Simulador`, `Regras`, `IA`, `Templates`, `Catálogo`, `Grupos`, `Limpar`, `JSON`, `Salvar`) com placeholders de rotas.
 
-**Como rodar o n8n agora mesmo?**
-Basta ir na pasta principal do projeto (`VendasSAAS`) e dar um duplo-clique no arquivo `iniciar-n8n.bat`. Ele fará o download e abrirá o orquestrador no seu navegador na porta 5678.
+Dica: ao importar no n8n, substitua a parte de rota por nós nativos de `Switch`/`IF` e conecte credenciais reais no envio do WhatsApp.
+
+## Fluxo do Bot (organizado)
+
+Use essa ordem para manter o menu do bot limpo e previsível:
+
+### 1) Núcleo do Bot
+1. **Fluxo Visual**
+   - Painel principal do funil de conversa.
+   - Mapeie os caminhos `entrada -> decisão -> resposta` antes de programar qualquer mensagem.
+2. **Simulador**
+   - Ambiente de testes do fluxo sem impacto no cliente.
+   - Útil para validar saídas de IA e regras.
+
+### 2) Bloco de Inteligência
+1. **Regras**
+   - Condições e exceções (ex.: faixa de preço, horário comercial, lead fora do escopo).
+2. **🤖 IA**
+   - Motor de resposta e classificação de intenção.
+   - Sempre versionar o prompt e registrar mudança de comportamento.
+
+### 3) Bloco de Conteúdo
+1. **Templates**
+   - Mensagens padrão: boas-vindas, ausência, resposta de erro, follow-up.
+2. **Catálogo**
+   - Produtos, preços e benefícios consultivos.
+3. **👥 Grupos**
+   - Segmentação por cliente, nicho e campanha ativa.
+
+### 4) Operação do Fluxo
+1. **Limpar**
+   - Use para resetar contexto quando iniciar uma nova conversa.
+2. **+ Opção**
+   - Botão para adicionar uma nova variação de menu sem quebrar o fluxo atual.
+3. **JSON**
+   - Exportação/importação manual do estado do fluxo.
+4. **Salvar**
+   - Persistir alterações e publicar versão atual.
+
+## Menus recomendados para produção
+
+- **Menus principais (mobile/desktop):**
+  - Fluxo do Bot
+  - Menus e automações do WhatsApp
+  - Fluxo Visual
+  - Simulador
+  - Regras
+  - IA
+- **Sub-menus de operação:**
+  - Templates
+  - Catálogo
+  - Grupos
+  - Limpar
+
+## Como implementar um fluxo novo no n8n
+
+1. **Prospecção (Inbound/Outbound):**
+   1. Webhook trigger do lead.
+   2. HTTP Request para WhatsApp (via Evolution API).
+   3. Registro no CRM (HubSpot, Airtable ou similar).
+   4. Classificação com IA e marcação de prioridade.
+
+2. **Pós-pagamento (Onboarding):**
+   1. Webhook de confirmação (Asaas/Pix).
+   2. Atualização do funil de lead para fechado/atendimento.
+   3. Disparo da mensagem de boas-vindas e coleta de briefing.
+
+## Como rodar o n8n
+
+Na raiz do projeto, execute:
+
+```bash
+duplo-clique: iniciar-n8n.bat
+```
+
+Depois acesse `http://localhost:5678`, importe o fluxo e valide com uma mensagem de teste no WhatsApp.
+
+## Dica de organização contínua
+
+- Mantenha nomenclatura com padrão numérico (`01_...`, `02_...`) para facilitar ordem de leitura.
+- Registre cada alteração de IA e regra em comentário do fluxo ou changelog.
+- Sempre rode simulação em **Simulador** antes de clicar em **Salvar**.
