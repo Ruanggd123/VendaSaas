@@ -104,13 +104,18 @@ async function processProvisioning(sale: any) {
       }
 
       // Marca entrega como "pendente" se for produto físico
-      if (productConfig.delivery_type === 'physical') {
+      if (productConfig.delivery_type === 'physical' || productConfig.delivery_type === 'both') {
+        // Busca endereço do RetailOrder se veio do bot
+        const retailOrder = sale.retail_order_id
+          ? await prisma.retailOrder.findUnique({ where: { id: sale.retail_order_id } })
+          : null;
+        const deliveryAddress = retailOrder?.shipping_address || '';
         const deliveryInfo = JSON.stringify({
           status: 'pending',
           product: sale.product_name,
           client: clientName,
           clientPhone: clientPhone,
-          address: '',
+          address: deliveryAddress,
           updatedAt: new Date().toISOString()
         });
         await prisma.sale.update({

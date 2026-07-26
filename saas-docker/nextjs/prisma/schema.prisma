@@ -323,12 +323,14 @@ model Sale {
   due_date        DateTime?
   paid_at         DateTime?
   notes           String?
+  retail_order_id String?   @unique
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 
-  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  lead       Lead?              @relation(fields: [lead_id], references: [id], onDelete: SetNull)
-  commission PartnerCommission?
+  tenant      Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  lead        Lead?              @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  commission  PartnerCommission?
+  retail_order RetailOrder?     @relation("SaleRetailOrder", fields: [retail_order_id], references: [id])
 
   @@index([tenant_id])
   @@map("sales")
@@ -422,6 +424,7 @@ model RetailOrder {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   lead   Lead?  @relation(fields: [lead_id], references: [id], onDelete: SetNull)
   items  RetailOrderItem[]
+  sale   Sale?  @relation("SaleRetailOrder")
 
   @@index([tenant_id])
   @@map("retail_orders")

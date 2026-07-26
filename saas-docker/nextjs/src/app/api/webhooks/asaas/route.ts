@@ -374,13 +374,18 @@ export async function POST(req: Request) {
                   `❌ *ESGOTADO!*\n\nProduto: *${sale.product_name}*\nEstoque zerado após a venda para ${clientName}.\n\nProduto marcado como esgotado na loja.`);
               }
 
-              if (productConfig.delivery_type === 'physical') {
+              if (productConfig.delivery_type === 'physical' || productConfig.delivery_type === 'both') {
+                // Busca endereço do RetailOrder se veio do bot
+                const retailOrder = sale.retail_order_id
+                  ? await prisma.retailOrder.findUnique({ where: { id: sale.retail_order_id } })
+                  : null;
+                const deliveryAddress = retailOrder?.shipping_address || '';
                 const deliveryInfo = JSON.stringify({
                   status: 'pending',
                   product: sale.product_name,
                   client: clientName,
                   clientPhone: clientPhone,
-                  address: '',
+                  address: deliveryAddress,
                   updatedAt: new Date().toISOString()
                 });
                 await prisma.sale.update({
@@ -439,7 +444,7 @@ export async function POST(req: Request) {
                     `📅 *Agendamento Confirmado!*\n\nOlá ${clientName}, seu horário para *${sale.product_name}* foi reservado!\n\n🗓 ${dataFormatada}\n⏰ ${horaFormatada}\n\nEstamos aguardando você! 🚀`);
                 }
               }
-            } else if (productConfig?.delivery_type === 'virtual_instant' && productConfig?.digital_content && clientPhone && providerInstance) {
+            } else if ((productConfig?.delivery_type === 'virtual_instant' || productConfig?.delivery_type === 'virtual_deadline' || productConfig?.delivery_type === 'both') && productConfig?.digital_content && clientPhone && providerInstance) {
               // Entrega Digital
               let contentToDeliver = productConfig.digital_content;
               let keysWarning = "";

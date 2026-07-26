@@ -396,6 +396,10 @@ export async function processMessageWithRules(
       return "❌ Opção inválida. Digite o número correspondente ao produto/serviço que deseja contratar/comprar, ou *0* para voltar ao menu.";
     }
     const chosenService = productsList[optionIdx];
+    // Verifica estoque
+    if (chosenService.stock !== undefined && chosenService.stock !== null && chosenService.stock <= 0) {
+      return `❌ *${chosenService.name}* está esgotado no momento. Digite *0* para voltar ao menu.`;
+    }
     
     await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
@@ -722,14 +726,11 @@ export async function processMessageWithRules(
     activeLevelNodes = customNodes.filter((node: any) => node.parentId === currentSubmenuId);
   }
 
-  // Se estiver no menu principal, o usuário digitou um número, e existem produtos listados,
-  // trata como seleção de produto em vez de match por palavra-chave
   const productsList = settings.products || [];
   const optionIdx = parseInt(cleanText, 10) - 1;
-  const isProductNumber = state.step === "main_menu" && !isNaN(optionIdx) && optionIdx >= 0 && optionIdx < productsList.length;
 
-  // Match keyword in the active level (pula se for número de produto no menu principal)
-  if (activeLevelNodes.length > 0 && !isProductNumber) {
+  // Match keyword in the active level
+  if (activeLevelNodes.length > 0) {
     const matchedNode = activeLevelNodes.find((node: any) => {
       const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return cleanText === cleanKeyword || cleanText.includes(cleanKeyword);
@@ -843,6 +844,10 @@ export async function processMessageWithRules(
         if (!chosen) {
           return "❌ Erro: Produto não encontrado no sistema.";
         }
+        // Verifica estoque
+        if (chosen.stock !== undefined && chosen.stock !== null && chosen.stock <= 0) {
+          return `❌ *${chosen.name}* está esgotado no momento. Digite *0* para voltar.`;
+        }
         
         const collectedData = state.data.collected || {};
         
@@ -916,6 +921,10 @@ export async function processMessageWithRules(
   if (state.step === "main_menu") {
     if (!isNaN(optionIdx) && optionIdx >= 0 && optionIdx < productsList.length) {
       const chosen = productsList[optionIdx];
+      // Verifica estoque
+      if (chosen.stock !== undefined && chosen.stock !== null && chosen.stock <= 0) {
+        return `❌ *${chosen.name}* está esgotado no momento. Digite *0* para voltar ao menu principal.`;
+      }
       // Se for serviço com agendamento, vai pra etapa de agendar
       if (isSchedulableProduct(chosen)) {
         const availableDates = obterProximosDiasDisponiveis(settings);
@@ -981,6 +990,13 @@ export async function processMessageWithRules(
   await saveState(state);
 
   if (state.step === "main_menu") {
+    // Primeira mensagem não reconhecida: mostra menu sem o prefixo de erro
+    // (importante para clientes que vêm do site com "Olá! Vim pelo site...")
+    if (errorCount === 1) {
+      state.data.menu_sent = true;
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
     return `Desculpe, não entendi. Selecione uma opção válida:\n\n${getMainMenuMessage(settings)}`;
   } else if (state.step.startsWith("submenu:")) {
     const currentSubmenuId = state.step.replace("submenu:", "");
@@ -1311,7 +1327,7 @@ async function processarFinalizacaoPedidoRulesBot(
       const productName = encodeURIComponent(chosenService.name);
       const { getAppBaseUrl } = await import("@/lib/auth");
       const baseUrl = getAppBaseUrl();
-      const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}`;
+      const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}&order=${order.id}`;
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 

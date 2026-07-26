@@ -94,6 +94,7 @@ export default function CheckoutPage() {
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [retailOrderId, setRetailOrderId] = useState('');
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedTime, setSelectedTime] = useState('09:00');
@@ -142,8 +143,10 @@ export default function CheckoutPage() {
     const urlRef = p.get('ref');
     const urlProduct = p.get('product');
     const urlPhone = p.get('phone');
+    const urlOrder = p.get('order');
     if (urlRef) setRef(urlRef.toUpperCase());
     if (urlPhone) setForm(f => ({ ...f, phone: decodeURIComponent(urlPhone) }));
+    if (urlOrder) setRetailOrderId(urlOrder);
 
     fetch(`/api/public/checkout/${tenantId}`)
       .then(async r => { if (!r.ok) throw new Error('Loja não encontrada'); return r.json(); })
@@ -251,6 +254,7 @@ export default function CheckoutPage() {
           isSubscription: hasSubscription,
           billingType: form.billingType,
           scheduled_at: form.scheduled_at || undefined,
+          retailOrderId: retailOrderId || undefined,
           cart: cart.map(i => ({
             name: `${i.name}${i.type === 'subscription' ? ' - Mensal' : ' - Setup'}`,
             price: i.type === 'subscription' ? i.monthly : i.price,

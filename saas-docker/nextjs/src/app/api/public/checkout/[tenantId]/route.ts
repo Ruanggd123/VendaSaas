@@ -70,7 +70,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ tenantId
 export async function POST(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
   try {
     const { tenantId } = await params;
-    const { name, phone, email, referralCode, productName, amount, isSubscription, billingType, cart, scheduled_at } = await req.json();
+    const { name, phone, email, referralCode, productName, amount, isSubscription, billingType, cart, scheduled_at, retailOrderId } = await req.json();
 
     if (!name || !phone || !productName || !amount) {
       return NextResponse.json({ error: 'Nome, telefone, produto e valor são obrigatórios' }, { status: 400 });
@@ -115,11 +115,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
       }
     });
 
+    let shippingAddress = '';
+    if (retailOrderId) {
+      const retailOrder = await prisma.retailOrder.findUnique({ where: { id: retailOrderId } });
+      if (retailOrder) {
+        shippingAddress = retailOrder.shipping_address || '';
+        // Link lead to the retail order
+        await prisma.retailOrder.update({
+          where: { id: retailOrderId },
+          data: { lead_id: lead.id }
+        });
+      }
+    }
+
     const notesData: any = {
       customer_phone: normalizedPhone,
     };
     if (cart) notesData.cart = cart;
     if (scheduled_at) notesData.scheduled_at = scheduled_at;
+    if (shippingAddress) notesData.shipping_address = shippingAddress;
 
     const sale = await prisma.sale.create({
       data: {
@@ -129,6 +143,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
         amount: parsedAmount,
         notes: Object.keys(notesData).length > 0 ? JSON.stringify(notesData) : null,
         status: 'pending',
+        retail_order_id: retailOrderId || null,
         due_date: new Date(Date.now() + (isSubscription ? 30 : 7) * 86400000),
       }
     });

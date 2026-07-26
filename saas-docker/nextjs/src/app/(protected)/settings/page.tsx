@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { KnowledgeBaseTab } from "../../../components/settings/KnowledgeBaseTab";
 import { ModulesTab } from "../../../components/settings/ModulesTab";
@@ -13,7 +13,6 @@ import {
   ShoppingBag,
   Plus,
   Trash2,
-  Upload,
   Key,
   ShieldCheck,
   Zap,
@@ -58,6 +57,10 @@ interface Product {
   delivery_type?: "physical" | "virtual_instant" | "virtual_deadline" | "both" | "service";
   digital_content?: string;
   is_unique_keys?: boolean;
+  stock?: number;
+  low_stock_threshold?: number;
+  is_subscription?: boolean;
+  commission_fixed?: number;
 }
 
 interface ModuleSettings {
@@ -221,8 +224,6 @@ function AITab() {
   const [saving, setSaving] = useState(false);
   const [bannerAlert, setBannerAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [userRole, setUserRole] = useState<string>("");
-  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -273,23 +274,6 @@ function AITab() {
   const removeProduct = (idx: number) => {
     const prods = (settings.products || []).filter((_, i) => i !== idx);
     update("products", prods);
-  };
-
-  const handleProductImage = async (idx: number, file: File) => {
-    setUploadingIndex(idx);
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.url) {
-        updateProduct(idx, "image_url", data.url);
-      }
-    } catch (e) {
-      setBannerAlert({ type: "error", msg: "Erro ao fazer upload da imagem." });
-    } finally {
-      setUploadingIndex(null);
-    }
   };
 
   const save = async () => {
@@ -658,48 +642,6 @@ function AITab() {
                   />
                 </div>
 
-                {/* Upload da foto do produto */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">Foto do Produto</label>
-                  <div className="flex flex-col sm:flex-row items-start gap-4">
-                    {prod.image_url ? (
-                      <a href={prod.image_url} target="_blank" rel="noopener noreferrer">
-                        <img src={prod.image_url} alt="Foto" className="w-32 h-32 rounded-xl object-cover border border-slate-200 dark:border-white/10 hover:opacity-90 transition-opacity" />
-                      </a>
-                    ) : (
-                      <div className="w-32 h-32 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 text-xs font-bold">
-                        Sem Foto
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRefs.current[idx]?.click()}
-                        disabled={uploadingIndex === idx}
-                        className="px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{uploadingIndex === idx ? "Enviando..." : "Enviar Foto"}</span>
-                      </button>
-                      <input
-                        type="file"
-                        ref={(el) => {
-                          fileInputRefs.current[idx] = el;
-                        }}
-                        className="hidden"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleProductImage(idx, file);
-                        }}
-                      />
-                      {prod.image_url && (
-                        <span className="text-[10px] text-slate-400 font-medium">Clique na foto para ver em tamanho real</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
                 <div className="flex flex-wrap items-center gap-4 pt-1">
 
                   <div className="flex items-center gap-2">
@@ -708,20 +650,92 @@ function AITab() {
                       onChange={(v) => updateProduct(idx, "requires_payment", v)}
                     />
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Exigir Pagamento Antes de Agendar
+                      Exigir Pagamento
                     </span>
                   </div>
-                  {prod.image_url && (
-                    <div className="flex items-center gap-2">
-                      <Toggle
-                        enabled={prod.send_photo !== false}
-                        onChange={(v) => updateProduct(idx, "send_photo", v)}
+
+                  <div className="flex items-center gap-2">
+                    <Toggle
+                      enabled={prod.is_subscription || false}
+                      onChange={(v) => updateProduct(idx, "is_subscription", v)}
+                    />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Assinatura Recorrente
+                    </span>
+                  </div>
+
+                  {prod.is_subscription && (
+                    <div className="w-full sm:w-48">
+                      <InputField
+                        label="Comissão Fixa p/ Afiliado (R$)"
+                        type="number"
+                        value={prod.commission_fixed !== undefined ? String(prod.commission_fixed) : ""}
+                        onChange={(v) => updateProduct(idx, "commission_fixed", v === "" ? undefined : parseFloat(v) || 0)}
+                        placeholder="Ex: 50.00"
                       />
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Enviar foto no WhatsApp
-                      </span>
                     </div>
                   )}
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-white/10 pt-4 space-y-4">
+                  <span className="text-xs font-black uppercase text-slate-600 dark:text-slate-400">Configurações de Entrega Automática</span>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Tipo de Entrega</label>
+                    <select
+                      value={prod.delivery_type || "virtual_instant"}
+                      onChange={(e) => updateProduct(idx, "delivery_type", e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200/90 dark:border-white/10 bg-slate-50 dark:bg-slate-950 px-4 py-2 text-xs text-slate-900 dark:text-white font-medium"
+                    >
+                      <option value="virtual_instant">Digital Imediata (envia automático)</option>
+                      <option value="virtual_deadline">Digital com Prazo</option>
+                      <option value="physical">Física (Entrega/Delivery)</option>
+                      <option value="both">Digital + Física</option>
+                      <option value="service">Serviço (Agendamento)</option>
+                    </select>
+                  </div>
+
+                  {(prod.delivery_type === "virtual_instant" || prod.delivery_type === "virtual_deadline" || prod.delivery_type === "both" || !prod.delivery_type) && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Conteúdo Digital (enviado após pagamento)</label>
+                        <textarea
+                          value={prod.digital_content || ""}
+                          onChange={(e) => updateProduct(idx, "digital_content", e.target.value)}
+                          placeholder="Insira o texto, link ou chaves que serão enviados automaticamente ao cliente após o pagamento. Ex:&#10;🔗 https://meusite.com/acesso&#10;📧 email@cliente.com&#10;🔑 senha123"
+                          rows={4}
+                          className="w-full rounded-2xl border border-slate-200/90 dark:border-white/10 bg-slate-50 dark:bg-slate-950 px-4 py-2 text-xs text-slate-900 dark:text-white font-medium resize-y"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Toggle
+                          enabled={prod.is_unique_keys || false}
+                          onChange={(v) => updateProduct(idx, "is_unique_keys", v)}
+                        />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Chaves Únicas (cada linha = 1 chave, consome uma por venda)
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <InputField
+                      label="Estoque (quantidade disponível)"
+                      type="number"
+                      value={prod.stock !== undefined ? String(prod.stock) : ""}
+                      onChange={(v) => updateProduct(idx, "stock", v === "" ? undefined : parseInt(v) || 0)}
+                      placeholder="Deixe vazio para ilimitado"
+                    />
+                    <InputField
+                      label="Alerta de Estoque Baixo"
+                      type="number"
+                      value={prod.low_stock_threshold !== undefined ? String(prod.low_stock_threshold) : ""}
+                      onChange={(v) => updateProduct(idx, "low_stock_threshold", v === "" ? undefined : parseInt(v) || 0)}
+                      placeholder="Ex: 5 (avisa quando chegar em 5)"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

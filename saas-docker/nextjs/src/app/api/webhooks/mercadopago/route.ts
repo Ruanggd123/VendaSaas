@@ -191,7 +191,7 @@ export async function POST(req: Request) {
               
               const dataHora = pendingAppointment.scheduled_at.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
               mensagem += `\n\n✅ *Seu agendamento foi confirmado para:* ${dataHora}.\nNos vemos em breve!`;
-            } else if (productInfo?.delivery_type === "virtual_instant" && productInfo?.digital_content) {
+            } else if ((productInfo?.delivery_type === "virtual_instant" || productInfo?.delivery_type === "virtual_deadline" || productInfo?.delivery_type === "both") && productInfo?.digital_content) {
               let contentToDeliver = productInfo.digital_content;
               let keysWarning = "";
 
