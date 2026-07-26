@@ -43,6 +43,67 @@ interface SmartphoneSimulatorProps {
 
 const DEFAULT_SIMULATOR_WELCOME = "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
 
+function ensureArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeTextValue(value: unknown): string {
+  return typeof value === "string" ? value : String(value ?? "");
+}
+
+function normalizeDurationMinutes(value: unknown, fallback = 60): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.max(1, Math.round(parsed));
+}
+
+function normalizeButtons(buttons: any): { label: string; value: string }[] {
+  if (!Array.isArray(buttons)) return [];
+
+  return buttons
+    .filter(Boolean)
+    .map((btn) => ({
+      label: normalizeTextValue(btn?.label),
+      value: normalizeTextValue(btn?.value),
+    }));
+}
+
+function normalizeMessagesProducts(products: any): any[] {
+  return ensureArray<any>(products)
+    .filter((product) => Boolean(product) && typeof product === "object")
+    .map((product) => product);
+}
+
+function parseSchedulingServiceList(
+  products: any[]
+): Array<{ id: number; name: string; price?: string; durationMin: number }> {
+  const safeProducts = ensureArray<any>(products);
+  const explicitServices = safeProducts
+    .filter((prod) => isSchedulableProduct(prod))
+    .map((prod, idx) => ({
+      id: idx + 1,
+      name: prod?.name || `Serviço ${idx + 1}`,
+      price: prod?.price,
+      durationMin: normalizeDurationMinutes(prod?.duration_min || prod?.duration, 60),
+    }))
+    .filter((service) => service.name && service.name.trim().length > 0);
+
+  if (explicitServices.length > 0) {
+    return explicitServices;
+  }
+
+  return safeProducts
+    .filter((prod) => String(prod?.name || "").trim().length > 0)
+    .map((prod, idx) => ({
+      id: idx + 1,
+      name: prod?.name || `Serviço ${idx + 1}`,
+      price: prod?.price,
+      durationMin: normalizeDurationMinutes(prod?.duration_min || prod?.duration, 60),
+    }));
+}
+
 function sanitizeWelcomeMessage(message: any): string {
   const safeMessage = typeof message === "string" ? message : "";
   const clean = safeMessage
@@ -404,14 +465,15 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   };
 
   const processUserInput = (userText: string) => {
-    const clean = userText.trim().toLowerCase();
+    const safeUserText = normalizeTextValue(userText);
+    const clean = safeUserText.trim().toLowerCase();
     const currentTime = getFormattedTime();
 
     // Mensagem do Usuário
     const userMsg: Message = {
       id: "user_" + Date.now(),
       sender: "user",
-      text: userText,
+      text: safeUserText,
       timestamp: currentTime,
     };
 
@@ -420,40 +482,16 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setIsTyping(true);
 
     setTimeout(() => {
-      setIsTyping(false);
+      try {
+        setIsTyping(false);
 
       let botResponseText = "";
       let botButtons: { label: string; value: string }[] | undefined = undefined;
       let botProducts: any[] | undefined = undefined;
 
-        const allNodes = settings?.custom_rules_nodes || [];
-        const prods = settings?.products || [];
+        const allNodes = ensureArray<any>(settings?.custom_rules_nodes);
+        const prods = ensureArray<any>(settings?.products);
         const schedulingStateActive = schedulingState?.phase;
-
-        const parseServiceList = (arr: any[]) => {
-          const explicitServices = arr
-            .filter((prod) => isSchedulableProduct(prod))
-            .map((prod, idx) => ({
-              id: idx + 1,
-              name: prod?.name || `Serviço ${idx + 1}`,
-              price: prod?.price,
-              durationMin: Number(prod?.duration_min || prod?.duration || 60),
-            }))
-            .filter((service) => service.name && service.name.trim().length > 0);
-
-          if (explicitServices.length > 0) {
-            return explicitServices;
-          }
-
-          return arr
-            .filter((prod) => String(prod?.name || "").trim().length > 0)
-            .map((prod, idx) => ({
-              id: idx + 1,
-              name: prod?.name || `Serviço ${idx + 1}`,
-              price: prod?.price,
-              durationMin: Number(prod?.duration_min || prod?.duration || 60),
-            }));
-        };
 
         if (schedulingStateActive) {
           const currentState = schedulingState as SchedulingState;
@@ -661,12 +699,14 @@ Seu agendamento foi registrado no simulador.`;
         }
 
         if (schedulingStateActive) {
+          const finalButtons = normalizeButtons(botButtons);
+
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: botResponseText,
+            text: normalizeTextValue(botResponseText),
             timestamp: currentTime,
-            buttons: botButtons,
+            buttons: finalButtons,
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
@@ -704,16 +744,16 @@ Seu agendamento foi registrado no simulador.`;
             ];
           }
 
-          const botMsg: Message = {
-            id: "bot_" + Date.now(),
-            sender: "bot",
-            text: botResponseText,
-            timestamp: currentTime,
-            buttons: botButtons,
-          };
-          setMessages((prev) => [...prev, botMsg]);
-          return;
-        }
+            const botMsg: Message = {
+              id: "bot_" + Date.now(),
+              sender: "bot",
+              text: normalizeTextValue(botResponseText),
+              timestamp: currentTime,
+              buttons: normalizeButtons(botButtons),
+            };
+            setMessages((prev) => [...prev, botMsg]);
+            return;
+          }
         // SE CLICOU EM GERAR PIX NO CHAT
         if (clean.startsWith("gen_pix_chat_")) {
           const slug = clean.replace("gen_pix_chat_", "").trim();
@@ -733,23 +773,23 @@ Seu agendamento foi registrado no simulador.`;
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: botResponseText,
+            text: normalizeTextValue(botResponseText),
             timestamp: currentTime,
-            buttons: botButtons,
+            buttons: normalizeButtons(botButtons),
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
         }
 
-      if (clean === "confirm_pix") {
+        if (clean === "confirm_pix") {
         botResponseText = "🎉 *Pagamento em Processamento!*\n\nIdentificamos a solicitação de baixa! Nosso sistema liberará sua credencial em instantes no WhatsApp! 🚀";
         botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
         const botMsg: Message = {
           id: "bot_" + Date.now(),
           sender: "bot",
-          text: botResponseText,
+          text: normalizeTextValue(botResponseText),
           timestamp: currentTime,
-          buttons: botButtons,
+          buttons: normalizeButtons(botButtons),
         };
         setMessages((prev) => [...prev, botMsg]);
         return;
@@ -757,7 +797,7 @@ Seu agendamento foi registrado no simulador.`;
 
       // SE CLICOU NO BOTÃO DE ABRIR LINK DE PAGAMENTO
       if (clean.startsWith("open_link_")) {
-        const urlToOpen = userText.replace("open_link_", "").trim();
+        const urlToOpen = safeUserText.replace("open_link_", "").trim();
         if (typeof window !== "undefined") {
           try {
             const parsed = new URL(urlToOpen);
@@ -772,9 +812,9 @@ Seu agendamento foi registrado no simulador.`;
         const botMsg: Message = {
           id: "bot_" + Date.now(),
           sender: "bot",
-          text: botResponseText,
+          text: normalizeTextValue(botResponseText),
           timestamp: currentTime,
-          buttons: botButtons,
+          buttons: normalizeButtons(botButtons),
         };
         setMessages((prev) => [...prev, botMsg]);
         return;
@@ -812,7 +852,7 @@ Seu agendamento foi registrado no simulador.`;
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
             : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para abrir o link de pagamento seguro em outra aba!";
-          botProducts = prods;
+          botProducts = normalizeMessagesProducts(prods);
         } else if (matchedNode.actionType === "product" || matchedNode.actionType === "checkout") {
           setInCatalogView(false);
           const chosenProduct = resolveProductFromNode(matchedNode);
@@ -841,7 +881,7 @@ Seu agendamento foi registrado no simulador.`;
           }
         } else if (matchedNode.actionType === "scheduling") {
           setInCatalogView(false);
-          const services = parseServiceList(prods).slice(0, 5);
+          const services = parseSchedulingServiceList(prods).slice(0, 5);
 
           const serviceIntro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
             ? matchedNode.textContent
@@ -894,28 +934,49 @@ Seu agendamento foi registrado no simulador.`;
         } else if (clean === "09:00" || clean === "10:30" || clean === "14:00" || clean === "16:30") {
           botResponseText = `✅ *Horário aceito no simulador:* ${clean}.\n\nEsse fluxo simplifica para validação e não dispara agenda real no simulador.`;
         } else {
-        botResponseText = `Entendi sua mensagem: _"${userText}"_.\n\nPara navegar, escolha uma das opções ativas:\n\n` + generateBotInitialMenu().text;
+        botResponseText = `Entendi sua mensagem: _"${safeUserText}"_.\n\nPara navegar, escolha uma das opções ativas:\n\n` + generateBotInitialMenu().text;
         botButtons = generateBotInitialMenu().buttons;
       }
 
+      const finalButtons = normalizeButtons(botButtons);
+      const finalProducts = normalizeMessagesProducts(botProducts);
       const botMsg: Message = {
         id: "bot_" + Date.now(),
         sender: "bot",
-        text: botResponseText,
+        text: normalizeTextValue(botResponseText),
         timestamp: currentTime,
         nodeId: matchedNode?.id || null,
-        buttons: botButtons,
-        products: botProducts,
+        buttons: finalButtons,
+        products: finalProducts,
       };
 
       setMessages((prev) => [...prev, botMsg]);
+      } catch (error) {
+        console.error("Erro ao processar mensagem do simulador", error);
+        setSchedulingState(null);
+        setCurrentParentId(null);
+        setInCatalogView(false);
+
+        const fallback: Message = {
+          id: "bot_err_" + Date.now(),
+          sender: "bot",
+          text: "⚠ Não consegui processar esta etapa. Tente voltar ao menu principal digitando *0*.",
+          timestamp: getFormattedTime(),
+          buttons: [{ label: "🏠 Menu Principal", value: "0" }],
+        };
+
+        setMessages((prev) => [...prev, fallback]);
+      } finally {
+        setIsTyping(false);
+      }
     }, 400);
   };
 
   // HELPER PARA RENDERIZAR LINKS CLICÁVEIS QUE ABREM EM NOVA ABA
-  const renderTextWithLinks = (text: string) => {
+  const renderTextWithLinks = (text: any) => {
+    const safeText = normalizeTextValue(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const parts = safeText.split(urlRegex);
 
     return parts.map((part, i) => {
       if (part.match(urlRegex)) {
