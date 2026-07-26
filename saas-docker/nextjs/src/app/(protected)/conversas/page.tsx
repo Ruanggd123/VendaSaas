@@ -35,6 +35,7 @@ type Queue = "geral" | "vendas" | "suporte" | "financeiro" | "pos_venda";
 type Priority = "low" | "normal" | "high" | "urgent";
 type ServiceStatus = "active" | "pending" | "resolved";
 type ControlKind = "assignment" | "ai" | "metadata" | "notes";
+type QuickFilter = "all" | "unread" | "mine" | "urgent" | "unassigned";
 
 interface Message {
   id: string;
@@ -119,6 +120,13 @@ const SERVICE_STATUS_OPTIONS: { value: ServiceStatus; label: string }[] = [
   { value: "pending", label: "Aguardando cliente" },
   { value: "resolved", label: "Resolvido" },
 ];
+const QUICK_FILTERS: { value: QuickFilter; label: string; description: string }[] = [
+  { value: "all", label: "Todas", description: "Todas as conversas" },
+  { value: "unread", label: "Não lidas", description: "Apenas novas mensagens recebidas" },
+  { value: "mine", label: "Minhas", description: "Conversas atribuídas a você" },
+  { value: "urgent", label: "Urgentes", description: "Prioridade urgente" },
+  { value: "unassigned", label: "Sem dono", description: "Aguardando atribuição" },
+];
 const QUICK_NOTES = ["Preço", "Prazo", "Dúvida técnica", "Cancelamento", "Urgente"];
 const SEEN_STORAGE_KEY = "conversations:last-seen:v1";
 
@@ -161,6 +169,41 @@ function formatTime(iso: string) {
   return Number.isNaN(date.getTime())
     ? ""
     : date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function isSameDay(firstIso?: string | null, secondIso?: string | null) {
+  if (!firstIso || !secondIso) return false;
+  const first = new Date(firstIso);
+  const second = new Date(secondIso);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(second.getTime())) return false;
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  );
+}
+
+function formatDayDivider(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(iso, today.toISOString())) return "Hoje";
+  if (isSameDay(iso, yesterday.toISOString())) return "Ontem";
+  return date.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+}
+
+function isConversationUnread(conversation: Conversation, seen: Record<string, SeenValue>) {
+  const latest = latestMessage(conversation);
+  const lastSeen = seen[conversation.id];
+  return Boolean(
+    latest &&
+      latest.direction !== "outbound" &&
+      latest.direction !== "outgoing" &&
+      latest.id !== lastSeen?.id &&
+      (!lastSeen?.time || new Date(latest.created_at).getTime() > new Date(lastSeen.time).getTime()),
+  );
 }
 
 function parseMetadata(message: Message): { type?: MediaType; url?: string } {
@@ -250,6 +293,8 @@ export default function ConversasPage() {
   const [queueFilter, setQueueFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [serviceStatusFilter, setServiceStatusFilter] = useState("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
   const [liveOpenInstanceName, setLiveOpenInstanceName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -288,6 +333,7 @@ export default function ConversasPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recorderTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dragDepthRef = useRef(0);
+  const lastListFiltersRef = useRef("");
 
   const selected = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
@@ -298,16 +344,98 @@ export default function ConversasPage() {
   const selectedServiceStatus = serviceStatusOf(selected?.status);
   const selectedLeadNotes = selectedLead?.notes || "";
 
+  const quickCounts = useMemo(() => {
+    const userId = sessionUser?.id;
+    let unread = 0;
+    let urgent = 0;
+    let mine = 0;
+    let unassigned = 0;
+
+    for (const conversation of conversations) {
+      const metadata = parseLeadCategory(conversation.leads?.[0]?.category);
+      const isUnreadConversation = isConversationUnread(conversation, seen);
+      if (isUnreadConversation) unread += 1;
+      if (metadata.priority === "urgent") urgent += 1;
+      if (userId && conversation.assigned_to === userId) mine += 1;
+      if (!conversation.assigned_to) unassigned += 1;
+    }
+
+    return { all: conversations.length, unread, urgent, mine, unassigned };
+  }, [conversations, seen, sessionUser?.id]);
+
+  const clearAllFilters = useCallback(() => {
+    setSearch("");
+    setQuickFilter("all");
+    setActiveInstance("");
+    setAssignedFilter("all");
+    setQueueFilter("all");
+    setPriorityFilter("all");
+    setServiceStatusFilter("all");
+  }, []);
+
+  const canFilterByAssigned = useMemo(
+    () => Boolean(sessionUser && !["agent", "partner"].includes(sessionUser.role)),
+    [sessionUser],
+  );
+
+  const conversationFilterSignature = useMemo(
+    () => `${activeInstance}|${assignedFilter}|${queueFilter}|${priorityFilter}|${serviceStatusFilter}`,
+    [activeInstance, assignedFilter, priorityFilter, queueFilter, serviceStatusFilter],
+  );
+
+  const activeQuickFilter = useMemo(() => QUICK_FILTERS.find((item) => item.value === quickFilter), [quickFilter]);
+  const hasActiveFilters = useMemo(() => {
+    const term = search.trim();
+    const assigneeFilterLabel = assignedFilter !== "all" && team.length > 0
+      ? team.find((member) => member.id === assignedFilter)?.name || "atendente"
+      : null;
+    return Boolean(
+      term ||
+        quickFilter !== "all" ||
+        activeInstance ||
+        queueFilter !== "all" ||
+        priorityFilter !== "all" ||
+        serviceStatusFilter !== "all" ||
+        (canFilterByAssigned && Boolean(assigneeFilterLabel)),
+    );
+  }, [activeInstance, assignedFilter, canFilterByAssigned, priorityFilter, queueFilter, quickFilter, search, serviceStatusFilter, team]);
+
+  const activeFilterLabels = useMemo(() => {
+    const labels: string[] = [];
+    const term = search.trim();
+    if (term) labels.push(`busca "${term}"`);
+    if (quickFilter !== "all" && activeQuickFilter) labels.push(activeQuickFilter.label);
+    if (activeInstance) {
+      const instance = instances.find((item) => item.name === activeInstance);
+      labels.push(`instância ${instance?.connectionName || activeInstance}`);
+    }
+    if (queueFilter !== "all") labels.push(`fila ${labelFor(QUEUE_OPTIONS, queueFilter as Queue)}`);
+    if (priorityFilter !== "all") labels.push(`prioridade ${labelFor(PRIORITY_OPTIONS, priorityFilter as Priority)}`);
+    if (serviceStatusFilter !== "all") labels.push(`status ${labelFor(SERVICE_STATUS_OPTIONS, serviceStatusFilter as ServiceStatus)}`);
+    if (canFilterByAssigned && assignedFilter !== "all") {
+      labels.push(`atendente ${team.find((member) => member.id === assignedFilter)?.name || "não atribuído"}`);
+    }
+    return labels;
+  }, [activeInstance, canFilterByAssigned, assignedFilter, instances, priorityFilter, queueFilter, search, quickFilter, serviceStatusFilter, team, activeQuickFilter]);
+
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     return conversations.filter((conversation) => {
+      if (quickFilter === "unread" && !isConversationUnread(conversation, seen)) return false;
+      if (quickFilter === "urgent" && parseLeadCategory(conversation.leads?.[0]?.category).priority !== "urgent") return false;
+      if (quickFilter === "mine") {
+        if (!sessionUser?.id) return false;
+        if (conversation.assigned_to !== sessionUser.id) return false;
+      }
+      if (quickFilter === "unassigned" && conversation.assigned_to) return false;
+
       if (!term) return true;
       return (
         (conversation.contact_name ?? "").toLocaleLowerCase("pt-BR").includes(term) ||
         conversation.contact_number.includes(term)
       );
     });
-  }, [conversations, search]);
+  }, [conversations, quickFilter, search, seen, sessionUser?.id]);
 
   const selectedInstance = useMemo(() => {
     if (!selected) return null;
@@ -354,7 +482,9 @@ export default function ConversasPage() {
   }, []);
 
   const fetchConversations = useCallback(async () => {
+    const shouldShowLoading = lastListFiltersRef.current !== conversationFilterSignature;
     if (listRequestRef.current || document.hidden) return;
+    if (shouldShowLoading) setIsFilterLoading(true);
     listRequestRef.current = true;
     try {
       const params = new URLSearchParams();
@@ -379,10 +509,12 @@ export default function ConversasPage() {
     } catch (error) {
       setListError(error instanceof Error ? error.message : "Não foi possível carregar as conversas.");
     } finally {
+      if (shouldShowLoading) setIsFilterLoading(false);
+      if (shouldShowLoading) lastListFiltersRef.current = conversationFilterSignature;
       setIsLoading(false);
       listRequestRef.current = false;
     }
-  }, [activeInstance, assignedFilter, priorityFilter, queueFilter, serviceStatusFilter]);
+  }, [activeInstance, assignedFilter, conversationFilterSignature, priorityFilter, queueFilter, serviceStatusFilter]);
 
   const fetchMessages = useCallback(async (conversationId: string, mode: MessageFetchMode = "delta") => {
     if (messageRequestRef.current?.conversationId === conversationId || (mode === "delta" && document.hidden)) return;
@@ -1146,9 +1278,40 @@ export default function ConversasPage() {
               ))}
             </select>
           )}
-        </div>
+      </div>
 
-        <div className="space-y-2.5 border-b border-slate-200/80 p-3 dark:border-white/10">
+        <div className="space-y-2.5 border-b border-slate-200/80 px-3 pb-3 pt-2 dark:border-white/10">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label="Filtros rápidos">
+            {QUICK_FILTERS.map((filter) => (
+              <button
+                type="button"
+                key={filter.value}
+                onClick={() => setQuickFilter(filter.value)}
+                aria-pressed={quickFilter === filter.value}
+                aria-label={`Filtrar por ${filter.label}. ${filter.description}`}
+                className={`relative rounded-xl border px-2 py-2 text-left text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                  quickFilter === filter.value
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    : "border-slate-200 bg-slate-100 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+                }`}
+                title={filter.description}
+              >
+                <span className="block">{filter.label}</span>
+                <span className="mt-0.5 block text-[9px] font-normal text-slate-500 dark:text-slate-400">
+                  {filter.value === "all"
+                    ? quickCounts.all
+                    : filter.value === "unread"
+                      ? quickCounts.unread
+                      : filter.value === "mine"
+                        ? quickCounts.mine
+                        : filter.value === "urgent"
+                          ? quickCounts.urgent
+                          : quickCounts.unassigned}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <label className="relative block">
             <span className="sr-only">Buscar conversa</span>
             <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -1211,13 +1374,39 @@ export default function ConversasPage() {
         )}
 
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
-          {isLoading && conversations.length === 0 ? (
-            <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando conversas</div>
+          {isLoading || isFilterLoading ? (
+            <div className="space-y-2" aria-live="polite">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="flex w-full gap-3 rounded-2xl border border-transparent p-3">
+                  <div className="size-11 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3 w-1/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-full animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-4/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
               <MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" />
               <p className="text-sm font-bold">Nenhuma conversa encontrada</p>
-              <p className="mt-1 text-xs text-slate-500">Ajuste a busca ou os filtros.</p>
+              {hasActiveFilters ? (
+                <>
+                  <p className="text-xs text-slate-500">
+                    Nenhuma conversa encontrada para {activeFilterLabels.length ? activeFilterLabels.join(", ") : "os filtros aplicados"}.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 dark:border-white/20 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    Limpar filtros
+                  </button>
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500">Tente ajustar a busca ou os filtros.</p>
+              )}
             </div>
           ) : filtered.map((conversation) => {
             const latest = latestMessage(conversation);
@@ -1393,9 +1582,9 @@ export default function ConversasPage() {
                   ) : messages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center text-center text-slate-500"><MessageSquare className="mb-3 size-8 text-slate-300 dark:text-slate-700" /><p className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma mensagem ainda</p><p className="mt-1 text-xs">Envie uma mensagem para iniciar o atendimento.</p></div>
                   ) : (
-                    <div className="space-y-2">
-                      {hasMoreMessages && (
-                        <div className="flex justify-center pb-2">
+                      <div className="space-y-2">
+                        {hasMoreMessages && (
+                          <div className="flex justify-center pb-2">
                           <button
                             type="button"
                             disabled={olderMessagesLoading}
@@ -1406,40 +1595,56 @@ export default function ConversasPage() {
                             Carregar anteriores
                           </button>
                         </div>
-                      )}
-                      {messages.map((message, index) => {
-                        const outgoing = message.direction === "outbound" || message.direction === "outgoing";
-                        const previous = messages[index - 1];
-                        const firstInGroup = !previous || previous.direction !== message.direction;
-                        const media = parseMetadata(message);
-                        return (
-                          <div key={message.id} className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : ""}`}>
-                            <div className={`max-w-[88%] rounded-3xl px-3.5 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${outgoing ? "rounded-tr-md bg-gradient-to-br from-indigo-600 to-purple-700 text-white" : "rounded-tl-md border border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"}`}>
-                              {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
-                              {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
-                              {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
-                              {media.url && media.type === "document" && <a href={media.url} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-2 rounded-2xl bg-black/10 p-3 font-bold hover:bg-black/15"><FileText className="size-5 shrink-0" /><span className="truncate">Abrir documento</span></a>}
-                              {message.content && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
-                              <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
-                                <span>{formatTime(message.created_at)}</span>
-                                {outgoing && message.clientStatus === "sending" && <><Loader2 className="size-3 animate-spin" /><span>enviando</span></>}
-                                {outgoing && message.clientStatus === "sent" && <><Check className="size-3" /><span>enviada</span></>}
-                                {outgoing && message.clientStatus === "failed" && <><CircleAlert className="size-3" /><span>falhou</span></>}
-                              </div>
-                              {message.clientStatus === "failed" && (
-                                <div className="mt-2 flex items-center justify-end gap-2 border-t border-white/20 pt-2 text-[10px] font-black">
-                                  <span className="mr-auto max-w-40 truncate text-white/80" title={message.error}>{message.error}</span>
-                                  <button type="button" onClick={() => message.clientPayload && void submitMessage(message.clientPayload, message.id)} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><RefreshCw className="size-3" />Reenviar</button>
-                                  <button type="button" onClick={() => setMessages((current) => current.filter((item) => item.id !== message.id))} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><X className="size-3" />Remover</button>
+                        )}
+                        {messages.map((message, index) => {
+                          const outgoing = message.direction === "outbound" || message.direction === "outgoing";
+                          const previous = messages[index - 1];
+                          const firstInGroup = !previous || previous.direction !== message.direction;
+                          const showDateDivider = !previous || !isSameDay(message.created_at, previous.created_at);
+                          const media = parseMetadata(message);
+                          return (
+                            <div key={message.id}>
+                              {showDateDivider && (
+                                <div className="my-3 flex items-center gap-3">
+                                  <span className="h-px flex-1 bg-slate-300/70 dark:bg-white/10" />
+                                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-black text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
+                                    {formatDayDivider(message.created_at)}
+                                  </span>
+                                  <span className="h-px flex-1 bg-slate-300/70 dark:bg-white/10" />
                                 </div>
                               )}
+                              <div className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : ""}`}>
+                                <div className={`max-w-[88%] rounded-3xl px-3.5 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${
+                                  outgoing
+                                    ? "rounded-tr-md bg-gradient-to-br from-indigo-600 to-purple-700 text-white"
+                                    : "rounded-tl-md border border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                                }`}>
+                                  {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
+                                  {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
+                                  {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
+                                  {media.url && media.type === "document" && <a href={media.url} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-2 rounded-2xl bg-black/10 p-3 font-bold hover:bg-black/15"><FileText className="size-5 shrink-0" /><span className="truncate">Abrir documento</span></a>}
+                                  {message.content && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
+                                  <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
+                                    <span>{formatTime(message.created_at)}</span>
+                                    {outgoing && message.clientStatus === "sending" && <><Loader2 className="size-3 animate-spin" /><span>enviando</span></>}
+                                    {outgoing && message.clientStatus === "sent" && <><Check className="size-3" /><span>enviada</span></>}
+                                    {outgoing && message.clientStatus === "failed" && <><CircleAlert className="size-3" /><span>falhou</span></>}
+                                  </div>
+                                  {message.clientStatus === "failed" && (
+                                    <div className="mt-2 flex items-center justify-end gap-2 border-t border-white/20 pt-2 text-[10px] font-black">
+                                      <span className="mr-auto max-w-40 truncate text-white/80" title={message.error}>{message.error}</span>
+                                      <button type="button" onClick={() => message.clientPayload && void submitMessage(message.clientPayload, message.id)} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><RefreshCw className="size-3" />Reenviar</button>
+                                      <button type="button" onClick={() => setMessages((current) => current.filter((item) => item.id !== message.id))} className="inline-flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1 hover:bg-white/25"><X className="size-3" />Remover</button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                 {showNewMessages && (
                   <button type="button" onClick={() => scrollToBottom()} className="absolute bottom-40 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl dark:bg-white dark:text-slate-900"><ArrowDown className="size-4" />Novas mensagens</button>
