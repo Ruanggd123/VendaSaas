@@ -816,6 +816,12 @@ function getMainMenuMessage(settings: any): string {
   const rawWelcome = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋";
   // Remove caracteres mojibake/corrompidos se houver
   const welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
+
+  const shouldAppendMenu = settings.welcome_menu_auto_append !== false;
+  if (!shouldAppendMenu || hasExplicitMenuSection(welcome)) {
+    return welcome;
+  }
+
   let msg = welcome + "\n\n";
   
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
@@ -846,6 +852,29 @@ function getMainMenuMessage(settings: any): string {
   }
   
   return msg;
+}
+
+function hasExplicitMenuSection(message: string): boolean {
+  const normalized = message
+    .replace(/\r/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (
+    normalized.includes("escolha uma das opcoes abaixo") ||
+    normalized.includes("escolha uma das opções abaixo") ||
+    normalized.includes("selecione uma das opcoes abaixo") ||
+    normalized.includes("selecione uma das opções abaixo")
+  ) {
+    return true;
+  }
+
+  const menuLikeLines = message
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^\*?\d+\*?\s*[-–:]\s*/.test(line));
+
+  return menuLikeLines.length >= 2;
 }
 
 function getSubmenuMessage(parentNode: any, allNodes: any[]): string {

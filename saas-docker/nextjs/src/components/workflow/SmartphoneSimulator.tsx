@@ -40,6 +40,42 @@ interface SmartphoneSimulatorProps {
   onUpdateText?: (nodeId: string | null, newText: string, isWelcome?: boolean) => void;
 }
 
+const DEFAULT_SIMULATOR_WELCOME = "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
+
+function sanitizeWelcomeMessage(message: any): string {
+  const safeMessage = typeof message === "string" ? message : "";
+  const clean = safeMessage
+    .replace(/[\uFFFD\u00A0]/g, "")
+    .replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "")
+    .replace(/¤|‘|‹|¼/g, "")
+    .trim();
+
+  if (!clean || clean.length < 5) {
+    return DEFAULT_SIMULATOR_WELCOME;
+  }
+
+  return clean;
+}
+
+function hasExplicitMenuSection(message: string): boolean {
+  const normalized = message.toLowerCase().trim();
+  if (
+    normalized.includes("escolha uma das opcoes abaixo") ||
+    normalized.includes("escolha uma das opções abaixo") ||
+    normalized.includes("selecione uma das opcoes abaixo") ||
+    normalized.includes("selecione uma das opções abaixo")
+  ) {
+    return true;
+  }
+
+  const lines = message
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return lines.filter((line) => /^\*?\d+\*?\s*[-–:]\s*/.test(line)).length >= 2;
+}
+
 export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, onUpdateText }: SmartphoneSimulatorProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -57,14 +93,24 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   };
 
   const generateBotInitialMenu = (): Message => {
-    let welcome = settings?.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
-    welcome = welcome.split("Escolha uma das opções abaixo:")[0].split("\n*1* -")[0].split("\n1 -")[0].trim();
+    const welcome = sanitizeWelcomeMessage(settings?.welcome_message || DEFAULT_SIMULATOR_WELCOME);
+    const shouldAutoAppendMenu = settings?.welcome_menu_auto_append !== false;
 
     const allNodes = settings?.custom_rules_nodes || [];
     // FILTRA APENAS NÓS PAI (sem parentId) PARA NÃO VAZAR SUB-NÓS NO MENU INICIAL
     const rootNodes = allNodes.filter((n: any) => !n.parentId);
 
     let menuText = welcome;
+
+    if (!shouldAutoAppendMenu || hasExplicitMenuSection(welcome)) {
+      return {
+        id: "init_menu",
+        sender: "bot",
+        text: menuText,
+        timestamp: getFormattedTime(),
+        isWelcome: true,
+      };
+    }
 
     if (rootNodes.length > 0) {
       menuText += "\n\nEscolha uma das opções abaixo:\n";

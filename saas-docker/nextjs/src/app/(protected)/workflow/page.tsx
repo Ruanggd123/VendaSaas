@@ -92,6 +92,7 @@ interface AISettings {
   welcome_message?: string;
   enableScheduling?: boolean;
   hide_auto_catalog?: boolean;
+  welcome_menu_auto_append?: boolean;
   enable_groups?: boolean;
   whitelisted_groups?: string;
 }
@@ -121,6 +122,7 @@ const DEFAULT_AI: AISettings = {
   manager_phone: "",
   blocked_dates: [],
   welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
+  welcome_menu_auto_append: true,
   enableScheduling: true,
   custom_rules_nodes: [
     { id: "opt_1", parentId: null, keyword: "1", title: "Catálogo de Produtos & Serviços", actionType: "catalog", textContent: "" },
@@ -165,10 +167,11 @@ function sanitizeWelcomeText(msg: any): string {
   if (!msg || typeof msg !== "string") {
     return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
   }
-  let clean = msg.split("Escolha uma das opções abaixo:")[0];
-  clean = clean.split("\n*1* -")[0];
-  clean = clean.split("\n1 -")[0];
-  clean = clean.replace(/[\uFFFD\u00A0]/g, "").replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "").replace(/¤|‘|‹/g, "").trim();
+  const clean = msg
+    .replace(/[\uFFFD\u00A0]/g, "")
+    .replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "")
+    .replace(/¤|‘|‹/g, "")
+    .trim();
   if (!clean || clean.length < 5) {
     return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
   }
@@ -520,6 +523,19 @@ export default function WorkflowPage() {
                       />
                       <label htmlFor="hide_auto_catalog" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                         Ocultar catálogo automático de produtos
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="welcome_menu_auto_append"
+                        checked={settings.welcome_menu_auto_append !== false}
+                        onChange={(e) => updateField("welcome_menu_auto_append", e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <label htmlFor="welcome_menu_auto_append" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        Adicionar menu automático abaixo da mensagem
                       </label>
                     </div>
                   </div>

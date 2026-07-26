@@ -370,6 +370,11 @@ export default function ConversasPage() {
   const [managementOpen, setManagementOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesDirty, setNotesDirty] = useState(false);
+  const [bulkSelectionMode, setBulkSelectionMode] = useState(false);
+  const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkFeedback, setBulkFeedback] = useState("");
 
   const listRequestRef = useRef(false);
   const messageRequestRef = useRef<{ conversationId: string; version: number } | null>(null);
@@ -502,6 +507,24 @@ export default function ConversasPage() {
       );
     });
   }, [conversations, quickFilter, search, seen, sessionUser?.id]);
+
+  const filteredConversationIds = useMemo(() => filtered.map((conversation) => conversation.id), [filtered]);
+
+  const inboundConversationIds = useMemo(
+    () =>
+      filtered
+        .filter((conversation) => {
+          const latest = latestMessage(conversation);
+          return latest?.direction === "inbound" || latest?.direction === "incoming";
+        })
+        .map((conversation) => conversation.id),
+    [filtered],
+  );
+
+  const selectedBulkConversationIds = useMemo(
+    () => filteredConversationIds.filter((id) => selectedConversationIds.has(id)),
+    [filteredConversationIds, selectedConversationIds],
+  );
 
   const selectedInstance = useMemo(() => {
     if (!selected) return null;
@@ -686,6 +709,24 @@ export default function ConversasPage() {
   }, [selectedId]);
 
   useEffect(() => {
+    if (!bulkSelectionMode) return;
+    const available = new Set(filteredConversationIds);
+    setSelectedConversationIds((current) => {
+      if (current.size === 0) return current;
+      let changed = false;
+      const next = new Set<string>();
+      current.forEach((id) => {
+        if (available.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [bulkSelectionMode, filteredConversationIds]);
+
+  useEffect(() => {
     if (!selectedId) setHistorySearch("");
   }, [selectedId]);
 
@@ -840,6 +881,29 @@ export default function ConversasPage() {
     saveSeen(conversation.id, latestMessage(conversation));
   };
 
+  const toggleBulkSelection = (conversationId: string) => {
+    setSelectedConversationIds((current) => {
+      const next = new Set(current);
+      if (next.has(conversationId)) next.delete(conversationId);
+      else next.add(conversationId);
+      return next;
+    });
+  };
+
+  const selectAllVisibleConversations = () => {
+    setSelectedConversationIds((current) => {
+      const next = new Set(current);
+      for (const id of filteredConversationIds) next.add(id);
+      return next;
+    });
+  };
+
+  const clearBulkSelection = () => {
+    setSelectedConversationIds(new Set());
+  };
+
+  const isConversationSelected = (conversationId: string) => selectedConversationIds.has(conversationId);
+
   const updateOptimistic = (id: string, update: Partial<Message>) => {
     setMessages((current) => {
       const next = current.map((message) => (message.id === id ? { ...message, ...update } : message));
@@ -897,20 +961,20 @@ export default function ConversasPage() {
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível enviar a mensagem."));
       const serverMessage = data.message as Message | undefined;
-      if (isCurrentConversation()) {
-        setMessages((current) => {
-          const next: Message[] = current.map((message) =>
-            message.id === tempId
-              ? serverMessage
-                ? { ...serverMessage, clientStatus: "sent" as const }
-                : { ...message, clientStatus: "sent" as const, error: undefined }
-              : message,
-          );
-          messagesRef.current = next;
-          return next;
-        });
-      }
-      if (data.conversation) {
+    if (isCurrentConversation()) {
+      setMessages((current) => {
+        const next: Message[] = current.map((message) =>
+          message.id === tempId
+            ? serverMessage
+              ? { ...serverMessage, clientStatus: "sent" as const }
+              : { ...message, clientStatus: "sent" as const, error: undefined }
+            : message,
+        );
+        messagesRef.current = next;
+        return next;
+      });
+    }
+    if (data.conversation) {
         const updated = data.conversation as Conversation;
         setConversations((current) =>
           current.map((conversation) =>
@@ -928,6 +992,90 @@ export default function ConversasPage() {
         setComposerError(message);
       }
       return false;
+    }
+  };
+
+  const sendBulkMessages = async (mode: "selected" | "current" | "incoming") => {
+    const ids =
+      mode === "selected"
+        ? selectedBulkConversationIds
+        : mode === "incoming"
+          ? inboundConversationIds
+          : filteredConversationIds;
+
+    if (!ids.length) {
+      setBulkError("Nenhuma conversa elegível para este envio em massa.");
+      return;
+    }
+
+    if (!draft.trim()) {
+      setBulkError("Digite uma mensagem para envio em massa.");
+      return;
+    }
+
+    if (bulkLoading) return;
+
+    setBulkError("");
+    setBulkFeedback("");
+
+    try {
+      const basePayload = {
+        mode,
+        conversationIds: ids,
+        content: draft,
+        confirm: false,
+      };
+
+      const previewResponse = await fetch("/api/conversations/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(basePayload),
+      });
+
+      const preview = await readJson(previewResponse);
+      const total = Number(preview.total || ids.length);
+
+      if (!preview.ok && !preview.pending) {
+        throw new Error(errorFrom(preview, "Não foi possível validar o envio em massa."));
+      }
+
+      const confirmed = window.confirm(`Confirma o envio para ${total} contato(s)?`);
+      if (!confirmed) return;
+
+      setBulkLoading(true);
+      const response = await fetch("/api/conversations/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basePayload, confirm: true }),
+      });
+
+      const data = await readJson(response);
+      if (!response.ok) {
+        throw new Error(errorFrom(data, "Não foi possível enviar em massa."));
+      }
+
+      const result = data as {
+        success?: number;
+        failed?: number;
+        total?: number;
+        outcomes?: Array<{ conversationId: string; ok: boolean; error?: string }>;
+      };
+
+      setBulkFeedback(`Envio concluído. ${result.success || 0} de ${result.total || ids.length} mensagens enviadas.`);
+      if (result.failed) {
+        const failed = result.failed;
+        setBulkFeedback((current) => `${current} Falhas: ${failed}.`);
+      }
+
+      if (mode === "selected") {
+        clearBulkSelection();
+      }
+
+      void fetchConversations();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "Não foi possível enviar em massa.");
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -1473,13 +1621,83 @@ export default function ConversasPage() {
           )}
         </div>
 
-        {listError && (
-          <div className="m-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            <span className="flex-1">{listError}</span>
-            <button type="button" onClick={() => void fetchConversations()} aria-label="Tentar novamente"><RefreshCw className="size-4" /></button>
+          <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkSelectionMode((current) => {
+                    const next = !current;
+                    if (!next) clearBulkSelection();
+                    return next;
+                  });
+                }}
+                className="rounded-full border border-indigo-200 bg-white px-2.5 py-1 text-[10px] font-bold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-400/40 dark:bg-slate-900 dark:text-indigo-300"
+              >
+                {bulkSelectionMode ? "Fechar seleção" : "Selecionar contatos"}
+              </button>
+
+              {bulkSelectionMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => selectAllVisibleConversations()}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900"
+                  >
+                    Selecionar todos ({filteredConversationIds.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBulkSelection}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900"
+                  >
+                    Limpar seleção ({selectedBulkConversationIds.length})
+                  </button>
+                </>
+              )}
+            </div>
+
+            {bulkSelectionMode && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={bulkLoading || selectedBulkConversationIds.length === 0}
+                  onClick={() => void sendBulkMessages("selected")}
+                  className="rounded-xl border border-indigo-200 bg-indigo-600 px-2.5 py-2 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Enviar para selecionados
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkLoading || filteredConversationIds.length === 0}
+                  onClick={() => void sendBulkMessages("current")}
+                  className="rounded-xl border border-emerald-200 bg-emerald-600 px-2.5 py-2 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Enviar para lista atual
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkLoading || inboundConversationIds.length === 0}
+                  onClick={() => void sendBulkMessages("incoming")}
+                  className="rounded-xl border border-sky-200 bg-sky-600 px-2.5 py-2 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Enviar para contatos que entraram
+                </button>
+                {bulkLoading && <Loader2 className="size-4 animate-spin text-indigo-700" />}
+              </div>
+            )}
+
+            {bulkError ? <p className="text-[10px] font-bold text-rose-600 dark:text-rose-300">{bulkError}</p> : null}
+            {bulkFeedback ? <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{bulkFeedback}</p> : null}
           </div>
-        )}
+
+          {listError && (
+            <div className="m-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" />
+              <span className="flex-1">{listError}</span>
+              <button type="button" onClick={() => void fetchConversations()} aria-label="Tentar novamente"><RefreshCw className="size-4" /></button>
+            </div>
+          )}
 
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {isLoading || isFilterLoading ? (
@@ -1536,14 +1754,46 @@ export default function ConversasPage() {
               : category.priority === "high"
                 ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:ring-amber-500/30"
                 : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400";
+            const isBulkSelected = isConversationSelected(conversation.id);
+
             return (
-              <button
-                type="button"
+              <div
                 key={conversation.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => selectConversation(conversation)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectConversation(conversation);
+                  }
+                }}
                 aria-current={active ? "true" : undefined}
-                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${active ? "border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/15" : "border-transparent hover:bg-slate-100 dark:hover:bg-white/5"}`}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                  active
+                    ? "border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/15"
+                    : "border-transparent hover:bg-slate-100 dark:hover:bg-white/5"
+                }`}
               >
+                {bulkSelectionMode && (
+                  <button
+                    type="button"
+                    aria-pressed={isBulkSelected}
+                    aria-label={isBulkSelected ? `Desmarcar ${name}` : `Selecionar ${name}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleBulkSelection(conversation.id);
+                    }}
+                    className={`relative flex size-7 shrink-0 items-center justify-center rounded-lg border text-xs font-black outline-none transition ${
+                      isBulkSelected
+                        ? "border-indigo-300 bg-indigo-100 text-indigo-700 dark:border-indigo-500/50 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        : "border-slate-200 bg-white text-slate-400 hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-500"
+                    }`}
+                  >
+                    {isBulkSelected ? <Check className="size-4" /> : null}
+                  </button>
+                )}
                 <div className="relative shrink-0">
                   {conversation.profile_picture ? (
                     <Image unoptimized src={conversation.profile_picture} alt="" width={44} height={44} className="size-11 rounded-2xl object-cover ring-1 ring-slate-200 dark:ring-white/10" />
@@ -1582,7 +1832,7 @@ export default function ConversasPage() {
                     <span className="ml-auto shrink-0">{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

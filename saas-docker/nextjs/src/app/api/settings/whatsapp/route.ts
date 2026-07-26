@@ -162,7 +162,7 @@ export async function PUT(req: Request) {
       "ai_personality","ia_model",
       "business_hours_start","business_hours_end","business_days",
       "schedule_per_day","appointment_gap_min","blocked_dates",
-      "off_hours_message","welcome_message","hide_auto_catalog",
+      "off_hours_message","welcome_message","hide_auto_catalog","welcome_menu_auto_append",
       "manager_phone","ignored_numbers","products",
       "enable_groups","whitelisted_groups",
       "custom_rules_nodes",
