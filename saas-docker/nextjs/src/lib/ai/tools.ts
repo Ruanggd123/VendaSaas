@@ -407,7 +407,8 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
         });
 
       if (requiresPayment) {
-        const checkoutUrl = `${process.env.APP_URL || 'http://localhost:3000'}/checkout/${tenantId}?product=${encodeURIComponent(args.titulo)}&phone=${encodeURIComponent(contactNumber)}`;
+        const { getAppBaseUrl } = await import("@/lib/auth");
+        const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${encodeURIComponent(args.titulo)}&phone=${encodeURIComponent(contactNumber)}`;
         return `✅ Encontrei disponibilidade para ${args.data} às ${args.hora}! \n\n⚠️ Este serviço requer **pagamento antecipado**.\n\nPara confirmar o agendamento, por favor, realize o pagamento no link abaixo:\n\n🔗 ${checkoutUrl}\n\nSeu horário está pré-reservado e será confirmado automaticamente assim que o pagamento for aprovado!`;
       }
 
