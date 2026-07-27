@@ -482,6 +482,35 @@ export async function POST(req: Request) {
             console.log(`🔓 IA reativada automaticamente para ${contactNumber} (nova mensagem do cliente).`);
           }
 
+          // =========== ANTI-BOT-LOOP ===========
+          // 1. Ignorar eco da própria IA (conteúdo idêntico ao último outbound gerado)
+          if (!fromMe) {
+            const lastBotMsg = await prisma.message.findFirst({
+              where: {
+                conversation_id: conversation.id,
+                direction: "outbound",
+                ai_generated: true,
+              },
+              orderBy: { created_at: 'desc' }
+            });
+            if (lastBotMsg && lastBotMsg.content.trim() === msgContent.trim()) {
+              console.log(`[Webhook] Ignorando eco da IA para ${contactNumber}: conteúdo idêntico ao último outbound`);
+              return NextResponse.json({ success: true, ignored: "Eco da IA (conteúdo)" });
+            }
+
+            // 2. Ignorar mensagens de sistema/status que não são input real do cliente
+            const lowerMsg = msgContent.trim().toLowerCase();
+            if (
+              /^por favor, responda apenas/.test(lowerMsg) ||
+              /^\[outros\]$/.test(lowerMsg) ||
+              /^\[m[ií]dia:/.test(lowerMsg)
+            ) {
+              console.log(`[Webhook] Ignorando mensagem de sistema/status de ${contactNumber}: "${msgContent.substring(0, 60)}"`);
+              return NextResponse.json({ success: true, ignored: "Sistema/Status" });
+            }
+          }
+          // =====================================
+
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
             console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
