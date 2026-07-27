@@ -347,7 +347,8 @@ O cliente se chama ${clientName}.
           { notes: { contains: `customer_phone:55${contactNumber.replace(/\D/g, "").replace(/^55/, "")}` } },
         ]
       },
-      orderBy: { created_at: "desc" }
+      orderBy: { created_at: "desc" },
+      select: { product_name: true, amount: true, payment_link: true }
     });
 
     let debtPrompt = "";

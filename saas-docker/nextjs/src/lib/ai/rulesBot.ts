@@ -204,7 +204,8 @@ export async function processMessageWithRules(
         notes: { contains: `customer_phone:${pf}` }
       }))
     },
-    orderBy: { created_at: "desc" }
+    orderBy: { created_at: "desc" },
+    select: { product_name: true, amount: true, payment_link: true }
   });
 
   if (pendingSale && state.step !== "debt_paying") {
