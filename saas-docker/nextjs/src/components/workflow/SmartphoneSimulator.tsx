@@ -11,6 +11,7 @@ import {
   Check,
   ExternalLink,
 } from "lucide-react";
+import { botMessageTemplates } from "@/lib/ai/botMessageTemplates";
 
 interface Message {
   id: string;
@@ -35,11 +36,12 @@ interface SchedulingState {
 }
 
 interface CheckoutDeliveryState {
-  phase: "chooseDeliveryMethod";
+  phase: "chooseDeliveryMethod" | "collectAddress";
   product: any;
   paymentMode: string;
   deliveryType: "both" | "delivery";
   deadline?: string;
+  addressLabel?: string;
 }
 
 interface SmartphoneSimulatorProps {
@@ -152,10 +154,19 @@ function getProductDeliveryType(product: any): string {
   return String(product?.delivery_type || "virtual_instant").trim().toLowerCase() || "virtual_instant";
 }
 
-function buildNoPaymentMessage(product: any, addressLabel = "Envio Digital Imediato"): string {
-  const name = product?.name || "Produto";
-  const value = formatProductPrice(product?.price);
-  return `🛒 *Produto:* ${name}\n💰 *Valor:* R$ ${value}\n🚚 *Método/Endereço:* ${addressLabel}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
+const buildNoPaymentMessage = (product: any, addressLabel = botMessageTemplates.labels.digitalImmediate()): string =>
+  botMessageTemplates.checkout.withoutPayment({
+    product,
+    address: addressLabel,
+  });
+
+function formatCheckoutPrice(value: unknown): string {
+  const parsed = parseProductPrice(value);
+  if (!Number.isFinite(parsed)) {
+    return "0.00";
+  }
+
+  return parsed.toFixed(2);
 }
 
 function normalizeButtons(buttons: any): { label: string; value: string }[] {
@@ -478,13 +489,76 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return null;
   };
 
+  const getCatalogDisplayPrice = (product: any): string => {
+    if (!product) return "";
+    return product.type === "plan" || product.monthly ? `${product.monthly || product.price}` : `${product.price}`;
+  };
+
+  const buildCatalogTextFromNode = (catalogNode: any, allCatalogNodes: any[], catalogProducts: any[]) => {
+    const nodeProductRefs = allCatalogNodes.filter(
+      (node: any) =>
+        String(node?.parentId || "") === String(catalogNode?.id || "") &&
+        String(node?.actionType || "").trim().toLowerCase() === "product"
+    );
+
+    const appendCatalogLines = (productsToRender: any[], shouldResolve = false) => {
+      let result = "📋 *Nossos Serviços e Preços:*\n\n";
+
+      productsToRender.forEach((product: any, idx: number) => {
+        const resolvedProduct = shouldResolve ? resolveProductFromNode(product) : null;
+        const source = resolvedProduct || product;
+
+        if (resolvedProduct) {
+          const prodName = resolvedProduct?.name || source?.title || `Produto ${idx + 1}`;
+          const prodPrice = getCatalogDisplayPrice(resolvedProduct);
+          const description = resolvedProduct?.description;
+
+          result += `${idx + 1}️⃣ *${prodName}* - R$ ${prodPrice}\n`;
+          if (description) {
+            result += `   _${description}_\n\n`;
+          } else {
+            result += "\n";
+          }
+          return;
+        }
+
+        if (shouldResolve) {
+          const fallbackName = source?.title || `Produto ${idx + 1}`;
+          result += `${idx + 1}️⃣ *${fallbackName}*\n`;
+          return;
+        }
+
+        result += `${idx + 1}️⃣ *${source?.name || source?.title || `Produto ${idx + 1}`}* - R$ ${getCatalogDisplayPrice(source)}\n`;
+        if (source?.description) {
+          result += `   _${source.description}_\n\n`;
+        } else {
+          result += "\n";
+        }
+      });
+
+      result +=
+        "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
+
+      return result;
+    };
+
+    if (nodeProductRefs.length > 0) {
+      return appendCatalogLines(nodeProductRefs, true);
+    }
+
+    if (!Array.isArray(catalogProducts) || catalogProducts.length === 0) {
+      return "📋 No momento não temos serviços cadastrados no catálogo.";
+    }
+
+    return appendCatalogLines(catalogProducts);
+  };
+
   const buildCheckoutFlow = (
     product: any,
-    paymentMode: string,
-    originNode: any,
-    botPrefix = "",
-    addressLabel = "Envio Digital Imediato"
-  ) => {
+    _paymentMode: string,
+    _originNode: any,
+    addressLabel: string = botMessageTemplates.labels.digitalImmediate()
+    ) => {
     if (!product) {
       return {
         text: "❌ Produto não encontrado no catálogo.",
@@ -499,44 +573,18 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       };
     }
 
-    const nodePrefix = botPrefix || (originNode?.textContent && originNode.textContent.trim().length > 0
-      ? originNode.textContent
-      : `📦 *${product.name}*\n💰 *Valor:* R$ ${formatProductPrice(product.price)}`);
     const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
-    const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name)}`;
-    const desc = product.description ? `\n${product.description}` : "";
-    const prefix = `${nodePrefix}${desc}`;
-    const summary = `🛒 *Resumo do Pedido:* ${product.name}\n💰 *Valor:* R$ ${formatProductPrice(product.price)}\n📍 *Entrega:* ${addressLabel}`;
-
-    if (paymentMode === "pix") {
-      return {
-        text: `${prefix}\n\n${summary}\n\n🔗 *Acesse o link para concluir a compra:* ${checkoutLink}`,
-        buttons: [
-          { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
-          { label: "👤 Falar com Consultor", value: "4" },
-          { label: "⬅️ Voltar ao Catálogo", value: "1" },
-        ],
-      };
-    }
-
-    if (paymentMode === "link") {
-      return {
-        text: `${prefix}\n\n${summary}\n\n🔗 *Link do Site para Pagamento (Cartão / Boleto / Pix):* ${checkoutLink}`,
-        buttons: [
-          { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
-          { label: "👤 Falar com Consultor", value: "4" },
-          { label: "⬅️ Voltar ao Catálogo", value: "1" },
-        ],
-      };
-    }
+    const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name || "")}&order=simulador`;
 
     return {
-      text: `${prefix}\n\n${summary}\n\nEscolha a forma de pagamento:`,
+      text: botMessageTemplates.checkout.withPayment({
+        product,
+        address: addressLabel,
+        checkoutLink,
+      }),
       buttons: [
-        { label: "⚡ Pagar no Site", value: `open_link_${checkoutLink}` },
-        { label: "💳 Site (Cartão / Boleto / Pix)", value: `open_link_${checkoutLink}` },
-        { label: "👤 Falar com Consultor", value: "4" },
-        { label: "⬅️ Voltar ao Catálogo", value: "1" },
+        { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
+        { label: "🏠 Menu Principal", value: "0" },
       ],
     };
   };
@@ -906,38 +954,83 @@ Seu agendamento foi registrado no simulador.`;
             setCheckoutDeliveryState(null);
             botResponseText = "⚠️ Não localizei o item selecionado para compra. Tente novamente pelo catálogo.";
             botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
-          } else if (clean !== "1" && clean !== "2") {
-            const digitalLabel = currentCheckoutState.deliveryType === "both"
-              ? `Envio Digital (Prazo: ${currentCheckoutState.deadline || "imediato"})`
-              : "Entrega (Delivery)";
-            const physicalLabel = currentCheckoutState.deliveryType === "both"
-              ? "Entrega Física no meu endereço"
-              : "Retirada na Loja / Presencial";
+          } else if (currentCheckoutState.phase === "collectAddress") {
+            const addressLabel = safeUserText.trim();
+            if (!addressLabel) {
+              botResponseText = "⚠️ Não recebi seu endereço. Envie o endereço completo para continuar (Rua, Número, Bairro, Cidade).";
+              botButtons = [{ label: "🏠 Voltar", value: "0" }];
+            } else {
+              const checkoutFlow = buildCheckoutFlow(
+                selectedProduct,
+                currentCheckoutState.paymentMode,
+                null,
+                addressLabel
+              );
 
-            botResponseText = `⚠️ Opção inválida. Responda *1* para *${digitalLabel}* ou *2* para *${physicalLabel}* ou *0* para voltar ao menu principal.`;
-            botButtons = [
-              { label: `1 - ${digitalLabel}`, value: "1" },
-              { label: `2 - ${physicalLabel}`, value: "2" },
-              { label: "🏠 Voltar", value: "0" },
-            ];
+              setCheckoutDeliveryState(null);
+              botResponseText = checkoutFlow.text;
+              botButtons = checkoutFlow.buttons;
+            }
+          } else if (clean !== "1" && clean !== "2") {
+            if (currentCheckoutState.deliveryType === "both") {
+              botResponseText = botMessageTemplates.errors.invalidBothMethodsChoice();
+              botButtons = [
+                { label: `1 - ${botMessageTemplates.labels.bothDigital(currentCheckoutState.deadline || "imediato")}`, value: "1" },
+                { label: `2 - ${botMessageTemplates.labels.bothPhysical()}`, value: "2" },
+                { label: "🏠 Voltar", value: "0" },
+              ];
+            } else {
+              botResponseText = botMessageTemplates.errors.invalidDeliveryChoice();
+              botButtons = [
+                { label: `1 - ${botMessageTemplates.labels.delivery()}`, value: "1" },
+                { label: `2 - ${botMessageTemplates.labels.pickup()} / Presencial`, value: "2" },
+                { label: "🏠 Voltar", value: "0" },
+              ];
+            }
           } else {
             const isDigital = clean === "1";
-            const addressLabel = currentCheckoutState.deliveryType === "both"
-              ? (isDigital ? `Envio Digital (Prazo: ${currentCheckoutState.deadline || "imediato"})` : "Entrega Física no meu endereço")
-              : (isDigital ? "Entrega (Delivery)" : "Retirada na Loja / Presencial");
+            if (isDigital) {
+              if (currentCheckoutState.deliveryType === "both") {
+                const addressLabel = botMessageTemplates.labels.bothDigital(currentCheckoutState.deadline || "imediato");
+                const checkoutFlow = buildCheckoutFlow(
+                  selectedProduct,
+                  currentCheckoutState.paymentMode,
+                  null,
+                  addressLabel
+                );
 
-            const checkoutFlow = buildCheckoutFlow(
-              selectedProduct,
-              currentCheckoutState.paymentMode,
-              null,
-              `📦 *${selectedProduct.name}*\n💰 *Valor:* R$ ${formatProductPrice(selectedProduct.price)}`,
-              addressLabel
-            );
+                setCheckoutDeliveryState(null);
+                botResponseText = checkoutFlow.text;
+                botButtons = checkoutFlow.buttons;
+              } else {
+                setCheckoutDeliveryState({
+                  ...currentCheckoutState,
+                  phase: "collectAddress",
+                  addressLabel: botMessageTemplates.labels.delivery(),
+                });
+                botResponseText = botMessageTemplates.prompts.requestAddress();
+                botButtons = [{ label: "🏠 Voltar", value: "0" }];
+              }
+            } else if (currentCheckoutState.deliveryType === "both") {
+              setCheckoutDeliveryState({
+                ...currentCheckoutState,
+                phase: "collectAddress",
+                addressLabel: botMessageTemplates.labels.bothPhysical(),
+              });
+              botResponseText = botMessageTemplates.prompts.requestAddress();
+              botButtons = [{ label: "🏠 Voltar", value: "0" }];
+            } else {
+              const checkoutFlow = buildCheckoutFlow(
+                selectedProduct,
+                currentCheckoutState.paymentMode,
+                null,
+                botMessageTemplates.labels.pickup()
+              );
 
-            setInCatalogView(false);
-            setCheckoutDeliveryState(null);
-            botResponseText = checkoutFlow.text;
-            botButtons = checkoutFlow.buttons;
+              setCheckoutDeliveryState(null);
+              botResponseText = checkoutFlow.text;
+              botButtons = checkoutFlow.buttons;
+            }
           }
 
           const finalButtons = normalizeButtons(botButtons);
@@ -1035,24 +1128,26 @@ Seu agendamento foi registrado no simulador.`;
                   setInCatalogView(false);
                   setSchedulingState(null);
 
-                  const digitalLabel = deliveryType === "both"
-                    ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})`
-                    : "Entrega (Delivery)";
-                  const physicalLabel = deliveryType === "both"
-                    ? "Entrega Física no meu endereço"
-                    : "Retirada na Loja / Presencial";
-                  const intro = `🛒 *Você selecionou:* ${productForCheckout.name}\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}\n\n`;
-
-                  if (deliveryType === "both") {
-                    botResponseText = `${intro}Este produto está disponível nas opções Digital e Física. Como prefere receber?\n`;
-                  } else {
-                    botResponseText = `${intro}Como deseja receber o produto/serviço?\n`;
-                  }
-
-                  botResponseText += `1️⃣ ${digitalLabel}\n2️⃣ ${physicalLabel}\n\nResponda com o número correspondente (*1* ou *2*):`;
+                  botResponseText = deliveryType === "both"
+                    ? botMessageTemplates.catalog.bothMethods(productForCheckout, { deadline: productForCheckout.delivery_deadline || "imediato" })
+                    : botMessageTemplates.catalog.deliveryOrPickup(productForCheckout);
                   botButtons = [
-                    { label: `1 - ${digitalLabel}`, value: "1" },
-                    { label: `2 - ${physicalLabel}`, value: "2" },
+                    {
+                      label: `1 - ${
+                        deliveryType === "both"
+                          ? botMessageTemplates.labels.bothDigital(productForCheckout.delivery_deadline || "imediato")
+                          : botMessageTemplates.labels.delivery()
+                      }`,
+                      value: "1",
+                    },
+                    {
+                      label: `2 - ${
+                        deliveryType === "both"
+                          ? botMessageTemplates.labels.bothPhysical()
+                          : `${botMessageTemplates.labels.pickup()} / Presencial`
+                      }`,
+                      value: "2",
+                    },
                     { label: "👤 Falar com Consultor", value: "4" },
                     { label: "⬅️ Voltar ao Catálogo", value: "0" },
                   ];
@@ -1061,8 +1156,9 @@ Seu agendamento foi registrado no simulador.`;
                     productForCheckout,
                     paymentMode,
                     customSubNode,
-                    customSubNode?.textContent || `📦 *${productForCheckout.name}*\n💰 *Valor:* R$ ${formatProductPrice(productForCheckout.price)}`,
-                    deliveryType === "virtual_deadline" ? `Envio Digital (Prazo: ${productForCheckout.delivery_deadline || "imediato"})` : "Envio Digital Imediato"
+                    deliveryType === "virtual_deadline"
+                      ? botMessageTemplates.labels.bothDigital(productForCheckout.delivery_deadline || "imediato")
+                      : botMessageTemplates.labels.digitalImmediate()
                   );
 
                   setInCatalogView(false);
@@ -1195,10 +1291,8 @@ Seu agendamento foi registrado no simulador.`;
 
         if (matchedNode.actionType === "catalog") {
           setInCatalogView(true);
-          botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0
-            ? matchedNode.textContent
-            : "🛍️ *Nosso Catálogo de Produtos & Serviços*\n\nConfira os itens disponíveis abaixo. Digite o número do produto para abrir o link de pagamento seguro em outra aba!";
-          botProducts = normalizeMessagesProducts(prods);
+          botResponseText = buildCatalogTextFromNode(matchedNode, allNodes, prods);
+          botProducts = undefined;
         } else if (matchedNode.actionType === "product" || matchedNode.actionType === "checkout") {
           setInCatalogView(false);
           const chosenProduct = resolveProductFromNode(matchedNode);
@@ -1213,14 +1307,12 @@ Seu agendamento foi registrado no simulador.`;
               botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*.`;
             }
           } else {
-            const checkoutFlow = buildCheckoutFlow(
-              chosenProduct,
-              matchedNode.paymentMode || "both",
-              matchedNode,
-              chosenProduct
-                ? `📦 *${chosenProduct.name}*\n💰 *Valor:* R$ ${formatProductPrice(chosenProduct.price)}`
-                : matchedNode.textContent || `📦 *${matchedNode.title}*`
-            );
+              const checkoutFlow = buildCheckoutFlow(
+                chosenProduct,
+                matchedNode.paymentMode || "both",
+                matchedNode,
+                botMessageTemplates.labels.digitalImmediate()
+              );
 
             botResponseText = checkoutFlow.text;
             botButtons = checkoutFlow.buttons;

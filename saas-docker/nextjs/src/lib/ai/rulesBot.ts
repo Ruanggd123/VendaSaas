@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 import { PrismaClient } from "@prisma/client";
+import { botMessageTemplates } from "./botMessageTemplates";
 
 const prisma = new PrismaClient();
 
@@ -430,22 +431,22 @@ export async function processMessageWithRules(
     state.data = { chosenService };
 
     if (deliveryType === "virtual_instant") {
-      const addr = "Envio Digital Imediato";
+      const addr = botMessageTemplates.labels.digitalImmediate();
       state.data.address = addr;
       return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else if (deliveryType === "virtual_deadline") {
-      const addr = `Envio Digital (Prazo: ${deadline})`;
+      const addr = botMessageTemplates.labels.bothDigital(deadline);
       state.data.address = addr;
       return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
       await saveState(state);
-      return `🛒 *Você selecionou:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
+      return botMessageTemplates.catalog.bothMethods(chosenService, { deadline });
     } else {
       // Default: physical
       state.step = "catalog_select_delivery_method";
       await saveState(state);
-      return `🛒 *Você selecionou:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
+      return botMessageTemplates.catalog.deliveryOrPickup(chosenService);
     }
   }
 
@@ -457,20 +458,20 @@ export async function processMessageWithRules(
     }
 
     if (cleanText !== "1" && cleanText !== "2") {
-      return "❌ Opção inválida. Digite *1* para Envio Digital ou *2* para Entrega Física:";
+      return botMessageTemplates.errors.invalidBothMethodsChoice();
     }
 
     const chosenService = state.data.chosenService;
     const deadline = chosenService.delivery_deadline || "imediato";
 
     if (cleanText === "1") {
-      const addr = `Envio Digital (Prazo: ${deadline})`;
+      const addr = botMessageTemplates.labels.bothDigital(deadline);
       state.data.address = addr;
       return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
     } else {
       state.step = "catalog_input_address";
       await saveState(state);
-      return "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):";
+      return botMessageTemplates.prompts.requestAddress();
     }
   }
 
@@ -482,16 +483,17 @@ export async function processMessageWithRules(
     }
 
     if (cleanText !== "1" && cleanText !== "2") {
-      return "❌ Opção inválida. Digite *1* para Entrega (Delivery) ou *2* para Retirada na Loja:";
+      return botMessageTemplates.errors.invalidDeliveryChoice();
     }
 
     if (cleanText === "1") {
       state.step = "catalog_input_address";
       await saveState(state);
-      return "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):";
+      return botMessageTemplates.prompts.requestAddress();
     } else {
-      state.data.address = "Retirada na Loja";
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, "Retirada na Loja", settings, stateKey, state.data.collected);
+      const addr = botMessageTemplates.labels.pickup();
+      state.data.address = addr;
+      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, addr, settings, stateKey, state.data.collected);
     }
   }
 
@@ -893,23 +895,23 @@ export async function processMessageWithRules(
         const deadline = chosen.delivery_deadline || "imediato";
         
         if (deliveryType === "virtual_instant") {
-          const addr = "Envio Digital Imediato";
+          const addr = botMessageTemplates.labels.digitalImmediate();
           state.data.address = addr;
           await saveState(state);
           return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
         } else if (deliveryType === "virtual_deadline") {
-          const addr = `Envio Digital (Prazo: ${deadline})`;
+          const addr = botMessageTemplates.labels.bothDigital(deadline);
           state.data.address = addr;
           await saveState(state);
           return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
         } else if (deliveryType === "both") {
           state.step = "catalog_select_both_methods";
           await saveState(state);
-          return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
+          return botMessageTemplates.catalog.bothMethods(chosen, { deadline });
         } else {
           state.step = "catalog_select_delivery_method";
           await saveState(state);
-          return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
+          return botMessageTemplates.catalog.deliveryOrPickup(chosen);
         }
       }
       else {
@@ -968,21 +970,21 @@ export async function processMessageWithRules(
       const deadline = chosen.delivery_deadline || "imediato";
       state.data.chosenService = chosen;
       if (deliveryType === "virtual_instant") {
-        const addr = "Envio Digital Imediato";
+        const addr = botMessageTemplates.labels.digitalImmediate();
         state.data.address = addr;
         return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
       } else if (deliveryType === "virtual_deadline") {
-        const addr = `Envio Digital (Prazo: ${deadline})`;
+        const addr = botMessageTemplates.labels.bothDigital(deadline);
         state.data.address = addr;
         return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
         await saveState(state);
-        return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ Envio Digital (Prazo: ${deadline})\n2️⃣ Entrega Física no meu endereço\n\nResponda com o número correspondente (*1* ou *2*):`;
+        return botMessageTemplates.catalog.bothMethods(chosen, { deadline });
       } else {
         state.step = "catalog_select_delivery_method";
         await saveState(state);
-        return `🛒 *Você selecionou:* ${chosen.name}\n💰 *Valor:* R$ ${parseFloat(chosen.price).toFixed(2)}\n\nComo deseja receber o produto/serviço?\n1️⃣ Entrega (Delivery)\n2️⃣ Retirada na Loja / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
+        return botMessageTemplates.catalog.deliveryOrPickup(chosen);
       }
     }
   }
@@ -1345,7 +1347,11 @@ async function processarFinalizacaoPedidoRulesBot(
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-      return `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n🔗 *Acesse o link para concluir a compra:* ${checkoutUrl}\n\nApós a aprovação, o pedido será liberado automaticamente! 🚀`;
+        return botMessageTemplates.checkout.withPayment({
+          product: chosenService,
+          address,
+          checkoutLink: checkoutUrl,
+        });
 
     } else {
       await prisma.sale.create({
@@ -1361,7 +1367,10 @@ async function processarFinalizacaoPedidoRulesBot(
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-      return `🛒 *Produto:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n🚚 *Método/Endereço:* ${address}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
+      return botMessageTemplates.checkout.withoutPayment({
+        product: chosenService,
+        address,
+      });
     }
   } catch (err: any) {
     console.error("Erro finalizar pedido rulesBot:", err);
