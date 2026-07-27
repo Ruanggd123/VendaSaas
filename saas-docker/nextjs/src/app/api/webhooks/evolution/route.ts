@@ -526,7 +526,14 @@ export async function POST(req: Request) {
               const { processMessageWithAI } = await import('@/lib/ai/engine');
               const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
             
-              const normalizeText = (text: string) => text.replace(/\s+/g, " ").trim();
+              const normalizeText = (text: string) => {
+                if (!text) return "";
+                const safeText = text.trim();
+                return safeText
+                  .replace(/\r\n/g, "\n")
+                  .replace(/[ \t]+/g, " ")
+                  .replace(/\n{3,}/g, "\n\n");
+              };
               const sendAndStoreResponse = async (text: string) => {
                 const cleanedText = normalizeText(text);
                 if (!cleanedText) return;
