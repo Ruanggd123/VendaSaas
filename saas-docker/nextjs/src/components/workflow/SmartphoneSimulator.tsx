@@ -509,6 +509,25 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return null;
   };
 
+  const simulatorMenuFingerprint = JSON.stringify(
+    ensureArray(settings?.custom_rules_nodes)
+      .filter((n: any) => !n?.parentId)
+      .map((n: any) => ({
+        id: n?.id,
+        keyword: normalizeTextValue(n?.keyword),
+        title: normalizeTextValue(n?.title),
+        actionType: normalizeTextValue(n?.actionType),
+        textContent: normalizeTextValue(n?.textContent),
+        productName: normalizeTextValue(n?.productName),
+        productId: normalizeTextValue(n?.productId),
+        paymentMode: normalizeTextValue(n?.paymentMode),
+      }))
+      .concat([
+        normalizeTextValue(settings?.welcome_message),
+        String(settings?.welcome_menu_auto_append ?? true),
+      ]),
+  );
+
   const getCatalogDisplayPrice = (product: any): string => {
     if (!product) return "";
     return product.type === "plan" || product.monthly ? `${product.monthly || product.price}` : `${product.price}`;
@@ -668,7 +687,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setMessages([generateBotInitialMenu()]);
     setCurrentParentId(null);
     setInCatalogView(false);
-  }, []);
+  }, [simulatorMenuFingerprint]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
