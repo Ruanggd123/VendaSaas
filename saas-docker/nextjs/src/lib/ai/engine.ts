@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false, instanceSettings?: any) {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return null;
+    if (!tenant) return "Desculpe, não consegui identificar a empresa dessa conversa. Pode me enviar novamente em alguns instantes?";
 
     const isGroup = contactNumber.includes("@g.us") || contactNumber.includes("g.us") || contactNumber.length > 15;
     if (isGroup) {
@@ -688,6 +688,6 @@ REGRAS:
         console.error("Erro ao notificar o dono sobre a falha da IA:", notifyErr);
       }
     }
-    return null;
+    return "Desculpe, estou com instabilidade no momento e não consegui responder agora. Você pode repetir sua mensagem em alguns instantes?";
   }
 }

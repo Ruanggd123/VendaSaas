@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { getProfilePicture } from "@/lib/evolution";
+import { getProfilePicture, sendWhatsAppMessage } from "@/lib/evolution";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
@@ -526,41 +526,46 @@ export async function POST(req: Request) {
               const { processMessageWithAI } = await import('@/lib/ai/engine');
               const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
             
-              if (iaResponse) {
-                const evolutionUrl = process.env.EVOLUTION_URL || 'http://evolution:8080';
-                const evolutionKey = process.env.EVOLUTION_API_KEY || '';
-               
-                try {
-                  const sendResponse = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-                    method: "POST",
-                    headers: { 'apikey': evolutionKey, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      number: contactNumber,
-                      text: iaResponse,
-                      delay: 280
-                    })
-                  });
-                  if (!sendResponse.ok) {
-                    const responseBody = await sendResponse.text();
-                    throw new Error(`Evolution respondeu ${sendResponse.status}: ${responseBody}`);
-                  }
-                  console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
+              const normalizeText = (text: string) => text.replace(/\s+/g, " ").trim();
+              const sendAndStoreResponse = async (text: string) => {
+                const cleanedText = normalizeText(text);
+                if (!cleanedText) return;
 
-                  await prisma.message.create({
-                    data: {
-                      tenant_id: tenantId,
-                      conversation_id: conversation.id,
-                      direction: "outbound",
-                      content: iaResponse,
-                      ai_generated: true,
-                    }
-                  });
-                  await prisma.conversation.update({
-                    where: { id: conversation.id },
-                    data: { last_message_at: new Date() }
-                  });
-                } catch (e) {
+                const sent = await sendWhatsAppMessage(instanceName, contactNumber, cleanedText);
+                if (!sent) {
+                  throw new Error("Evolution recusou o envio da resposta automática da IA");
+                }
+
+                await prisma.message.create({
+                  data: {
+                    tenant_id: tenantId,
+                    conversation_id: conversation.id,
+                    direction: "outbound",
+                    content: cleanedText,
+                    ai_generated: true,
+                  }
+                });
+
+                await prisma.conversation.update({
+                  where: { id: conversation.id },
+                  data: { last_message_at: new Date() }
+                });
+
+                console.log(`[Webhook] Resposta enviada com sucesso para ${contactNumber}`);
+              };
+
+              if (iaResponse) {
+                await sendAndStoreResponse(iaResponse).catch((e) => {
                   console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
+                });
+              } else {
+                if (conversation.ai_paused) {
+                  console.log(`[Webhook] IA pausada para ${contactNumber}, não enviando fallback automático.`);
+                } else {
+                  const fallbackResponse = "Desculpe, no momento não consegui responder. Pode enviar novamente em alguns instantes?";
+                  await sendAndStoreResponse(fallbackResponse).catch((e) => {
+                    console.error("[Webhook] Erro ao enviar resposta de fallback da IA:", e);
+                  });
                 }
               }
             }
