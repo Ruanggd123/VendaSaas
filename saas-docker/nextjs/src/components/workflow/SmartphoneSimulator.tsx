@@ -10,6 +10,8 @@ import {
   Edit3,
   Check,
   ExternalLink,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { botMessageTemplates } from "@/lib/ai/botMessageTemplates";
 
@@ -452,6 +454,14 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const [editingText, setEditingText] = useState("");
   const [inCatalogView, setInCatalogView] = useState(false);
   const [bubbleMaxWidthPercent, setBubbleMaxWidthPercent] = useState(88);
+  const [showUserNumbers, setShowUserNumbers] = useState(true);
+  const [simulatedUserNumber] = useState(() => {
+    const areaCodes = ["11", "21", "31", "41", "51"];
+    const selectedArea = areaCodes[Math.floor(Math.random() * areaCodes.length)] || "11";
+    const middle = String(Math.floor(Math.random() * 9000) + 1000).padStart(4, "0");
+    const end = String(Math.floor(Math.random() * 9000) + 1000).padStart(4, "0");
+    return `+55 (${selectedArea}) 9 ${middle}-${end}`;
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -1456,7 +1466,7 @@ Seu agendamento foi registrado no simulador.`;
   };
 
   return (
-    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans shrink-0">
+    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans shrink-0 overflow-hidden">
       {/* BARRA DE STATUS SUPERIOR */}
       <div className="h-6 px-6 pt-1 flex items-center justify-between text-[11px] font-bold text-white z-20">
         <span>11:55</span>
@@ -1495,122 +1505,153 @@ Seu agendamento foi registrado no simulador.`;
       </div>
 
       {/* ÁREA DE CHAT DO WHATSAPP */}
-      <div className="flex-1 bg-[#e5ddd5] dark:bg-[#0b141a] p-3.5 overflow-y-auto space-y-3 font-sans text-xs">
-        <div className="text-center my-1">
-          <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[9px] font-bold px-2.5 py-1 rounded-md shadow-xs">
-            🔒 Clique no ✏️ para editar qualquer mensagem no balão!
+      <div className="relative flex-1 bg-[radial-gradient(circle_at_20%_10%,#d5ddd8_0%,#d5e5dc_40%,#dbeef0_100%)] dark:bg-[#0b141a] p-3.5 overflow-y-auto space-y-3 text-xs">
+        <div className="text-center my-1 space-y-1">
+          <span className="inline-block bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-[9px] font-bold px-2.5 py-1 rounded-full shadow-xs border border-emerald-200 dark:border-emerald-500/30">
+            🔒 Dica: clique no ✏️ para editar o balão.
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-[9px] text-slate-600 dark:text-slate-300 px-1 pb-1">
-          <span className="whitespace-nowrap">Largura da caixinha:</span>
-          <input
-            type="range"
-            min={70}
-            max={100}
-            value={bubbleMaxWidthPercent}
-            onChange={(e) => setBubbleMaxWidthPercent(Number(e.target.value))}
-            className="w-full h-1.5 accent-emerald-600"
-          />
-          <span className="w-10 text-right font-bold">{bubbleMaxWidthPercent}%</span>
+        <div className="rounded-xl border border-emerald-100/80 dark:border-white/10 bg-white/70 dark:bg-slate-800/50 p-2 space-y-1.5 shadow-sm">
+          <div className="text-[9px] font-bold text-slate-600 dark:text-slate-200 flex items-center justify-between gap-2">
+            <span className="text-[8px] uppercase tracking-[0.18em]">Configuração de visual</span>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+              showUserNumbers
+                ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-200"
+                : "bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200"
+            }`}>
+              {showUserNumbers ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+              <span>{showUserNumbers ? "Número do usuário visível" : "Número oculto"}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[9px] text-slate-600 dark:text-slate-300">
+            <span className="whitespace-nowrap font-bold">Largura das caixas:</span>
+            <input
+              type="range"
+              min={70}
+              max={100}
+              value={bubbleMaxWidthPercent}
+              onChange={(e) => setBubbleMaxWidthPercent(Number(e.target.value))}
+              className="w-full h-1.5 accent-emerald-600"
+            />
+            <span className="w-11 text-right font-black">{bubbleMaxWidthPercent}%</span>
+          </div>
+          <label className="flex items-center justify-between gap-2 cursor-pointer text-[9px] text-slate-700 dark:text-slate-200">
+            <span className="font-bold">Mostrar número do usuário</span>
+            <input
+              type="checkbox"
+              checked={showUserNumbers}
+              onChange={(e) => setShowUserNumbers(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300 accent-emerald-600"
+            />
+          </label>
         </div>
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex flex-col group relative ${msg.sender === "user" ? "items-end" : "items-start"}`}
-          >
+        {messages.map((msg) => {
+          const userMeta = msg.sender === "user" ? (showUserNumbers ? `Você • ${simulatedUserNumber}` : "Você") : settings?.ai_name || "Nexus Bot";
+          return (
             <div
-              className={`rounded-2xl px-3.5 py-2.5 shadow-sm space-y-2 relative transition-all ${
-                msg.sender === "user"
-                  ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-none"
-                  : "bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-none"
-              }`}
-              style={{ maxWidth: `${bubbleMaxWidthPercent}%` }}
+              key={msg.id}
+              className={`flex flex-col group relative ${msg.sender === "user" ? "items-end" : "items-start"}`}
             >
-              {/* BOTÃO DE EDIÇÃO DIRETO NO BALÃO */}
-              {msg.sender === "bot" && editingMessageId !== msg.id && (
-                <button
-                  onClick={() => startEditMessage(msg)}
-                  className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 bg-emerald-600 text-white p-1 rounded-full shadow-md hover:scale-110 transition-all z-20"
-                  title="Editar este texto diretamente no balão"
-                >
-                  <Edit3 className="w-3 h-3" />
-                </button>
-              )}
-
-              {/* MODO EDIÇÃO DO BALÃO */}
-              {editingMessageId === msg.id ? (
-                <div className="space-y-1.5 w-full min-w-[200px]">
-                  <textarea
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    rows={6}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500 rounded-xl p-2 text-[11px] text-slate-900 dark:text-white font-medium focus:outline-none leading-relaxed resize overflow-auto"
-                  />
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setEditingMessageId(null)}
-                      className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => saveEditMessage(msg)}
-                      className="px-2.5 py-0.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm"
-                    >
-                      <Check className="w-3 h-3" /> Salvar
-                    </button>
-                  </div>
+              <div
+                className={`rounded-2xl px-3.5 py-2.5 shadow-sm space-y-2 relative transition-all ${
+                  msg.sender === "user"
+                    ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-none"
+                    : "bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-none"
+                }`}
+                style={{ maxWidth: `${bubbleMaxWidthPercent}%` }}
+              >
+                <div className={`text-[8px] font-bold uppercase tracking-[0.12em] ${
+                  msg.sender === "user" ? "text-emerald-900/75 dark:text-emerald-100/85" : "text-slate-500 dark:text-slate-300"
+                }`}>
+                  {userMeta}
                 </div>
-              ) : (
-                <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-medium">
-                  {renderTextWithLinks(msg.text)}
-                </div>
-              )}
 
-              {/* LISTA DE PRODUTOS SE FOR AÇÃO DE CATÁLOGO */}
-              {msg.products && msg.products.length > 0 && (
-                <div className="space-y-1.5 pt-1 border-t border-slate-200/60 dark:border-white/10">
-                  {msg.products.map((prod: any, pIdx: number) => (
-                    <div
-                      key={pIdx}
-                      onClick={() => processUserInput(String(pIdx + 1))}
-                      className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:border-emerald-500 transition-all flex items-center justify-between text-[10px]"
-                    >
-                      <div className="truncate pr-2 font-bold text-slate-900 dark:text-white">
-                        {pIdx + 1}. {prod.name}
-                      </div>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                         R$ {formatProductPrice(prod.price)}
-                      </span>
+                {/* BOTÃO DE EDIÇÃO DIRETO NO BALÃO */}
+                {msg.sender === "bot" && editingMessageId !== msg.id && (
+                  <button
+                    onClick={() => startEditMessage(msg)}
+                    className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 bg-emerald-600 text-white p-1 rounded-full shadow-md hover:scale-110 transition-all z-20"
+                    title="Editar este texto diretamente no balão"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </button>
+                )}
+
+                {/* MODO EDIÇÃO DO BALÃO */}
+                {editingMessageId === msg.id ? (
+                  <div className="space-y-1.5 w-full min-w-[200px]">
+                    <textarea
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      rows={6}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-500 rounded-xl p-2 text-[11px] text-slate-900 dark:text-white font-medium focus:outline-none leading-relaxed resize overflow-auto"
+                    />
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setEditingMessageId(null)}
+                        className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => saveEditMessage(msg)}
+                        className="px-2.5 py-0.5 bg-emerald-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm"
+                      >
+                        <Check className="w-3 h-3" /> Salvar
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap leading-relaxed text-[11px] font-medium">
+                    {renderTextWithLinks(msg.text)}
+                  </div>
+                )}
 
-              {/* BOTOES PÍLULAS DE OPÇÃO RÁPIDA */}
-              {msg.buttons && msg.buttons.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60 dark:border-white/10">
-                  {msg.buttons.map((btn, bIdx) => (
-                    <button
-                      key={bIdx}
-                      onClick={() => processUserInput(btn.value)}
-                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1"
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {/* LISTA DE PRODUTOS SE FOR AÇÃO DE CATÁLOGO */}
+                {msg.products && msg.products.length > 0 && (
+                  <div className="space-y-1.5 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                    {msg.products.map((prod: any, pIdx: number) => (
+                      <div
+                        key={pIdx}
+                        onClick={() => processUserInput(String(pIdx + 1))}
+                        className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:border-emerald-500 transition-all flex items-center justify-between text-[10px]"
+                      >
+                        <div className="truncate pr-2 font-bold text-slate-900 dark:text-white">
+                          {pIdx + 1}. {prod.name}
+                        </div>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                           R$ {formatProductPrice(prod.price)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400">
-                <span>{msg.timestamp}</span>
-                {msg.sender === "user" && <CheckCheck className="w-3 h-3 text-sky-500" />}
+                {/* BOTOES PÍLULAS DE OPÇÃO RÁPIDA */}
+                {msg.buttons && msg.buttons.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                    {msg.buttons.map((btn, bIdx) => (
+                      <button
+                        key={bIdx}
+                        onClick={() => processUserInput(btn.value)}
+                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-xl text-[10px] font-bold transition-all border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400">
+                  <span>{msg.timestamp}</span>
+                  {msg.sender === "user" && <CheckCheck className="w-3 h-3 text-sky-500" />}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {isTyping && (
           <div className="flex items-start">
