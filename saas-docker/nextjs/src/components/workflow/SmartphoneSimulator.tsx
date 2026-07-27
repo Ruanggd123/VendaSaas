@@ -509,8 +509,8 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return null;
   };
 
-  const simulatorMenuFingerprint = JSON.stringify(
-    ensureArray(settings?.custom_rules_nodes)
+  const simulatorMenuFingerprint = JSON.stringify({
+    nodes: ensureArray(settings?.custom_rules_nodes)
       .filter((n: any) => !n?.parentId)
       .map((n: any) => ({
         id: n?.id,
@@ -521,12 +521,10 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
         productName: normalizeTextValue(n?.productName),
         productId: normalizeTextValue(n?.productId),
         paymentMode: normalizeTextValue(n?.paymentMode),
-      }))
-      .concat([
-        normalizeTextValue(settings?.welcome_message),
-        String(settings?.welcome_menu_auto_append ?? true),
-      ]),
-  );
+      })),
+    welcome: normalizeTextValue(settings?.welcome_message),
+    autoAppend: String(settings?.welcome_menu_auto_append ?? true),
+  });
 
   const getCatalogDisplayPrice = (product: any): string => {
     if (!product) return "";

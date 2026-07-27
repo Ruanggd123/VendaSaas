@@ -11,6 +11,10 @@ type CheckoutMessageArgs = {
   product: MessageProduct;
   address: string;
   checkoutLink?: string;
+  paymentMode?: "pix" | "link" | "both";
+  pixQrCodeUrl?: string;
+  pixCopiaECola?: string;
+  paymentMethod?: string;
 };
 
 function parseProductPrice(value: unknown): number {
@@ -103,7 +107,36 @@ export const botMessageTemplates = {
       const name = args.product?.name || "Produto";
       const value = formatMoney(args.product?.price);
       const address = args.address;
-      return `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}\n📍 *Entrega:* ${address}\n\n🔗 *Acesse o link para concluir a compra:* ${args.checkoutLink || ""}\n\nApós a aprovação, o pedido será liberado automaticamente! 🚀`;
+      const paymentMode = args.paymentMode || (args.checkoutLink ? "link" : "pix");
+
+      let paymentLine = "";
+      const hasPixCopy = (args.pixCopiaECola || "").trim().length > 0;
+      const hasPixQr = (args.pixQrCodeUrl || "").trim().length > 0;
+      const hasCheckoutLink = (args.checkoutLink || "").trim().length > 0;
+
+      if (paymentMode === "pix") {
+        paymentLine = hasPixCopy
+          ? `\n🔑 *Pix Copia e Cola:*\n\n\`${args.pixCopiaECola}\``
+          : "";
+      } else if (paymentMode === "link") {
+        paymentLine = `\n🔗 *Acesse o link para concluir a compra:* ${args.checkoutLink || ""}`;
+      } else {
+        paymentLine = "";
+        if (hasCheckoutLink) {
+          paymentLine += `\n🔗 *Acesse o link para concluir a compra:* ${args.checkoutLink}`;
+        }
+
+        if (hasPixCopy) {
+          paymentLine += `\n\n🔑 *Pix Copia e Cola:*\n\n\`${args.pixCopiaECola}\``;
+        }
+      }
+
+      const qrHint = hasPixQr ? "\n\n📷 Se preferir, use o QR Code no app do seu banco." : "";
+      const methodHint = args.paymentMethod
+        ? `\n\n💳 *Forma atual:* ${args.paymentMethod}`
+        : "";
+
+      return `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}\n📍 *Entrega:* ${address}${methodHint}${qrHint}${paymentLine}\n\nApós a aprovação, o pedido será liberado automaticamente! 🚀`;
     },
 
     withoutPayment: (args: CheckoutMessageArgs) => {
