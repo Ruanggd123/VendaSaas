@@ -771,6 +771,7 @@ export async function processMessageWithRules(
           state.step = "catalog_select_product";
           state.data._productNodes = productNodes.map((n: any) => n.id);
           await saveState(state);
+          return response;
         } else {
           // Fallback: show all products from settings (original behavior)
           const productsList = settings.products || [];
@@ -787,8 +788,10 @@ export async function processMessageWithRules(
             response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
             state.step = "catalog_select_product";
             await saveState(state);
+            return response;
           }
         }
+        return response;
       }
       else if (matchedNode.actionType === "scheduling") {
         const servicesList = getSchedulableProducts(settings.products || []);
