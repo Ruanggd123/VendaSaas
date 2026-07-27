@@ -40,6 +40,7 @@ interface CheckoutDeliveryState {
   product: any;
   paymentMode: string;
   deliveryType: "both" | "delivery";
+  sourceNodeId?: string | null;
   deadline?: string;
   addressLabel?: string;
 }
@@ -159,6 +160,15 @@ const buildNoPaymentMessage = (product: any, addressLabel = botMessageTemplates.
     product,
     address: addressLabel,
   });
+
+function appendNodeCustomText(node: any, generatedText: string): string {
+  const customText = normalizeTextValue(node?.textContent).trim();
+  if (!customText) {
+    return generatedText;
+  }
+
+  return `${customText}\n\n${generatedText}`;
+}
 
 function formatCheckoutPrice(value: unknown): string {
   const parsed = parseProductPrice(value);
@@ -556,7 +566,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const buildCheckoutFlow = (
     product: any,
     _paymentMode: string,
-    _originNode: any,
+    originNode: any,
     addressLabel: string = botMessageTemplates.labels.digitalImmediate()
     ) => {
     if (!product) {
@@ -568,7 +578,10 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     if (!isPaymentRequired(product)) {
       return {
-        text: buildNoPaymentMessage(product, addressLabel),
+        text: appendNodeCustomText(
+          originNode,
+          buildNoPaymentMessage(product, addressLabel)
+        ),
         buttons: [{ label: "🏠 Menu Principal", value: "0" }],
       };
     }
@@ -577,11 +590,14 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name || "")}&order=simulador`;
 
     return {
-      text: botMessageTemplates.checkout.withPayment({
-        product,
-        address: addressLabel,
-        checkoutLink,
-      }),
+      text: appendNodeCustomText(
+        originNode,
+        botMessageTemplates.checkout.withPayment({
+          product,
+          address: addressLabel,
+          checkoutLink,
+        })
+      ),
       buttons: [
         { label: "💳 Acessar Site de Checkout", value: `open_link_${checkoutLink}` },
         { label: "🏠 Menu Principal", value: "0" },
@@ -963,7 +979,7 @@ Seu agendamento foi registrado no simulador.`;
               const checkoutFlow = buildCheckoutFlow(
                 selectedProduct,
                 currentCheckoutState.paymentMode,
-                null,
+                allNodes.find((n: any) => n.id === currentCheckoutState.sourceNodeId),
                 addressLabel
               );
 
@@ -995,7 +1011,7 @@ Seu agendamento foi registrado no simulador.`;
                 const checkoutFlow = buildCheckoutFlow(
                   selectedProduct,
                   currentCheckoutState.paymentMode,
-                  null,
+                  allNodes.find((n: any) => n.id === currentCheckoutState.sourceNodeId),
                   addressLabel
                 );
 
@@ -1023,7 +1039,7 @@ Seu agendamento foi registrado no simulador.`;
               const checkoutFlow = buildCheckoutFlow(
                 selectedProduct,
                 currentCheckoutState.paymentMode,
-                null,
+                allNodes.find((n: any) => n.id === currentCheckoutState.sourceNodeId),
                 botMessageTemplates.labels.pickup()
               );
 
@@ -1113,17 +1129,18 @@ Seu agendamento foi registrado no simulador.`;
                   botButtons = buildDateButtons(dates);
                   botButtons.push({ label: "🏠 Voltar", value: "0" });
                 }
-              } else {
-                const deliveryType = getProductDeliveryType(productForCheckout);
+                } else {
+                  const deliveryType = getProductDeliveryType(productForCheckout);
 
-                if (deliveryType === "both" || (deliveryType !== "virtual_instant" && deliveryType !== "virtual_deadline" && deliveryType !== "service")) {
-                  setCheckoutDeliveryState({
-                    phase: "chooseDeliveryMethod",
-                    product: productForCheckout,
-                    paymentMode,
-                    deliveryType: deliveryType === "both" ? "both" : "delivery",
-                    deadline: productForCheckout.delivery_deadline || "imediato",
-                  });
+                  if (deliveryType === "both" || (deliveryType !== "virtual_instant" && deliveryType !== "virtual_deadline" && deliveryType !== "service")) {
+                    setCheckoutDeliveryState({
+                      phase: "chooseDeliveryMethod",
+                      product: productForCheckout,
+                      paymentMode,
+                      deliveryType: deliveryType === "both" ? "both" : "delivery",
+                      sourceNodeId: customSubNode?.id || null,
+                      deadline: productForCheckout.delivery_deadline || "imediato",
+                    });
 
                   setInCatalogView(false);
                   setSchedulingState(null);

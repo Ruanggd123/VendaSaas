@@ -91,6 +91,16 @@ function findProductByRef(products: any[], productRef: any): ProductLike | null 
   return null;
 }
 
+function appendNodeCheckoutText(customText: unknown, message: string): string {
+  const customMessage = String(customText || "").trim();
+
+  if (!customMessage) {
+    return message;
+  }
+
+  return `${String(customText).trim()}\n\n${message}`;
+}
+
 function resolveProductFromNode(products: any[], node: any): ProductLike | null {
   if (!node) return null;
   return findProductByRef(products, node.productId)
@@ -428,16 +438,37 @@ export async function processMessageWithRules(
     const deliveryType = chosenService.delivery_type || "virtual_instant";
     const deadline = chosenService.delivery_deadline || "imediato";
     
-    state.data = { chosenService };
+    state.data = {
+      chosenService,
+      chosenNodeText: null,
+    };
 
     if (deliveryType === "virtual_instant") {
       const addr = botMessageTemplates.labels.digitalImmediate();
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
+      return await processarFinalizacaoPedidoRulesBot(
+        tenantId,
+        contactNumber,
+        chosenService,
+        addr,
+        settings,
+        stateKey,
+        state.data.collected,
+        state.data.chosenNodeText
+      );
     } else if (deliveryType === "virtual_deadline") {
       const addr = botMessageTemplates.labels.bothDigital(deadline);
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
+      return await processarFinalizacaoPedidoRulesBot(
+        tenantId,
+        contactNumber,
+        chosenService,
+        addr,
+        settings,
+        stateKey,
+        state.data.collected,
+        state.data.chosenNodeText
+      );
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
       await saveState(state);
@@ -467,7 +498,16 @@ export async function processMessageWithRules(
     if (cleanText === "1") {
       const addr = botMessageTemplates.labels.bothDigital(deadline);
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosenService, addr, settings, stateKey, state.data.collected);
+      return await processarFinalizacaoPedidoRulesBot(
+        tenantId,
+        contactNumber,
+        chosenService,
+        addr,
+        settings,
+        stateKey,
+        state.data.collected,
+        state.data.chosenNodeText
+      );
     } else {
       state.step = "catalog_input_address";
       await saveState(state);
@@ -493,7 +533,16 @@ export async function processMessageWithRules(
     } else {
       const addr = botMessageTemplates.labels.pickup();
       state.data.address = addr;
-      return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, addr, settings, stateKey, state.data.collected);
+      return await processarFinalizacaoPedidoRulesBot(
+        tenantId,
+        contactNumber,
+        state.data.chosenService,
+        addr,
+        settings,
+        stateKey,
+        state.data.collected,
+        state.data.chosenNodeText
+      );
     }
   }
 
@@ -504,7 +553,16 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
     const address = userMessage.trim();
-    return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, state.data.chosenService, address, settings, stateKey, state.data.collected);
+    return await processarFinalizacaoPedidoRulesBot(
+      tenantId,
+      contactNumber,
+      state.data.chosenService,
+      address,
+      settings,
+      stateKey,
+      state.data.collected,
+      state.data.chosenNodeText
+    );
   }
 
   // Handle Scheduling steps
@@ -889,21 +947,43 @@ export async function processMessageWithRules(
 
         // Para outros tipos, inicia fluxo de compra
         state.step = "catalog_select_product";
-        state.data = { chosenService: chosen, collected: collectedData };
+        state.data = {
+          chosenService: chosen,
+          collected: collectedData,
+          chosenNodeText: matchedNode.textContent,
+        };
         
         const deliveryType = chosen.delivery_type || "virtual_instant";
         const deadline = chosen.delivery_deadline || "imediato";
-        
+
         if (deliveryType === "virtual_instant") {
           const addr = botMessageTemplates.labels.digitalImmediate();
           state.data.address = addr;
           await saveState(state);
-          return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
+          return await processarFinalizacaoPedidoRulesBot(
+            tenantId,
+            contactNumber,
+            chosen,
+            addr,
+            settings,
+            stateKey,
+            collectedData,
+            matchedNode.textContent
+          );
         } else if (deliveryType === "virtual_deadline") {
           const addr = botMessageTemplates.labels.bothDigital(deadline);
           state.data.address = addr;
           await saveState(state);
-          return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, collectedData);
+          return await processarFinalizacaoPedidoRulesBot(
+            tenantId,
+            contactNumber,
+            chosen,
+            addr,
+            settings,
+            stateKey,
+            collectedData,
+            matchedNode.textContent
+          );
         } else if (deliveryType === "both") {
           state.step = "catalog_select_both_methods";
           await saveState(state);
@@ -913,8 +993,7 @@ export async function processMessageWithRules(
           await saveState(state);
           return botMessageTemplates.catalog.deliveryOrPickup(chosen);
         }
-      }
-      else {
+      } else {
         // default text / submenu Presentation text
         response = matchedNode.textContent || "";
       }
@@ -963,7 +1042,10 @@ export async function processMessageWithRules(
       // Para outros tipos, inicia fluxo de compra
       const collectedData = state.data.collected || {};
       state.step = "catalog_select_product";
-      state.data = { collected: collectedData };
+      state.data = {
+        collected: collectedData,
+        chosenNodeText: null,
+      };
       await saveState(state);
       // Redireciona simulando que entrou no catálogo
       const deliveryType = chosen.delivery_type || "virtual_instant";
@@ -972,11 +1054,29 @@ export async function processMessageWithRules(
       if (deliveryType === "virtual_instant") {
         const addr = botMessageTemplates.labels.digitalImmediate();
         state.data.address = addr;
-        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId,
+          contactNumber,
+          chosen,
+          addr,
+          settings,
+          stateKey,
+          state.data.collected,
+          state.data.chosenNodeText
+        );
       } else if (deliveryType === "virtual_deadline") {
         const addr = botMessageTemplates.labels.bothDigital(deadline);
         state.data.address = addr;
-        return await processarFinalizacaoPedidoRulesBot(tenantId, contactNumber, chosen, addr, settings, stateKey, state.data.collected);
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId,
+          contactNumber,
+          chosen,
+          addr,
+          settings,
+          stateKey,
+          state.data.collected,
+          state.data.chosenNodeText
+        );
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
         await saveState(state);
@@ -1311,7 +1411,8 @@ async function processarFinalizacaoPedidoRulesBot(
   address: string,
   settings: any,
   stateKey: string,
-  collectedData: any = null
+  collectedData: any = null,
+  originNodeText?: string
 ): Promise<string> {
   try {
     let extraNotes = "";
@@ -1347,11 +1448,14 @@ async function processarFinalizacaoPedidoRulesBot(
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-        return botMessageTemplates.checkout.withPayment({
+      return appendNodeCheckoutText(
+        originNodeText,
+        botMessageTemplates.checkout.withPayment({
           product: chosenService,
           address,
           checkoutLink: checkoutUrl,
-        });
+        })
+      );
 
     } else {
       await prisma.sale.create({
@@ -1367,10 +1471,13 @@ async function processarFinalizacaoPedidoRulesBot(
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-      return botMessageTemplates.checkout.withoutPayment({
-        product: chosenService,
-        address,
-      });
+      return appendNodeCheckoutText(
+        originNodeText,
+        botMessageTemplates.checkout.withoutPayment({
+          product: chosenService,
+          address,
+        })
+      );
     }
   } catch (err: any) {
     console.error("Erro finalizar pedido rulesBot:", err);
