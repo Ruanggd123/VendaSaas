@@ -1,8 +1,30 @@
 import Redis from "ioredis";
 import { PrismaClient } from "@prisma/client";
 import { botMessageTemplates } from "./botMessageTemplates";
+import { createCustomer, createPayment } from "@/lib/asaas";
 
 const prisma = new PrismaClient();
+
+function generateCPF(): string {
+  const n = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const n9 = Array.from({ length: 9 }, () => n(0, 9));
+  const d1 = n9.reduce((s, v, i) => s + v * (10 - i), 0) % 11;
+  const d1v = d1 < 2 ? 0 : 11 - d1;
+  const d2 = [...n9, d1v].reduce((s, v, i) => s + v * (11 - i), 0) % 11;
+  const d2v = d2 < 2 ? 0 : 11 - d2;
+  return [...n9, d1v, d2v].join('');
+}
+
+function cleanDescription(str: string): string {
+  if (!str) return "Pagamento";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100) || "Pagamento";
+}
 
 type ProductLike = {
   id?: any;
@@ -190,6 +212,16 @@ export async function processMessageWithRules(
     }
   };
 
+  // Fetch contact name from conversation
+  let contactName = '';
+  try {
+    const conv = await prisma.conversation.findFirst({
+      where: { tenant_id: tenantId, contact_number: contactNumber },
+      select: { contact_name: true }
+    });
+    if (conv?.contact_name) contactName = conv.contact_name;
+  } catch {}
+
   const cleanText = userMessage
     .toLowerCase()
     .trim()
@@ -198,6 +230,47 @@ export async function processMessageWithRules(
     .replace(/[^\w\s]/g, "");
 
   const customNodes = settings.custom_rules_nodes || [];
+
+  // Handle name collection for checkout payment
+  if (state.step === "awaiting_checkout_name") {
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+    const nome = userMessage.trim();
+    if (nome.length < 2) return "Por favor, digite um nome válido:";
+    state.data.name = nome;
+    if (state.data._needsEmail) {
+      state.step = "awaiting_checkout_email";
+      await saveState(state);
+      return "Qual o seu *melhor email* para enviarmos a confirmação do pagamento?";
+    }
+    return await processarFinalizacaoPedidoRulesBot(
+      tenantId, contactNumber, state.data.chosenService,
+      state.data.address, settings, stateKey,
+      { ...state.data.collected, name: nome },
+      state.data.originNodeText, nome
+    );
+  }
+
+  if (state.step === "awaiting_checkout_email") {
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+    const email = userMessage.trim().toLowerCase();
+    if (!email.includes("@") || !email.includes(".")) return "Por favor, digite um email válido (ex: nome@email.com):";
+    state.data.email = email;
+    const nome = state.data.name || contactName;
+    return await processarFinalizacaoPedidoRulesBot(
+      tenantId, contactNumber, state.data.chosenService,
+      state.data.address, settings, stateKey,
+      { ...state.data.collected, name: nome, email },
+      state.data.originNodeText, nome
+    );
+  }
 
   // Check for pending debt / unpaid sale for this customer
   const phoneDigits = contactNumber.replace(/\D/g, "");
@@ -454,7 +527,8 @@ export async function processMessageWithRules(
         settings,
         stateKey,
         state.data.collected,
-        state.data.chosenNodeText
+        state.data.chosenNodeText,
+        contactName
       );
     } else if (deliveryType === "virtual_deadline") {
       const addr = botMessageTemplates.labels.bothDigital(deadline);
@@ -467,7 +541,8 @@ export async function processMessageWithRules(
         settings,
         stateKey,
         state.data.collected,
-        state.data.chosenNodeText
+        state.data.chosenNodeText,
+        contactName
       );
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
@@ -506,7 +581,8 @@ export async function processMessageWithRules(
         settings,
         stateKey,
         state.data.collected,
-        state.data.chosenNodeText
+        state.data.chosenNodeText,
+        contactName
       );
     } else {
       state.step = "catalog_input_address";
@@ -541,7 +617,8 @@ export async function processMessageWithRules(
         settings,
         stateKey,
         state.data.collected,
-        state.data.chosenNodeText
+        state.data.chosenNodeText,
+        contactName
       );
     }
   }
@@ -561,7 +638,8 @@ export async function processMessageWithRules(
       settings,
       stateKey,
       state.data.collected,
-      state.data.chosenNodeText
+      state.data.chosenNodeText,
+      contactName
     );
   }
 
@@ -968,7 +1046,8 @@ export async function processMessageWithRules(
             settings,
             stateKey,
             collectedData,
-            matchedNode.textContent
+            matchedNode.textContent,
+            contactName
           );
         } else if (deliveryType === "virtual_deadline") {
           const addr = botMessageTemplates.labels.bothDigital(deadline);
@@ -982,7 +1061,8 @@ export async function processMessageWithRules(
             settings,
             stateKey,
             collectedData,
-            matchedNode.textContent
+            matchedNode.textContent,
+            contactName
           );
         } else if (deliveryType === "both") {
           state.step = "catalog_select_both_methods";
@@ -1062,7 +1142,8 @@ export async function processMessageWithRules(
           settings,
           stateKey,
           state.data.collected,
-          state.data.chosenNodeText
+          state.data.chosenNodeText,
+          contactName
         );
       } else if (deliveryType === "virtual_deadline") {
         const addr = botMessageTemplates.labels.bothDigital(deadline);
@@ -1075,7 +1156,8 @@ export async function processMessageWithRules(
           settings,
           stateKey,
           state.data.collected,
-          state.data.chosenNodeText
+          state.data.chosenNodeText,
+          contactName
         );
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
@@ -1412,7 +1494,8 @@ async function processarFinalizacaoPedidoRulesBot(
   settings: any,
   stateKey: string,
   collectedData: any = null,
-  originNodeText?: string
+  originNodeText?: string,
+  contactName?: string
 ): Promise<string> {
   try {
     let extraNotes = "";
@@ -1441,10 +1524,132 @@ async function processarFinalizacaoPedidoRulesBot(
     const requiresPayment = chosenService.requires_payment !== false && chosenService.requires_payment !== "false";
 
     if (requiresPayment) {
-      const productName = encodeURIComponent(chosenService.name);
+      const billingType = (chosenService.billing_type || 'PIX').toUpperCase();
+      const customerName = collectedData?.name || contactName || '';
+      const customerEmail = collectedData?.email || '';
+      const cleanDigits = contactNumber.replace(/\D/g, "");
+
+      // Get Asaas key from settings
+      const asaasKey = settings.asaas_api_key
+        || settings.asaasApiKey
+        || settings.asaas_test_api_key
+        || settings.asaasTestApiKey
+        || settings.asaas_environment_key;
+
+      // PIX direct flow: create payment via Asaas and send PIX data in WhatsApp
+      if (billingType === 'PIX' && asaasKey) {
+        // If missing name, ask for it
+        if (!customerName) {
+          const stateData: any = {
+            step: "awaiting_checkout_name",
+            data: {
+              chosenService,
+              address,
+              collected: collectedData || {},
+              originNodeText,
+              _needsEmail: true,
+            }
+          };
+          await prisma.systemConfig.upsert({
+            where: { key: stateKey },
+            update: { value: JSON.stringify(stateData) },
+            create: { key: stateKey, value: JSON.stringify(stateData) }
+          });
+          return appendNodeCheckoutText(originNodeText, "Para gerar o pagamento via PIX, preciso do seu *nome completo*:");
+        }
+
+        // If missing email, ask for it
+        if (!customerEmail) {
+          const stateData: any = {
+            step: "awaiting_checkout_email",
+            data: {
+              chosenService,
+              address,
+              collected: { ...(collectedData || {}), name: customerName },
+              originNodeText,
+              name: customerName,
+            }
+          };
+          await prisma.systemConfig.upsert({
+            where: { key: stateKey },
+            update: { value: JSON.stringify(stateData) },
+            create: { key: stateKey, value: JSON.stringify(stateData) }
+          });
+          return appendNodeCheckoutText(originNodeText, "Qual o seu *melhor email* para enviarmos a confirmação do pagamento?");
+        }
+
+        try {
+          const isProdKey = asaasKey.startsWith("$") || asaasKey.startsWith("ak_") || settings.asaas_mode === 'production';
+          const asaasUrl = isProdKey ? 'https://asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
+
+          const customer = await createCustomer({
+            name: customerName,
+            email: customerEmail,
+            phone: contactNumber,
+            cpfCnpj: generateCPF(),
+          }, asaasKey, asaasUrl);
+
+          if (!customer.id) {
+            const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway';
+            throw new Error(errMsg);
+          }
+
+          const pay = await createPayment({
+            customer: customer.id,
+            billingType: 'PIX',
+            value: parseFloat(chosenService.price),
+            dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+            description: cleanDescription(chosenService.name),
+            externalReference: `${tenantId}_${order.id}`,
+          }, asaasKey, asaasUrl);
+
+          if (!pay.id) {
+            const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar pagamento PIX';
+            throw new Error(errMsg);
+          }
+
+          // Create sale record
+          const sale = await prisma.sale.create({
+            data: {
+              tenant_id: tenantId,
+              product_name: chosenService.name,
+              amount: parseFloat(chosenService.price),
+              status: "pending",
+              payment_link: pay.invoiceUrl || pay.pixQrCodeUrl || '',
+              payment_id: pay.id,
+              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pay.pixQrCodeUrl || ''} | pix_key:${pay.pixCopiaECola || ''}${extraNotes}`,
+              due_date: new Date(Date.now() + 7 * 86400000),
+              retail_order_id: order.id,
+            }
+          });
+
+          await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+
+          const pixCopy = pay.pixCopiaECola || '';
+          const pixQr = pay.pixQrCodeUrl || '';
+          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n💳 *Pagamento via PIX*`;
+
+          if (pixCopy) msg += `\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\``;
+          if (pixQr) msg += `\n\n📷 Se preferir, use o QR Code no app do seu banco: ${pixQr}`;
+
+          msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
+
+          return appendNodeCheckoutText(originNodeText, msg);
+
+        } catch (e: any) {
+          console.error("Erro ao criar pagamento PIX direto:", e);
+          // Fallback to checkout link
+        }
+      }
+
+      // CREDIT_CARD or fallback: redirect to checkout with pre-filled data
+      const productNameEnc = encodeURIComponent(chosenService.name);
       const { getAppBaseUrl } = await import("@/lib/auth");
       const baseUrl = getAppBaseUrl();
-      const checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productName}&order=${order.id}`;
+      let checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productNameEnc}&order=${order.id}`;
+      if (customerName) checkoutUrl += `&name=${encodeURIComponent(customerName)}`;
+      if (cleanDigits) checkoutUrl += `&phone=${encodeURIComponent(contactNumber)}`;
+      if (customerEmail) checkoutUrl += `&email=${encodeURIComponent(customerEmail)}`;
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
@@ -1454,6 +1659,7 @@ async function processarFinalizacaoPedidoRulesBot(
           product: chosenService,
           address,
           checkoutLink: checkoutUrl,
+          paymentMode: "link",
         })
       );
 

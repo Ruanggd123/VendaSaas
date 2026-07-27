@@ -144,8 +144,12 @@ export default function CheckoutPage() {
     const urlProduct = p.get('product');
     const urlPhone = p.get('phone');
     const urlOrder = p.get('order');
+    const urlName = p.get('name');
+    const urlEmail = p.get('email');
     if (urlRef) setRef(urlRef.toUpperCase());
     if (urlPhone) setForm(f => ({ ...f, phone: decodeURIComponent(urlPhone) }));
+    if (urlName) setForm(f => ({ ...f, name: decodeURIComponent(urlName) }));
+    if (urlEmail) setForm(f => ({ ...f, email: decodeURIComponent(urlEmail) }));
     if (urlOrder) setRetailOrderId(urlOrder);
 
     fetch(`/api/public/checkout/${tenantId}`)
