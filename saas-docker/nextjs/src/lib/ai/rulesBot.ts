@@ -548,7 +548,10 @@ export async function processMessageWithRules(
   }
 
   // Handle "atendente" transition natively
-  if (["atendente", "falar com atendente", "humano", "suporte", "chamar atendente"].includes(cleanText) || (cleanText === "4" && state.step === "main_menu")) {
+  const hasConfiguredOptionFour = customNodes.some((node: any) => !node.parentId && String(node.keyword || "").trim() === "4")
+    || (settings.products || []).length >= 4;
+  if (["atendente", "falar com atendente", "humano", "suporte", "chamar atendente"].includes(cleanText)
+    || (cleanText === "4" && state.step === "main_menu" && !hasConfiguredOptionFour)) {
     await prisma.conversation.updateMany({
       where: { tenant_id: tenantId, contact_number: contactNumber },
       data: { ai_paused: true }
@@ -1076,10 +1079,16 @@ export async function processMessageWithRules(
 
   // Match keyword in the active level
   if (activeLevelNodes.length > 0) {
-    const matchedNode = activeLevelNodes.find((node: any) => {
+    const exactMatchedNode = activeLevelNodes.find((node: any) => {
       const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return cleanText === cleanKeyword || cleanText.includes(cleanKeyword);
+      return cleanText === cleanKeyword;
     });
+    const matchedNode = exactMatchedNode || [...activeLevelNodes]
+      .sort((left: any, right: any) => String(right.keyword || "").length - String(left.keyword || "").length)
+      .find((node: any) => {
+        const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return Boolean(cleanKeyword) && cleanText.includes(cleanKeyword);
+      });
 
     if (matchedNode) {
       const hasChildren = customNodes.some((n: any) => n.parentId === matchedNode.id);

@@ -884,15 +884,25 @@ export default function WorkflowPage() {
                     </div>
 
                     {selectedNode.actionType === "collect_data" && (
-                      <div className="space-y-2 rounded-2xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-500/20 dark:bg-pink-500/10">
-                        <label className="block text-xs font-bold text-pink-800 dark:text-pink-300">Nome da informação salva</label>
+                      <div className="space-y-3 rounded-2xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-500/20 dark:bg-pink-500/10">
+                        <div>
+                          <p className="text-xs font-black text-pink-900 dark:text-pink-200">Como funciona esta pergunta?</p>
+                          <div className="mt-2 space-y-2 text-[10px] font-medium leading-relaxed text-pink-800 dark:text-pink-300">
+                            <p><strong>1.</strong> O bot envia a pergunta escrita no campo abaixo.</p>
+                            <p><strong>2.</strong> A próxima mensagem digitada pelo cliente é salva automaticamente.</p>
+                            <p><strong>3.</strong> Depois, o bot segue para a subetapa conectada. Se não houver subetapa, volta ao menu.</p>
+                          </div>
+                        </div>
+                        <label className="block text-xs font-bold text-pink-800 dark:text-pink-300">Identificador interno da resposta</label>
                         <input
                           value={selectedNode.variableName || ""}
                           onChange={(e) => setSelectedNodeField("variableName", e.target.value.replace(/[^a-zA-Z0-9_]/g, "_"))}
                           placeholder="Ex: nome, email, cidade"
                           className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-pink-500 dark:border-pink-500/20 dark:bg-slate-950"
                         />
-                        <p className="text-[10px] text-pink-700/80 dark:text-pink-300/80">A resposta do cliente fica disponível para as próximas etapas e para o pedido.</p>
+                        <div className="rounded-xl border border-pink-200/80 bg-white/70 p-2.5 text-[10px] text-pink-800 dark:border-pink-500/20 dark:bg-slate-950/50 dark:text-pink-300">
+                          Exemplo: pergunta <strong>“Qual tamanho você deseja?”</strong>, identificador <code className="rounded bg-pink-100 px-1 dark:bg-pink-500/20">tamanho</code>, resposta do cliente <strong>“M”</strong>. O pedido será salvo com <strong>tamanho = M</strong>.
+                        </div>
                       </div>
                     )}
 
