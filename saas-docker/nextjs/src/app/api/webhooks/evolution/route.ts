@@ -364,6 +364,20 @@ export async function POST(req: Request) {
             console.log(`[Webhook] Ignorando echo de IA para ${contactNumber}`);
             return NextResponse.json({ success: true, ignored: "Echo da IA" });
           }
+
+          // Fallback: compara com o conteúdo da última mensagem de saída gerada pela IA
+          const lastAiMsg = await prisma.message.findFirst({
+            where: {
+              conversation_id: conversation.id,
+              direction: "outbound",
+              ai_generated: true,
+            },
+            orderBy: { created_at: 'desc' }
+          });
+          if (lastAiMsg && lastAiMsg.content.trim() === msgContent.trim()) {
+            console.log(`[Webhook] Ignorando eco da IA (fromMe, conteúdo) para ${contactNumber}`);
+            return NextResponse.json({ success: true, ignored: "Echo da IA (conteúdo)" });
+          }
         }
 
         const botNumber = (body.sender || "").replace("@s.whatsapp.net", "");
@@ -474,12 +488,22 @@ export async function POST(req: Request) {
         } else {
           // Se o cliente enviou nova mensagem, reativa a IA automaticamente
           if (conversation.ai_paused) {
-            await prisma.conversation.updateMany({
-              where: { tenant_id: tenantId, contact_number: contactNumber },
-              data: { ai_paused: false }
+            // Só reativa se a última mensagem de saída foi gerada pela IA
+            // (se foi um humano que enviou, não interrompe o atendimento humano)
+            const lastOutbound = await prisma.message.findFirst({
+              where: { conversation_id: conversation.id, direction: "outbound" },
+              orderBy: { created_at: 'desc' }
             });
-            conversation.ai_paused = false;
-            console.log(`🔓 IA reativada automaticamente para ${contactNumber} (nova mensagem do cliente).`);
+            if (!lastOutbound || lastOutbound.ai_generated) {
+              await prisma.conversation.updateMany({
+                where: { tenant_id: tenantId, contact_number: contactNumber },
+                data: { ai_paused: false }
+              });
+              conversation.ai_paused = false;
+              console.log(`🔓 IA reativada automaticamente para ${contactNumber} (nova mensagem do cliente).`);
+            } else {
+              console.log(`🤚 IA permanece pausada para ${contactNumber}: humano está atendendo`);
+            }
           }
 
           // =========== ANTI-BOT-LOOP ===========
