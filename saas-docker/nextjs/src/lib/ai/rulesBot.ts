@@ -218,13 +218,25 @@ export async function processMessageWithRules(
     return "Isso é apenas uma demonstração do nosso bot de regras rápidas. Digite '1', '2' ou 'Sair do teste'.";
   }
 
-  const stateKey = `rulesbot_state_${tenantId}_${contactNumber}`;
+  const instanceScope = String(settings._instanceName || "default").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const stateKey = `rulesbot_state_${tenantId}_${instanceScope}_${contactNumber}`;
   
   // 1. Get current state from Database (SystemConfig)
   let rawState: string | null = null;
   try {
     const config = await prisma.systemConfig.findUnique({ where: { key: stateKey } });
     if (config) rawState = config.value;
+
+    // Preserve an in-progress conversation when a tenant has only one WhatsApp connection.
+    if (!config && instanceScope !== "default") {
+      const instanceCount = await prisma.whatsappInstance.count({ where: { tenant_id: tenantId } });
+      if (instanceCount === 1) {
+        const legacyConfig = await prisma.systemConfig.findUnique({
+          where: { key: `rulesbot_state_${tenantId}_${contactNumber}` },
+        });
+        if (legacyConfig) rawState = legacyConfig.value;
+      }
+    }
   } catch (e) {
     console.error("Erro ao buscar state do rulesBot no DB:", e);
   }

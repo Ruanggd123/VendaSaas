@@ -3,6 +3,14 @@ export interface WhatsAppOption {
   id: string;
 }
 
+export function ensureMinimumWhatsAppPollOptions(
+  options: WhatsAppOption[],
+  interactiveEnabled: boolean,
+) {
+  if (!interactiveEnabled || options.length !== 1 || options[0].id === "0") return options;
+  return [...options, { text: "Voltar", id: "0" }];
+}
+
 function normalizeForMatch(value: string) {
   return value
     .normalize("NFD")
@@ -25,11 +33,13 @@ export function formatWhatsAppOptionText(
   if (interactiveEnabled) {
     let insideOptionDetails = false;
     let backInstructionSeen = false;
+    const hasBackOption = normalizedLabels.some((label) => label === "voltar" || label === "menu principal");
     return cleanText
       .split("\n")
       .filter((line) => {
         const normalizedLine = normalizeForMatch(line);
         const isBackInstruction = normalizedLine.includes("digite 0") || normalizedLine.includes("voltar");
+        if (isBackInstruction && hasBackOption) return false;
         if (isBackInstruction) {
           if (backInstructionSeen) return false;
           backInstructionSeen = true;

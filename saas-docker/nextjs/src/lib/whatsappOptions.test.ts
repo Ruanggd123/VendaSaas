@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { formatWhatsAppOptionText } from "./whatsappOptions";
+import { ensureMinimumWhatsAppPollOptions, formatWhatsAppOptionText } from "./whatsappOptions";
 
 const options = [
   { text: "Catálogo", id: "1" },
@@ -54,6 +54,19 @@ assert.equal(
 assert.equal(
   formatWhatsAppOptionText(`${catalog}\n\nDigite *0* ou *voltar* para retornar ao menu principal.`, catalogOptions, true),
   "📋 *Nossos Serviços e Preços:*\n\nDigite *0* ou *voltar* para retornar ao menu principal.",
+);
+
+const checkoutOptions = ensureMinimumWhatsAppPollOptions(
+  [{ text: "Comprar agora", id: "1" }],
+  true,
+);
+assert.deepEqual(checkoutOptions, [
+  { text: "Comprar agora", id: "1" },
+  { text: "Voltar", id: "0" },
+]);
+assert.equal(
+  formatWhatsAppOptionText("Selecione uma opção abaixo:\n\n1 - Comprar agora\n\nDigite 0 ou voltar.", checkoutOptions, true),
+  "",
 );
 
 console.log("whatsappOptions tests passed");

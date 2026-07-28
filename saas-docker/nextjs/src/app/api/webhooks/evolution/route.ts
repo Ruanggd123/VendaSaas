@@ -4,16 +4,105 @@ import { getProfilePicture, sendWhatsAppMedia, sendWhatsAppMessage } from "@/lib
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { timingSafeEqual } from "crypto";
-import { formatWhatsAppOptionText } from "@/lib/whatsappOptions";
+import { createHash, timingSafeEqual } from "crypto";
+import { ensureMinimumWhatsAppPollOptions, formatWhatsAppOptionText } from "@/lib/whatsappOptions";
 
 const prisma = new PrismaClient();
 const webhookTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const outboundEchoCache = new Map<string, number>();
+const DEFAULT_INBOUND_DEBOUNCE_MS = 1200;
 export const dynamic = "force-dynamic";
 
 function outboundEchoKey(instanceName: string, contactNumber: string, content: string) {
   return `${instanceName}:${contactNumber}:${content.trim()}`;
+}
+
+function persistentOutboundEchoKey(instanceName: string, contactNumber: string, content: string) {
+  const digest = createHash("sha256")
+    .update(`${instanceName}:${contactNumber}:${content.trim()}`)
+    .digest("hex");
+  return `outbound_media_echo_${digest}`;
+}
+
+function conversationCoordinationKey(prefix: string, tenantId: string, instanceName: string, contactNumber: string) {
+  const digest = createHash("sha256")
+    .update(`${tenantId}:${instanceName}:${contactNumber}`)
+    .digest("hex");
+  return `${prefix}_${digest}`;
+}
+
+async function claimLatestInboundMessage(
+  tenantId: string,
+  instanceName: string,
+  contactNumber: string,
+  token: string,
+  debounceMs: number,
+) {
+  const key = conversationCoordinationKey("inbound_debounce", tenantId, instanceName, contactNumber);
+  await prisma.systemConfig.deleteMany({
+    where: {
+      key: { startsWith: "inbound_debounce_" },
+      updated_at: { lt: new Date(Date.now() - 5 * 60 * 1000) },
+    },
+  });
+  await prisma.systemConfig.upsert({
+    where: { key },
+    update: { value: token },
+    create: { key, value: token },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, debounceMs));
+  const claimed = await prisma.systemConfig.deleteMany({ where: { key, value: token } });
+  return claimed.count === 1;
+}
+
+async function acquireConversationProcessingLock(
+  tenantId: string,
+  instanceName: string,
+  contactNumber: string,
+  token: string,
+) {
+  const key = conversationCoordinationKey("inbound_processing", tenantId, instanceName, contactNumber);
+  await prisma.systemConfig.deleteMany({
+    where: { key, updated_at: { lt: new Date(Date.now() - 60 * 1000) } },
+  });
+  try {
+    await prisma.systemConfig.create({ data: { key, value: token } });
+    return key;
+  } catch (error) {
+    const existingLock = await prisma.systemConfig.findUnique({ where: { key }, select: { key: true } });
+    if (existingLock) return null;
+    throw error;
+  }
+}
+
+async function releaseConversationProcessingLock(key: string, token: string) {
+  await prisma.systemConfig.deleteMany({ where: { key, value: token } }).catch(() => undefined);
+}
+
+async function markPersistentOutboundEcho(instanceName: string, contactNumber: string, content: string) {
+  const key = persistentOutboundEchoKey(instanceName, contactNumber, content);
+  await prisma.systemConfig.deleteMany({
+    where: {
+      key: { startsWith: "outbound_media_echo_" },
+      updated_at: { lt: new Date(Date.now() - 5 * 60 * 1000) },
+    },
+  });
+  await prisma.systemConfig.upsert({
+    where: { key },
+    update: { value: String(Date.now() + 2 * 60 * 1000) },
+    create: { key, value: String(Date.now() + 2 * 60 * 1000) },
+  });
+  return key;
+}
+
+async function consumePersistentOutboundEcho(instanceName: string, contactNumber: string, content: string) {
+  const key = persistentOutboundEchoKey(instanceName, contactNumber, content);
+  const marker = await prisma.systemConfig.findUnique({ where: { key }, select: { value: true } });
+  if (!marker) return false;
+
+  const removed = await prisma.systemConfig.deleteMany({ where: { key } });
+  return removed.count === 1 && Number(marker.value) > Date.now();
 }
 
 function getIgnoredNumbers(raw: unknown) {
@@ -50,6 +139,22 @@ async function sendTrackedWhatsAppMessage(
   outboundEchoCache.set(key, now + 2 * 60 * 1000);
   const sent = await sendWhatsAppMessage(instanceName, contactNumber, content);
   if (!sent) outboundEchoCache.delete(key);
+  return sent;
+}
+
+async function sendTrackedWhatsAppMedia(
+  instanceName: string,
+  contactNumber: string,
+  mediaSource: string,
+  caption: string,
+  mediaType: string,
+) {
+  const persistentKey = await markPersistentOutboundEcho(instanceName, contactNumber, caption);
+
+  const sent = await sendWhatsAppMedia(instanceName, contactNumber, mediaSource, caption, mediaType);
+  if (!sent) {
+    await prisma.systemConfig.deleteMany({ where: { key: persistentKey } }).catch(() => undefined);
+  }
   return sent;
 }
 
@@ -214,6 +319,11 @@ export async function POST(req: Request) {
         ) {
           console.log(`[Webhook] Ignorando criação de enquete enviada pelo bot para ${contactNumber}`);
           return NextResponse.json({ success: true, ignored: "Criação de enquete do bot" });
+        }
+
+        if (fromMe && (messageData.message?.buttonsMessage || messageData.message?.listMessage)) {
+          console.log(`[Webhook] Ignorando menu interativo enviado pelo bot para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Menu interativo do bot" });
         }
 
         if (providerMessageId) {
@@ -400,6 +510,10 @@ export async function POST(req: Request) {
         ) {
           console.log(`[Webhook] Ignorando eco rastreado do bot para ${contactNumber}`);
           return NextResponse.json({ success: true, ignored: "Eco rastreado do bot" });
+        }
+        if (fromMe && mediaType && await consumePersistentOutboundEcho(instanceName, contactNumber, msgContent)) {
+          console.log(`[Webhook] Ignorando eco persistente de mídia do bot para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Eco persistente de mídia do bot" });
         }
 
         // 1. Busca ou cria a conversa atomicamente (sem race condition)
@@ -683,7 +797,7 @@ export async function POST(req: Request) {
         const isMessageToMyself = isOwner || contactNumber === botNumber;
 
         // 2. Salva a mensagem (se for mensagem para mim mesmo testando, entra como inbound)
-        await prisma.message.create({
+        const incomingMessage = await prisma.message.create({
           data: {
             tenant_id: tenantId,
             conversation_id: conversation.id,
@@ -765,6 +879,52 @@ export async function POST(req: Request) {
           }
           // =====================================
 
+          const debounceSetting = Number(
+            connectionSettings.message_debounce_ms
+              ?? accountSettings.message_debounce_ms
+              ?? DEFAULT_INBOUND_DEBOUNCE_MS,
+          );
+          const debounceMs = Number.isFinite(debounceSetting)
+            ? Math.min(3000, Math.max(300, debounceSetting))
+            : DEFAULT_INBOUND_DEBOUNCE_MS;
+          const processingToken = providerMessageId || incomingMessage.id;
+          const isLatestInbound = await claimLatestInboundMessage(
+            tenantId,
+            instanceName,
+            contactNumber,
+            processingToken,
+            debounceMs,
+          );
+          if (!isLatestInbound) {
+            console.log(`[Webhook] Mensagem ${processingToken} agrupada; uma entrada mais recente será processada para ${contactNumber}`);
+            return NextResponse.json({ success: true, ignored: "Mensagem agrupada" });
+          }
+
+          const responseAfterInbound = await prisma.message.findFirst({
+            where: {
+              conversation_id: conversation.id,
+              direction: "outbound",
+              ai_generated: true,
+              created_at: { gte: incomingMessage.created_at },
+            },
+            select: { id: true },
+          });
+          if (responseAfterInbound) {
+            console.log(`[Webhook] Mensagem ${processingToken} já coberta por uma resposta concorrente para ${contactNumber}`);
+            return NextResponse.json({ success: true, ignored: "Resposta concorrente já enviada" });
+          }
+
+          const processingLockKey = await acquireConversationProcessingLock(
+            tenantId,
+            instanceName,
+            contactNumber,
+            processingToken,
+          );
+          if (!processingLockKey) {
+            console.log(`[Webhook] Processamento já em andamento para ${contactNumber}; mensagem ${processingToken} não avançará o fluxo`);
+            return NextResponse.json({ success: true, ignored: "Processamento em andamento" });
+          }
+
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
               console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber} (fromMe=${fromMe}, isMessageToMyself=${isMessageToMyself}, ai_paused=${conversation.ai_paused})`);
@@ -819,7 +979,13 @@ export async function POST(req: Request) {
               const interactivePollEnabled = pollSetting !== false && pollSetting !== "false";
 
               const { processMessageWithAI } = await import('@/lib/ai/engine');
-              const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
+              const iaResponse = await processMessageWithAI(
+                tenantId,
+                contactNumber,
+                msgContent,
+                isMessageToMyself,
+                { ...(instanceSettings || {}), _instanceName: instanceName },
+              );
               console.log(`[Webhook] processMessageWithAI retornou: ${iaResponse ? iaResponse.substring(0, 100) + "..." : "null (pausado/erro)"}`);
             
               const normalizeText = (text: string) => {
@@ -908,21 +1074,22 @@ export async function POST(req: Request) {
                 const pollItems = useList
                   ? listItems.map(item => ({ text: item.title, id: item.id }))
                   : buttons;
+                const deliveryItems = ensureMinimumWhatsAppPollOptions(pollItems, interactivePollEnabled);
                 const pollTitle = /nossos servi[cç]os e pre[cç]os|cat[aá]logo/i.test(mainText)
                   ? "Escolha um produto ou serviço"
                   : "Escolha uma opção";
 
                 const deliveryText = formatWhatsAppOptionText(
                   mainText,
-                  pollItems,
-                  interactivePollEnabled && pollItems.length >= 2,
+                  deliveryItems,
+                  interactivePollEnabled && deliveryItems.length >= 2,
                 );
 
-                if (interactivePollEnabled && pollItems.length >= 2) {
-                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
+                if (interactivePollEnabled && deliveryItems.length >= 2) {
+                  sent = !deliveryText || await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
                   if (sent) {
                     const { sendWhatsAppPoll } = await import('@/lib/evolution');
-                    const pollOptions = pollItems.map(item => item.text);
+                    const pollOptions = deliveryItems.map(item => item.text);
                     const pollSent = await sendWhatsAppPoll(
                       instanceName,
                       contactNumber,
@@ -930,7 +1097,7 @@ export async function POST(req: Request) {
                       pollOptions,
                     );
                     if (!pollSent) {
-                      const fallbackMenu = formatWhatsAppOptionText(mainText, pollItems, false);
+                      const fallbackMenu = formatWhatsAppOptionText(mainText, deliveryItems, false);
                       sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, fallbackMenu);
                       console.log(`[Webhook] Enquete falhou para ${contactNumber}; menu textual completo enviado=${sent}`);
                     } else {
@@ -940,7 +1107,7 @@ export async function POST(req: Request) {
                         poll: {
                           title: pollTitle,
                           selectableCount: 1,
-                          options: pollItems.map((item) => ({ id: item.id, label: item.text })),
+                          options: deliveryItems.map((item) => ({ id: item.id, label: item.text })),
                         },
                       });
                     }
@@ -957,7 +1124,7 @@ export async function POST(req: Request) {
                   const imageSource = /^https?:\/\//i.test(imagePayload)
                     ? imagePayload
                     : imagePayload.replace(/\s/g, "");
-                  const imageSent = await sendWhatsAppMedia(
+                  const imageSent = await sendTrackedWhatsAppMedia(
                     instanceName,
                     contactNumber,
                     imageSource,
@@ -974,7 +1141,7 @@ export async function POST(req: Request) {
                     tenant_id: tenantId,
                     conversation_id: conversation.id,
                     direction: "outbound",
-                    content: deliveryText,
+                    content: deliveryText || pollTitle,
                     ai_generated: true,
                     metadata: outboundMetadata,
                   }
@@ -1027,6 +1194,8 @@ export async function POST(req: Request) {
             } catch (fallbackErr) {
               console.error(`[Webhook] Até o fallback emergencial falhou para ${contactNumber}:`, fallbackErr);
             }
+          } finally {
+            await releaseConversationProcessingLock(processingLockKey, processingToken);
           }
         }
       }
