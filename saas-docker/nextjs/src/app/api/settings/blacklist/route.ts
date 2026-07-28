@@ -6,66 +6,121 @@ const prisma = new PrismaClient();
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+type BlacklistEntry = { number: string; name?: string };
+type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
+function parseSettings(raw: string | null | undefined) {
+  try {
+    return JSON.parse(raw || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function parseBlacklist(raw: unknown): BlacklistEntry[] {
+  const values = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
+
+  const entries = values.flatMap((item): BlacklistEntry[] => {
+    if (typeof item === "string") {
+      const number = item.replace(/\D/g, "");
+      return number ? [{ number }] : [];
+    }
+    if (!item || typeof item !== "object") return [];
+
+    const value = item as { number?: unknown; name?: unknown };
+    const number = String(value.number || "").replace(/\D/g, "");
+    if (!number) return [];
+    const name = typeof value.name === "string" ? value.name.trim() : "";
+    return [{ number, ...(name ? { name } : {}) }];
+  });
+
+  return Array.from(new Map(entries.map((entry) => [entry.number, entry])).values());
+}
+
+function phoneNumbersMatch(left: string, right: string) {
+  const leftDigits = left.replace(/\D/g, "");
+  const rightDigits = right.replace(/\D/g, "");
+  const leftWithout55 = leftDigits.startsWith("55") ? leftDigits.slice(2) : leftDigits;
+  const rightWithout55 = rightDigits.startsWith("55") ? rightDigits.slice(2) : rightDigits;
+  return leftDigits === rightDigits
+    || leftWithout55 === rightWithout55
+    || (leftWithout55.length >= 8 && rightWithout55.length >= 8 && (
+      leftWithout55.endsWith(rightWithout55) || rightWithout55.endsWith(leftWithout55)
+    ));
+}
+
+async function getScopedSettings(session: Session, instanceName: string | null) {
+  if (!instanceName) {
     const tenant = await prisma.tenant.findUnique({
       where: { id: session.tenant_id },
       select: { settings: true },
     });
+    return tenant
+      ? { settings: parseSettings(tenant.settings as string), instance: null }
+      : null;
+  }
 
-    if (!tenant) return NextResponse.json({ error: "Tenant não encontrado" }, { status: 404 });
+  const instance = await prisma.whatsappInstance.findFirst({
+    where: {
+      tenant_id: session.tenant_id,
+      OR: [{ name: instanceName }, { connectionName: instanceName }],
+      ...(session.role === "partner" ? { partner_id: session.id } : {}),
+    },
+    select: { id: true, name: true, settings: true },
+  });
+  return instance
+    ? { settings: parseSettings(instance.settings), instance }
+    : null;
+}
 
-    let settings: any = {};
-    try {
-      settings = JSON.parse(tenant.settings as string || "{}");
-    } catch {}
+export async function GET(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    // Suporta formato antigo (string CSV) e novo (array de objetos)
-    const raw = settings.ignored_numbers || [];
-    let numbers: string[] = [];
-    const nameMap = new Map<string, string | null>();
+    const instanceName = new URL(req.url).searchParams.get("instanceName");
+    const scoped = await getScopedSettings(session, instanceName);
+    if (!scoped) return NextResponse.json({ error: "Conta ou número não encontrado" }, { status: 404 });
 
-    if (Array.isArray(raw)) {
-      raw.forEach((item: any) => {
-        if (typeof item === "string") {
-          numbers.push(item);
-        } else if (item && item.number) {
-          numbers.push(item.number);
-          if (item.name) nameMap.set(item.number, item.name);
-        }
-      });
-    } else if (typeof raw === "string") {
-      numbers = raw.split(",").map((n: string) => n.trim()).filter(Boolean);
-    }
-
-    // Busca nomes dos contatos nas conversas como fallback
-    const orConditions = numbers.length > 0 ? numbers.map((n: string) => ({ contact_number: { contains: n } })) : [];
-    let conversations: any[] = [];
-    if (orConditions.length > 0) {
-      conversations = await prisma.conversation.findMany({
-        where: { tenant_id: session.tenant_id, OR: orConditions },
+    const entries = parseBlacklist(scoped.settings.ignored_numbers);
+    const nameMap = new Map(entries.map((entry) => [entry.number, entry.name || null]));
+    if (entries.length > 0) {
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          tenant_id: session.tenant_id,
+          OR: entries.map((entry) => ({ contact_number: { contains: entry.number.slice(-8) } })),
+        },
         select: { contact_number: true, contact_name: true },
       });
+
+      for (const conversation of conversations) {
+        const contact = conversation.contact_number.replace(/\D/g, "");
+        for (const entry of entries) {
+          if (phoneNumbersMatch(contact, entry.number) && !nameMap.get(entry.number)) {
+            nameMap.set(entry.number, conversation.contact_name);
+          }
+        }
+      }
     }
 
-    conversations.forEach((c) => {
-       const cleanContact = c.contact_number.replace(/\D/g, "");
-       numbers.forEach((n: string) => {
-         if (cleanContact.includes(n) && !nameMap.has(n)) {
-            nameMap.set(n, c.contact_name);
-         }
-       });
+    const instances = await prisma.whatsappInstance.findMany({
+      where: {
+        tenant_id: session.tenant_id,
+        ...(session.role === "partner" ? { partner_id: session.id } : {}),
+      },
+      orderBy: { created_at: "desc" },
+      select: { name: true, connectionName: true, phone_number: true, status: true },
     });
 
-    const list = numbers.map((num: string) => ({
-      number: num,
-      name: nameMap.get(num) || null,
-    }));
-
-    return NextResponse.json({ numbers: list });
+    return NextResponse.json({
+      numbers: entries.map((entry) => ({ number: entry.number, name: nameMap.get(entry.number) || null })),
+      instances,
+      scope: instanceName ? scoped.instance?.name : null,
+    });
   } catch (err) {
     console.error("GET /api/settings/blacklist:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
@@ -77,42 +132,51 @@ export async function POST(req: Request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { number, name } = await req.json();
-    if (!number) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
+    const { number, name, instanceName = null } = await req.json();
+    const cleanNumber = String(number || "").replace(/\D/g, "");
+    if (cleanNumber.length < 8) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: session.tenant_id },
-      select: { settings: true },
-    });
+    const scoped = await getScopedSettings(session, instanceName);
+    if (!scoped) return NextResponse.json({ error: "Conta ou número não encontrado" }, { status: 404 });
 
-    let settings: any = {};
-    try {
-      settings = JSON.parse(tenant?.settings as string || "{}");
-    } catch {}
-
-    const cleanNumber = number.replace(/\D/g, "");
-
-    const ignoredList: { number: string; name?: string }[] = Array.isArray(settings.ignored_numbers)
-      ? settings.ignored_numbers
-      : (typeof settings.ignored_numbers === "string" && settings.ignored_numbers
-        ? settings.ignored_numbers.split(",").map((n: string) => ({ number: n.trim(), name: undefined }))
-        : []);
-
-    const exists = ignoredList.find((n) => n.number === cleanNumber);
-    if (exists) {
-      if (name) exists.name = name;
+    const list = parseBlacklist(scoped.settings.ignored_numbers);
+    const existing = list.find((entry) => entry.number === cleanNumber);
+    let cleanName = typeof name === "string" ? name.trim() : "";
+    if (!cleanName) {
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          tenant_id: session.tenant_id,
+          contact_number: { contains: cleanNumber.slice(-8) },
+          ...(scoped.instance ? { instance_name: scoped.instance.name } : {}),
+        },
+        orderBy: { last_message_at: "desc" },
+        select: { contact_name: true },
+      });
+      cleanName = conversation?.contact_name?.trim() || "";
+    }
+    if (!cleanName) {
+      return NextResponse.json({ error: "Informe o nome do contato" }, { status: 400 });
+    }
+    if (existing) {
+      existing.name = cleanName;
     } else {
-      ignoredList.push({ number: cleanNumber, name: name || undefined });
+      list.push({ number: cleanNumber, name: cleanName });
+    }
+    scoped.settings.ignored_numbers = list;
+
+    if (scoped.instance) {
+      await prisma.whatsappInstance.update({
+        where: { id: scoped.instance.id },
+        data: { settings: JSON.stringify(scoped.settings) },
+      });
+    } else {
+      await prisma.tenant.update({
+        where: { id: session.tenant_id },
+        data: { settings: JSON.stringify(scoped.settings) },
+      });
     }
 
-    settings.ignored_numbers = ignoredList;
-
-    await prisma.tenant.update({
-      where: { id: session.tenant_id },
-      data: { settings: JSON.stringify(settings) },
-    });
-
-    return NextResponse.json({ success: true, numbers: ignoredList });
+    return NextResponse.json({ success: true, numbers: list });
   } catch (err) {
     console.error("POST /api/settings/blacklist:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
@@ -125,40 +189,27 @@ export async function DELETE(req: Request) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const number = searchParams.get("number");
-    if (!number) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
+    const cleanNumber = (searchParams.get("number") || "").replace(/\D/g, "");
+    const instanceName = searchParams.get("instanceName");
+    if (!cleanNumber) return NextResponse.json({ error: "Número inválido" }, { status: 400 });
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: session.tenant_id },
-      select: { settings: true },
-    });
+    const scoped = await getScopedSettings(session, instanceName);
+    if (!scoped) return NextResponse.json({ error: "Conta ou número não encontrado" }, { status: 404 });
 
-    const cleanNumber = number.replace(/\D/g, "");
+    const list = parseBlacklist(scoped.settings.ignored_numbers).filter((entry) => entry.number !== cleanNumber);
+    scoped.settings.ignored_numbers = list;
 
-    let settings: any = {};
-    try {
-      settings = JSON.parse(tenant?.settings as string || "{}");
-    } catch {}
-
-    const raw = settings.ignored_numbers || [];
-    let list: any[] = [];
-
-    if (Array.isArray(raw)) {
-      list = raw.filter((item: any) => {
-        const num = typeof item === "string" ? item : item.number;
-        return num !== cleanNumber;
+    if (scoped.instance) {
+      await prisma.whatsappInstance.update({
+        where: { id: scoped.instance.id },
+        data: { settings: JSON.stringify(scoped.settings) },
       });
-    } else if (typeof raw === "string") {
-      const nums = raw.split(",").map((n: string) => n.trim()).filter(Boolean);
-      list = nums.filter((n: string) => n !== cleanNumber);
+    } else {
+      await prisma.tenant.update({
+        where: { id: session.tenant_id },
+        data: { settings: JSON.stringify(scoped.settings) },
+      });
     }
-
-    settings.ignored_numbers = list;
-
-    await prisma.tenant.update({
-      where: { id: session.tenant_id },
-      data: { settings: JSON.stringify(settings) },
-    });
 
     return NextResponse.json({ success: true, numbers: list });
   } catch (err) {

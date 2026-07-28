@@ -24,11 +24,16 @@ export function formatWhatsAppOptionText(
 
   if (interactiveEnabled) {
     let insideOptionDetails = false;
+    let backInstructionSeen = false;
     return cleanText
       .split("\n")
       .filter((line) => {
         const normalizedLine = normalizeForMatch(line);
         const isBackInstruction = normalizedLine.includes("digite 0") || normalizedLine.includes("voltar");
+        if (isBackInstruction) {
+          if (backInstructionSeen) return false;
+          backInstructionSeen = true;
+        }
         if (insideOptionDetails && isBackInstruction) {
           insideOptionDetails = false;
           return true;

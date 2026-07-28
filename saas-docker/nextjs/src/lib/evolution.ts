@@ -94,6 +94,7 @@ export async function sendWhatsAppMessageDetailed(
 
     const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(instanceName)}`, {
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
       headers: {
         "Content-Type": "application/json",
         apikey: EVOLUTION_API_KEY || "",
@@ -187,6 +188,7 @@ export async function sendWhatsAppPoll(
 
     const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendPoll/${encodeURIComponent(instanceName)}`, {
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
       headers: {
         "Content-Type": "application/json",
         apikey: EVOLUTION_API_KEY,
@@ -275,6 +277,7 @@ export async function getProfilePicture(instanceName: string, number: string) {
   try {
     const res = await fetch(`${EVOLUTION_API_URL}/chat/fetchProfilePictureUrl/${instanceName}`, {
       method: "POST",
+      signal: AbortSignal.timeout(5_000),
       headers: {
         "Content-Type": "application/json",
         apikey: EVOLUTION_API_KEY || "",

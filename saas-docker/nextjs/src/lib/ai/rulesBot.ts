@@ -184,10 +184,15 @@ function renderCollectedVariables(value: unknown, collected: Record<string, unkn
   );
 }
 
-function resolveChoiceIndex(value: string, labels: string[]): number {
+export function resolveChoiceIndex(value: string, labels: string[]): number {
   if (/^\d+$/.test(value.trim())) return Number(value.trim()) - 1;
   const normalized = normalizeTextForLookup(value);
-  return labels.findIndex((label) => normalizeTextForLookup(label) === normalized);
+  const exactIndex = labels.findIndex((label) => normalizeTextForLookup(label) === normalized);
+  if (exactIndex >= 0) return exactIndex;
+
+  // Poll labels include the display price, while the workflow stores only the product name.
+  const withoutPrice = normalized.replace(/\s*-\s*r\$\s*[\d.,]+(?:\s*\/\s*mes)?\s*$/, "");
+  return labels.findIndex((label) => normalizeTextForLookup(label) === withoutPrice);
 }
 
 export async function processMessageWithRules(

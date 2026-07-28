@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ShieldAlert, Trash2, X, Plus, UserX, Phone, User, RefreshCw } from "lucide-react";
 
 interface BlacklistItem {
   number: string;
   name: string | null;
+}
+
+interface WhatsAppInstance {
+  name: string;
+  connectionName: string;
+  phone_number: string | null;
+  status: string;
 }
 
 interface BlacklistPanelProps {
@@ -17,29 +24,33 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
   const [items, setItems] = useState<BlacklistItem[]>([]);
   const [newNumber, setNewNumber] = useState("");
   const [newName, setNewName] = useState("");
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchBlacklist = async () => {
+  const fetchBlacklist = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/settings/blacklist");
+      const query = selectedInstance ? `?instanceName=${encodeURIComponent(selectedInstance)}` : "";
+      const res = await fetch(`/api/settings/blacklist${query}`);
       if (res.ok) {
         const data = await res.json();
         setItems(data.numbers || []);
+        setInstances(data.instances || []);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedInstance]);
 
   useEffect(() => {
     if (isOpen) {
       fetchBlacklist();
     }
-  }, [isOpen]);
+  }, [isOpen, fetchBlacklist]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +61,7 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
       const res = await fetch("/api/settings/blacklist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: newNumber, name: newName }),
+        body: JSON.stringify({ number: newNumber, name: newName, instanceName: selectedInstance || null }),
       });
       if (res.ok) {
         setNewNumber("");
@@ -66,7 +77,9 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
 
   const handleRemove = async (num: string) => {
     try {
-      const res = await fetch(`/api/settings/blacklist?number=${encodeURIComponent(num)}`, {
+      const params = new URLSearchParams({ number: num });
+      if (selectedInstance) params.set("instanceName", selectedInstance);
+      const res = await fetch(`/api/settings/blacklist?${params.toString()}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -80,6 +93,10 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
   if (!isOpen) return null;
 
   const identifiedCount = items.filter((i) => i.name).length;
+  const selectedScope = instances.find((instance) => instance.name === selectedInstance);
+  const scopeDescription = selectedScope
+    ? `${selectedScope.connectionName}${selectedScope.phone_number ? ` (${selectedScope.phone_number})` : ""}`
+    : "Conta inteira (todos os números)";
 
   return (
     <div className="space-y-6 text-slate-900 dark:text-white">
@@ -104,6 +121,30 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="blacklist-scope" className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Aplicar bloqueios em
+          </label>
+          <select
+            id="blacklist-scope"
+            value={selectedInstance}
+            onChange={(event) => setSelectedInstance(event.target.value)}
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200/90 dark:border-white/10 rounded-2xl px-4 py-2.5 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+          >
+            <option value="">Conta inteira (todos os números)</option>
+            {instances.map((instance) => (
+              <option key={instance.name} value={instance.name}>
+                {instance.connectionName}{instance.phone_number ? ` - ${instance.phone_number}` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            {selectedInstance
+              ? "Estes contatos serão ignorados somente neste número conectado."
+              : "Estes contatos serão ignorados em todos os números desta conta."}
+          </p>
         </div>
 
         {/* Stats Cards */}
@@ -153,9 +194,10 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
           </div>
           <div className="relative">
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Nome do contato (opcional)"
+              <input
+                type="text"
+                required
+                placeholder="Nome do contato"
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200/90 dark:border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-all font-medium"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -185,20 +227,27 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
                   {item.name ? item.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  {item.name && (
-                    <p className="text-xs font-black text-slate-900 dark:text-white truncate flex items-center gap-1.5">
-                      {item.name}
+                  <p className="text-xs font-black text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                      {item.name || "Nome não identificado"}
+                      {item.name ? (
                       <span className="text-[9px] bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold border border-emerald-200 dark:border-emerald-500/20">
                         identificado
                       </span>
-                    </p>
-                  )}
+                      ) : (
+                        <span className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 px-1.5 py-0.5 rounded-md font-bold border border-amber-200 dark:border-amber-500/20">
+                          registro antigo
+                        </span>
+                      )}
+                  </p>
                   <div className="flex items-center gap-1.5">
                     <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                     <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 truncate">
                       {item.number}
                     </span>
                   </div>
+                  <p className="mt-1 text-[10px] font-semibold text-slate-400 truncate" title={scopeDescription}>
+                    Bloqueio: {scopeDescription}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -214,33 +263,7 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/10 pt-4">
-          <button
-            type="button"
-            onClick={async () => {
-              setLoading(true);
-              try {
-                await fetch("/api/settings/blacklist", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ number: "5588981885499", name: "Ruan Gomes (Gerente / Suporte)" }),
-                });
-                await fetch("/api/settings/blacklist", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ number: "5511999999999", name: "Contato de Teste Bloqueado" }),
-                });
-                await fetchBlacklist();
-              } catch (e) {
-                console.error(e);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 hover:underline bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3 h-3" /> Restaurar Contatos de Exemplo
-          </button>
+        <div className="flex items-center justify-end border-t border-slate-100 dark:border-white/10 pt-4">
           <button
             type="button"
             onClick={fetchBlacklist}

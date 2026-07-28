@@ -51,4 +51,9 @@ assert.equal(
   "📋 *Nossos Serviços e Preços:*\n\nDigite *0* ou *voltar* para retornar ao menu principal.",
 );
 
+assert.equal(
+  formatWhatsAppOptionText(`${catalog}\n\nDigite *0* ou *voltar* para retornar ao menu principal.`, catalogOptions, true),
+  "📋 *Nossos Serviços e Preços:*\n\nDigite *0* ou *voltar* para retornar ao menu principal.",
+);
+
 console.log("whatsappOptions tests passed");

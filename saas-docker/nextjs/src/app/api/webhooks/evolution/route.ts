@@ -16,6 +16,26 @@ function outboundEchoKey(instanceName: string, contactNumber: string, content: s
   return `${instanceName}:${contactNumber}:${content.trim()}`;
 }
 
+function getIgnoredNumbers(raw: unknown) {
+  const values = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
+  return values
+    .map((item) => typeof item === "string" ? item : item?.number)
+    .map((number) => String(number || "").replace(/\D/g, ""))
+    .filter((number) => number.length >= 8);
+}
+
+function phoneNumbersMatch(left: string, right: string) {
+  const leftDigits = left.replace(/\D/g, "");
+  const rightDigits = right.replace(/\D/g, "");
+  const leftWithout55 = leftDigits.startsWith("55") ? leftDigits.slice(2) : leftDigits;
+  const rightWithout55 = rightDigits.startsWith("55") ? rightDigits.slice(2) : rightDigits;
+  return leftDigits === rightDigits
+    || leftWithout55 === rightWithout55
+    || (leftWithout55.length >= 8 && rightWithout55.length >= 8 && (
+      leftWithout55.endsWith(rightWithout55) || rightWithout55.endsWith(leftWithout55)
+    ));
+}
+
 async function sendTrackedWhatsAppMessage(
   instanceName: string,
   contactNumber: string,
@@ -211,73 +231,24 @@ export async function POST(req: Request) {
           receiptKeyForRetry = receiptKey;
         }
 
-        // 0. Verifica Lista Negra (ignored_numbers) por Telefone E por Nome
-        if (webhookTenant && webhookTenant.settings) {
-          const settings = typeof webhookTenant.settings === "string" ? JSON.parse(webhookTenant.settings) : webhookTenant.settings;
-          if (settings?.ignored_numbers) {
-            const rawList: any[] = Array.isArray(settings.ignored_numbers)
-              ? settings.ignored_numbers
-              : (typeof settings.ignored_numbers === "string" ? settings.ignored_numbers.split(",") : []);
-
-            const cleanContactDigits = contactNumber.replace(/\D/g, "");
-            const normalizedPushName = (contactName || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-
-            let isBlacklisted = false;
-
-            for (const item of rawList) {
-              let itemNum = "";
-              let itemName = "";
-
-              if (typeof item === "string") {
-                const itemStr = item.trim();
-                const digits = itemStr.replace(/\D/g, "");
-                if (digits.length >= 8) {
-                  itemNum = digits;
-                } else {
-                  itemName = itemStr;
-                }
-              } else if (item && typeof item === "object") {
-                itemNum = (item.number || "").replace(/\D/g, "");
-                itemName = (item.name || "").trim();
-              }
-
-              // Match por Telefone (suporta com e sem o DDI 55 e com/sem o 9º dígito)
-              if (itemNum && cleanContactDigits) {
-                const contactWithout55 = cleanContactDigits.startsWith("55") ? cleanContactDigits.slice(2) : cleanContactDigits;
-                const itemWithout55 = itemNum.startsWith("55") ? itemNum.slice(2) : itemNum;
-
-                if (
-                  cleanContactDigits === itemNum ||
-                  contactWithout55 === itemWithout55 ||
-                  (contactWithout55.length >= 8 && itemWithout55.length >= 8 && (
-                    contactWithout55.endsWith(itemWithout55) ||
-                    itemWithout55.endsWith(contactWithout55)
-                  ))
-                ) {
-                  isBlacklisted = true;
-                  break;
-                }
-              }
-
-              // Match por Nome/Apelido (ex: "Mãe", "Suporte", etc)
-              if (itemName && normalizedPushName) {
-                const normalizedItemName = itemName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-                if (
-                  normalizedPushName === normalizedItemName ||
-                  normalizedPushName.includes(normalizedItemName) ||
-                  normalizedItemName.includes(normalizedPushName)
-                ) {
-                  isBlacklisted = true;
-                  break;
-                }
-              }
-            }
-
-            if (isBlacklisted) {
-              console.log(`[Webhook] Contato ${contactNumber} (${contactName}) está na lista de ignorados (Blacklist). Ignorando mensagem.`);
-              return NextResponse.json({ success: true, ignored: "Blacklist" });
-            }
-          }
+        // A lista da conta vale para todas as conexões; a lista da instância vale só para este número.
+        let accountSettings: any = {};
+        let connectionSettings: any = {};
+        try {
+          accountSettings = typeof webhookTenant?.settings === "string"
+            ? JSON.parse(webhookTenant.settings || "{}")
+            : (webhookTenant?.settings || {});
+        } catch {}
+        try {
+          connectionSettings = JSON.parse(instance.settings || "{}");
+        } catch {}
+        const ignoredNumbers = [
+          ...getIgnoredNumbers(accountSettings.ignored_numbers),
+          ...getIgnoredNumbers(connectionSettings.ignored_numbers),
+        ];
+        if (ignoredNumbers.some((number) => phoneNumbersMatch(contactNumber, number))) {
+          console.log(`[Webhook] Contato ${contactNumber} (${contactName}) está na lista de ignorados da conta ou da instância ${instanceName}.`);
+          return NextResponse.json({ success: true, ignored: "Blacklist" });
         }
 
         
@@ -350,6 +321,11 @@ export async function POST(req: Request) {
           const listReply = messageData.message?.interactive?.list_reply;
           if (buttonReply?.title) msgContent = buttonReply.title;
           else if (listReply?.title) msgContent = listReply.title;
+        }
+
+        if (!msgContent && messageEnvelope.pollUpdateMessage) {
+          console.log(`[Webhook] Ignorando atualização de enquete sem opção descriptografada: ${providerMessageId}`);
+          return NextResponse.json({ success: true, ignored: "Voto de enquete vazio" });
         }
 
         let mediaType: "image" | "audio" | "video" | "document" | null = null;
@@ -427,7 +403,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Busca ou cria a conversa atomicamente (sem race condition)
-        let conversation = await prisma.conversation.upsert({
+        const conversation = await prisma.conversation.upsert({
           where: {
             tenant_id_contact_number: {
               tenant_id: tenantId,
@@ -485,15 +461,15 @@ export async function POST(req: Request) {
           }
         }
 
-        // Buscar e atualizar foto de perfil se não existir
+        // A foto não pode atrasar o atendimento; ela é enriquecida em segundo plano.
         if (!conversation.profile_picture && !fromMe) {
-           const picUrl = await getProfilePicture(instanceName, remoteJid);
-           if (picUrl) {
-             conversation = await prisma.conversation.update({
-               where: { id: conversation.id },
-               data: { profile_picture: picUrl }
-             });
-           }
+          void getProfilePicture(instanceName, remoteJid).then((picUrl) => {
+            if (!picUrl) return;
+            return prisma.conversation.updateMany({
+              where: { id: conversation.id, profile_picture: null },
+              data: { profile_picture: picUrl },
+            });
+          }).catch((error) => console.warn("[Webhook] Falha ao atualizar foto em segundo plano:", error));
         }
 
         // Prevenir duplicação do echo do webhook de uma mensagem gerada pela IA
@@ -505,11 +481,15 @@ export async function POST(req: Request) {
             if (settingsTenant) {
                let settings: any = {};
                try { settings = JSON.parse((settingsTenant.settings as string) || "{}"); } catch(e) {}
-               const currentIgnored = settings.ignored_numbers ? settings.ignored_numbers.split(",").map((s:string) => s.trim()).filter((s:string) => s) : [];
-               const cleanContact = contactNumber.replace(/\D/g, "");
-               if (!currentIgnored.includes(cleanContact)) {
-                 currentIgnored.push(cleanContact);
-                 settings.ignored_numbers = currentIgnored.join(", ");
+               const currentIgnored: any[] = Array.isArray(settings.ignored_numbers)
+                 ? settings.ignored_numbers
+                 : (typeof settings.ignored_numbers === "string"
+                   ? settings.ignored_numbers.split(",").map((value: string) => value.trim()).filter(Boolean)
+                   : []);
+                const cleanContact = contactNumber.replace(/\D/g, "");
+                if (!getIgnoredNumbers(currentIgnored).some((number) => phoneNumbersMatch(number, cleanContact))) {
+                  currentIgnored.push({ number: cleanContact, name: contactName });
+                  settings.ignored_numbers = currentIgnored;
                  await prisma.tenant.update({ where: { id: tenantId }, data: { settings: JSON.stringify(settings) } });
                  console.log(`[Webhook] Palavra-chave! Contato ${contactNumber} adicionado à Lista Branca.`);
                }
@@ -695,15 +675,10 @@ export async function POST(req: Request) {
         
         let isOwner = false;
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { phone: true } });
-        if (tenant && tenant.phone) {
-          const cleanTenantPhone = tenant.phone.replace(/\D/g, '');
-          const cleanContact = contactNumber.replace(/\D/g, '');
-          const last8Tenant = cleanTenantPhone.slice(-8);
-          const last8Contact = cleanContact.slice(-8);
-          if (last8Tenant.length === 8 && last8Contact === last8Tenant) {
-             isOwner = true;
-          }
-        }
+        const ownerNumbers = [tenant?.phone, instance.phone_number, botNumber]
+          .map((number) => String(number || "").replace(/\D/g, ""))
+          .filter((number) => number.length >= 8);
+        isOwner = ownerNumbers.some((number) => phoneNumbersMatch(contactNumber, number));
         
         const isMessageToMyself = isOwner || contactNumber === botNumber;
 
@@ -1059,6 +1034,7 @@ export async function POST(req: Request) {
 
     if (rawEvent === "connection.update" && instanceName) {
       const connectionState = body.data?.state;
+      const connectedPhone = String(body.sender || body.data?.ownerJid || "").replace(/\D/g, "") || null;
       const persistedStatus = connectionState === "open"
         ? "open"
         : connectionState === "connecting"
@@ -1066,7 +1042,10 @@ export async function POST(req: Request) {
           : "disconnected";
       await prisma.whatsappInstance.updateMany({
         where: { name: instanceName },
-        data: { status: persistedStatus },
+        data: {
+          status: persistedStatus,
+          ...(connectedPhone ? { phone_number: connectedPhone } : {}),
+        },
       });
 
       if (body.data?.state === "open" && body.sender) {

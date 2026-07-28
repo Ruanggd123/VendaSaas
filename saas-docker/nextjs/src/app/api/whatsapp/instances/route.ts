@@ -48,6 +48,7 @@ export async function GET(request: Request) {
     const instances = await Promise.all(dbInstances.map(async (dbInst) => {
       const evoInst = evolutionInstances.find((ei: any) => ei?.instance?.instanceName === dbInst.name || ei?.name === dbInst.name);
       const realStatus = evoInst?.connectionStatus || evoInst?.instance?.state || evoInst?.state || "disconnected";
+      const realPhoneNumber = String(evoInst?.ownerJid || evoInst?.instance?.ownerJid || "").replace(/\D/g, "") || null;
       
       let mappedStatus = "disconnected";
       if (realStatus === "open") {
@@ -59,10 +60,13 @@ export async function GET(request: Request) {
       }
 
       // Atualiza banco se estiver diferente
-      if (dbInst.status !== mappedStatus) {
+      if (dbInst.status !== mappedStatus || (realPhoneNumber && dbInst.phone_number !== realPhoneNumber)) {
         await prisma.whatsappInstance.update({
           where: { id: dbInst.id },
-          data: { status: mappedStatus }
+          data: {
+            status: mappedStatus,
+            ...(realPhoneNumber ? { phone_number: realPhoneNumber } : {}),
+          }
         });
       }
 
@@ -70,7 +74,7 @@ export async function GET(request: Request) {
         ...dbInst,
         status: mappedStatus,
         profilePic: evoInst?.profilePicUrl || null,
-        phone_number: evoInst?.ownerJid?.split('@')[0] || dbInst.phone_number
+        phone_number: realPhoneNumber || dbInst.phone_number
       };
     }));
 

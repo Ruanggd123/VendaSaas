@@ -315,7 +315,6 @@ export async function PATCH(req: Request) {
     if (service_status !== undefined) dataToUpdate.status = service_status;
     if (assigned_to !== undefined) {
       dataToUpdate.assigned_to = assigned_to;
-      if (assigned_to) dataToUpdate.ai_paused = true;
     }
 
     const responseInclude = {
