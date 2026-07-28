@@ -285,7 +285,7 @@ export async function processMessageWithRules(
     } else if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito") || cleanText.includes("crédito") || cleanText.includes("card")) {
       billingType = 'CREDIT_CARD';
     } else {
-      return "Opção inválida. Responda:\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nDigite *0* para voltar ao menu.";
+      return "Opção inválida. Responda:\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nDigite *0* para voltar ao menu.\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2";
     }
     const chosenService = state.data.chosenService;
     const address = state.data.address;
@@ -321,7 +321,7 @@ export async function processMessageWithRules(
   if (pendingSale && state.step !== "debt_paying") {
     state.step = "debt_paying";
     await saveState(state);
-    return `Olá! Verificamos em nosso sistema que você possui um pagamento pendente para *${pendingSale.product_name}* no valor de R$ ${pendingSale.amount.toFixed(2)}.\n\nGostaria de realizar o pagamento agora para liberar seu pedido?\n\n1️⃣ Sim, pagar agora\n2️⃣ Não, ir para o menu principal\n\nResponda *1* ou *2*:`;
+      return `Olá! Verificamos em nosso sistema que você possui um pagamento pendente para *${pendingSale.product_name}* no valor de R$ ${pendingSale.amount.toFixed(2)}.\n\nGostaria de realizar o pagamento agora para liberar seu pedido?\n\n---BUTTONS---\nSim, pagar agora|1\nIr para o menu|2`;
   }
 
   if (state.step === "debt_paying") {
@@ -337,7 +337,7 @@ export async function processMessageWithRules(
       await saveState(state);
       return getMainMenuMessage(settings);
     } else {
-      return `Por favor, responda com *1* para Pagar Agora ou *2* para ir para o Menu Principal.`;
+      return `Por favor, responda com *1* para Pagar Agora ou *2* para ir para o Menu Principal.\n\n---BUTTONS---\nPagar Agora|1\nIr para o Menu|2`;
     }
   }
 
@@ -797,7 +797,7 @@ export async function processMessageWithRules(
     confirmMsg += `🛠 *Serviço:* ${state.data.serviceName} (R$ ${state.data.servicePrice})\n`;
     confirmMsg += `📅 *Data:* ${state.data.date}\n`;
     confirmMsg += `🕒 *Horário:* ${state.data.time}\n\n`;
-    confirmMsg += `Digite *1* para Confirmar ou *2* para Cancelar.`;
+    confirmMsg += `---BUTTONS---\nConfirmar|1\nCancelar|2`;
     return confirmMsg;
   }
 
@@ -1233,7 +1233,6 @@ export async function processMessageWithRules(
 
 function getMainMenuMessage(settings: any): string {
   const rawWelcome = settings.welcome_message || "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋";
-  // Remove caracteres mojibake/corrompidos se houver
   const welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
 
   const shouldAppendMenu = settings.welcome_menu_auto_append !== false;
@@ -1241,35 +1240,54 @@ function getMainMenuMessage(settings: any): string {
     return welcome;
   }
 
-  let msg = welcome + "\n\n";
-  
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
+
   if (rootNodes.length > 0) {
-    msg += "Escolha uma das opções abaixo:\n";
-    rootNodes.forEach((node: any) => {
-      msg += `\n*${node.keyword}* - ${node.title}`;
-    });
-  } else {
-    // Auto-gera menu a partir dos produtos cadastrados
-    const products = settings.products || [];
-    if (products.length > 0 && settings.hide_auto_catalog !== true) {
-      msg += "\nConfira nossos produtos e serviços:\n";
-      products.forEach((p: any, i: number) => {
-        const idx = i + 1;
-        const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-        
-        if (isSchedulableProduct(p)) {
-          msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
-        } else if (p.stock !== undefined && p.stock !== null) {
-          msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
-        } else {
-          msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
-        }
-      });
-      msg += "\n\nDigite o *número* da opção para mais detalhes.";
+    let msg = welcome + "\n\n";
+    msg += "Escolha uma opção abaixo:\n\n";
+
+    if (rootNodes.length > 3) {
+      const listLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
+      msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      msg += "\n\n---LIST---\n" + listLines.join("\n");
+    } else {
+      const buttonLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
+      msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
     }
+
+    return msg;
   }
-  
+
+  // Auto-gera menu a partir dos produtos cadastrados
+  const products = settings.products || [];
+  if (products.length === 0 || settings.hide_auto_catalog === true) {
+    return welcome;
+  }
+
+  let msg = welcome + "\n\nConfira nossos produtos e serviços:\n";
+  products.forEach((p: any, i: number) => {
+    const idx = i + 1;
+    const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+    if (isSchedulableProduct(p)) {
+      msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
+    } else if (p.stock !== undefined && p.stock !== null) {
+      msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
+    } else {
+      msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
+    }
+  });
+  msg += "\n\nDigite o *número* da opção para mais detalhes.";
+
+  // Gera botões (até 3) ou lista (mais de 3)
+  if (products.length > 3) {
+    const listLines = products.map((p: any, i: number) => `${p.name}|${i + 1}`);
+    msg += "\n\n---LIST---\n" + listLines.join("\n");
+  } else if (products.length > 0) {
+    const buttonLines = products.map((p: any, i: number) => `${p.name}|${i + 1}`);
+    msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
+  }
+
   return msg;
 }
 
@@ -1301,14 +1319,25 @@ function getSubmenuMessage(parentNode: any, allNodes: any[]): string {
   if (parentNode.actionType !== "catalog" && parentNode.actionType !== "text") {
     msg += `📂 *${parentNode.title}*\n`;
   }
-  msg += `Selecione uma das opções abaixo:\n\n`;
+  msg += `Selecione uma opção abaixo:\n\n`;
   
   const subNodes = allNodes.filter((n: any) => n.parentId === parentNode.id);
-  subNodes.forEach((node: any) => {
-    msg += `*${node.keyword}* - ${node.title}\n`;
+  subNodes.forEach((node: any, idx: number) => {
+    msg += `${idx + 1}️⃣ *${node.title}*\n`;
   });
   
   msg += "\nDigite *0* ou *voltar* para retornar ao menu anterior.";
+
+  // Botões interativos (até 3) ou lista (mais de 3)
+  if (subNodes.length > 0) {
+    const optionLines = subNodes.map((n: any) => `${n.title}|${n.keyword}`);
+    if (subNodes.length > 3) {
+      msg += "\n\n---LIST---\n" + optionLines.join("\n");
+    } else {
+      msg += "\n\n---BUTTONS---\n" + optionLines.join("\n");
+    }
+  }
+
   return msg;
 }
 
@@ -1570,7 +1599,7 @@ async function processarFinalizacaoPedidoRulesBot(
           update: { value: JSON.stringify(stateData) },
           create: { key: stateKey, value: JSON.stringify(stateData) }
         });
-        return "Como você prefere pagar?\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nResponda *1* para PIX ou *2* para Cartão:";
+        return "Como você prefere pagar?\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2";
       }
 
       const customerName = collectedData?.name || contactName || '';

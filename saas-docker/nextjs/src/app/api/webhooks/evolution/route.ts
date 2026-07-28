@@ -247,6 +247,43 @@ export async function POST(req: Request) {
           || messageData.message?.extendedTextMessage?.text
           || "";
 
+        // Extrair texto de botões interativos (button_reply / list_reply)
+        if (!msgContent) {
+          const interactive = messageData.message?.interactiveMessage
+            || messageData.message?.buttonsResponseMessage;
+          if (interactive) {
+            try {
+              const nativeFlow = interactive.nativeFlowResponseMessage;
+              if (nativeFlow?.paramsJson) {
+                const parsed = JSON.parse(nativeFlow.paramsJson);
+                msgContent = parsed.title || parsed.id || '';
+              }
+            } catch {}
+            if (!msgContent && interactive.selectedDisplayText) {
+              msgContent = interactive.selectedDisplayText;
+            }
+            if (!msgContent && interactive.selectedButtonId) {
+              msgContent = interactive.selectedButtonId;
+            }
+          }
+        }
+
+        // Extrair texto de resposta de lista (Lista interativa Evolution API)
+        if (!msgContent) {
+          const listResponse = messageData.message?.listResponseMessage;
+          if (listResponse) {
+            msgContent = listResponse.title || listResponse.singleSelectReply?.selectedRowId || '';
+          }
+        }
+
+        // Fallback: WhatsApp Cloud API format
+        if (!msgContent) {
+          const buttonReply = messageData.message?.interactive?.button_reply;
+          const listReply = messageData.message?.interactive?.list_reply;
+          if (buttonReply?.title) msgContent = buttonReply.title;
+          else if (listReply?.title) msgContent = listReply.title;
+        }
+
         let mediaType = null;
         const mediaBase64 = messageData.base64 || "";
 
@@ -577,7 +614,88 @@ export async function POST(req: Request) {
                 const cleanedText = normalizeText(text);
                 if (!cleanedText) return;
 
-                const sent = await sendWhatsAppMessage(instanceName, contactNumber, cleanedText);
+                // Detecta lista interativa no formato:
+                // Texto da mensagem
+                // ---LIST---
+                // Label 1|id1
+                // Label 2|id2
+                // ...
+                const listMarker = '\n---LIST---\n';
+                const listIdx = cleanedText.indexOf(listMarker);
+
+                // Detecta botões interativos no formato:
+                // Texto da mensagem
+                // ---BUTTONS---
+                // Label 1|id1
+                // Label 2|id2
+                const buttonsMarker = '\n---BUTTONS---\n';
+                const buttonsIdx = cleanedText.indexOf(buttonsMarker);
+
+                let mainText = cleanedText;
+                let buttons: { text: string; id: string }[] = [];
+                let listItems: { title: string; id: string }[] = [];
+                let useList = false;
+
+                if (listIdx !== -1) {
+                  useList = true;
+                  mainText = cleanedText.slice(0, listIdx).trim();
+                  const listSection = cleanedText.slice(listIdx + listMarker.length).trim();
+                  listItems = listSection.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.includes('|'))
+                    .map(line => {
+                      const [label, id] = line.split('|').map(s => s.trim());
+                      return { title: label || id, id: id || label };
+                    })
+                    .slice(0, 10);
+                } else if (buttonsIdx !== -1) {
+                  mainText = cleanedText.slice(0, buttonsIdx).trim();
+                  const buttonsSection = cleanedText.slice(buttonsIdx + buttonsMarker.length).trim();
+                  buttons = buttonsSection.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.includes('|'))
+                    .map(line => {
+                      const [label, id] = line.split('|').map(s => s.trim());
+                      return { text: label || id, id: id || label };
+                    })
+                    .slice(0, 3);
+
+                  // Se tiver mais de 3 opções, converte automaticamente para lista
+                  const allOptions = buttonsSection.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.includes('|'))
+                    .map(line => {
+                      const [label, id] = line.split('|').map(s => s.trim());
+                      return { title: label || id, id: id || label };
+                    });
+                  if (allOptions.length > 3) {
+                    useList = true;
+                    listItems = allOptions.slice(0, 10);
+                    buttons = [];
+                  }
+                }
+
+                let sent: boolean;
+                if (useList && listItems.length > 0) {
+                  const { sendWhatsAppList } = await import('@/lib/evolution');
+                  sent = await sendWhatsAppList(
+                    instanceName,
+                    contactNumber,
+                    "Opções",
+                    mainText,
+                    [{ title: "Selecione uma opção", rows: listItems.map(item => ({
+                      title: item.title,
+                      rowId: item.id,
+                    }))}],
+                    undefined,
+                    "Ver opções"
+                  );
+                } else if (buttons.length > 0) {
+                  const { sendWhatsAppButtons } = await import('@/lib/evolution');
+                  sent = await sendWhatsAppButtons(instanceName, contactNumber, mainText, buttons);
+                } else {
+                  sent = await sendWhatsAppMessage(instanceName, contactNumber, mainText);
+                }
                 if (!sent) {
                   throw new Error("Evolution recusou o envio da resposta automática da IA");
                 }
@@ -587,7 +705,7 @@ export async function POST(req: Request) {
                     tenant_id: tenantId,
                     conversation_id: conversation.id,
                     direction: "outbound",
-                    content: cleanedText,
+                    content: mainText,
                     ai_generated: true,
                   }
                 });
