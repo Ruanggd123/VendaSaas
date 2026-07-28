@@ -8,7 +8,29 @@ import { timingSafeEqual } from "crypto";
 
 const prisma = new PrismaClient();
 const webhookTokenCache = new Map<string, { token: string; expiresAt: number }>();
+const outboundEchoCache = new Map<string, number>();
 export const dynamic = "force-dynamic";
+
+function outboundEchoKey(instanceName: string, contactNumber: string, content: string) {
+  return `${instanceName}:${contactNumber}:${content.trim()}`;
+}
+
+async function sendTrackedWhatsAppMessage(
+  instanceName: string,
+  contactNumber: string,
+  content: string,
+) {
+  const now = Date.now();
+  for (const [key, expiresAt] of outboundEchoCache) {
+    if (expiresAt <= now) outboundEchoCache.delete(key);
+  }
+
+  const key = outboundEchoKey(instanceName, contactNumber, content);
+  outboundEchoCache.set(key, now + 2 * 60 * 1000);
+  const sent = await sendWhatsAppMessage(instanceName, contactNumber, content);
+  if (!sent) outboundEchoCache.delete(key);
+  return sent;
+}
 
 function tokensMatch(left: string, right: string) {
   const leftBuffer = Buffer.from(left);
@@ -164,6 +186,14 @@ export async function POST(req: Request) {
         const fromMe = messageData.key.fromMe || false;
         const providerMessageId = typeof messageData.key.id === "string" ? messageData.key.id.trim() : "";
 
+        if (
+          fromMe &&
+          (messageData.message?.pollCreationMessage || messageData.message?.pollCreationMessageV3)
+        ) {
+          console.log(`[Webhook] Ignorando criação de enquete enviada pelo bot para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Criação de enquete do bot" });
+        }
+
         // 0. Verifica Lista Negra (ignored_numbers) por Telefone E por Nome
         if (webhookTenant && webhookTenant.settings) {
           const settings = typeof webhookTenant.settings === "string" ? JSON.parse(webhookTenant.settings) : webhookTenant.settings;
@@ -307,6 +337,14 @@ export async function POST(req: Request) {
         }
 
         if (!msgContent && !mediaType) msgContent = "[Outros]";
+
+        if (
+          fromMe &&
+          (outboundEchoCache.get(outboundEchoKey(instanceName, contactNumber, msgContent)) ?? 0) > Date.now()
+        ) {
+          console.log(`[Webhook] Ignorando eco rastreado do bot para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Eco rastreado do bot" });
+        }
 
         // 1. Busca ou cria a conversa atomicamente (sem race condition)
         let conversation = await prisma.conversation.upsert({
@@ -578,8 +616,7 @@ export async function POST(req: Request) {
                 console.log(`[Webhook] Resposta automática para mídia ignorada: IA pausada para ${contactNumber}`);
               } else {
                 const mediaReply = "📸 Não consigo visualizar imagens ou arquivos. Se preferir, me descreva o que precisa!";
-                const { sendWhatsAppMessage } = await import('@/lib/evolution');
-                const sent = await sendWhatsAppMessage(instanceName, contactNumber, mediaReply);
+                const sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, mediaReply);
                 if (!sent) throw new Error("Evolution recusou a resposta automática para mídia");
 
                 await prisma.message.create({
@@ -692,7 +729,7 @@ export async function POST(req: Request) {
                   : buttons;
 
                 if (pollItems.length >= 2) {
-                  sent = await sendWhatsAppMessage(instanceName, contactNumber, mainText);
+                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, mainText);
                   if (sent) {
                     const { sendWhatsAppPoll } = await import('@/lib/evolution');
                     const pollOptions = pollItems.map(item =>
@@ -710,7 +747,7 @@ export async function POST(req: Request) {
                   }
                 }
                 if (!sent) {
-                  sent = await sendWhatsAppMessage(instanceName, contactNumber, mainText);
+                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, mainText);
                 }
                 if (!sent) {
                   throw new Error("Evolution recusou o envio da resposta (até texto puro falhou)");
@@ -754,9 +791,8 @@ export async function POST(req: Request) {
             console.error(`[Webhook] ERRO ao processar IA para ${contactNumber}:`, aiErrMessage);
             // Tenta enviar um aviso genérico via texto puro como fallback emergencial
             try {
-              const { sendWhatsAppMessage } = await import('@/lib/evolution');
               const emergencyFallback = "Desculpe, estou com instabilidade no momento. Já estou verificando e logo volto a responder.";
-              await sendWhatsAppMessage(instanceName, contactNumber, emergencyFallback);
+              await sendTrackedWhatsAppMessage(instanceName, contactNumber, emergencyFallback);
               await prisma.message.create({
                 data: {
                   tenant_id: tenantId,
