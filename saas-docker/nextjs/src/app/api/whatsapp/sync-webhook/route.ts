@@ -65,6 +65,7 @@ export async function POST(req: Request) {
               enabled: true,
               url: webhookTargetUrl,
               byEvents: false,
+              base64: true,
               events: expectedEvents,
             },
           }),

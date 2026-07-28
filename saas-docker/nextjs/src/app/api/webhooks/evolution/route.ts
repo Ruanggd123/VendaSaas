@@ -5,6 +5,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { timingSafeEqual } from "crypto";
+import { formatWhatsAppOptionText } from "@/lib/whatsappOptions";
 
 const prisma = new PrismaClient();
 const webhookTokenCache = new Map<string, { token: string; expiresAt: number }>();
@@ -273,9 +274,19 @@ export async function POST(req: Request) {
         }
 
         // Extrai texto da mensagem (pode ser text, extendedTextMessage, etc)
+        const messageEnvelope = messageData.message || {};
+        const rawMessageType = Object.keys(messageEnvelope).find((key) =>
+          key !== "messageContextInfo" && key !== "base64"
+        ) || "unknown";
+        let pollSelectionLabel = "";
+        const incomingPoll = messageEnvelope.pollCreationMessage || messageEnvelope.pollCreationMessageV3;
         let msgContent = messageData.message?.conversation 
           || messageData.message?.extendedTextMessage?.text
           || "";
+
+        if (!msgContent && incomingPoll) {
+          msgContent = incomingPoll.name || "Enquete recebida";
+        }
 
         // Extrair texto de botões interativos (button_reply / list_reply)
         if (!msgContent) {
@@ -311,6 +322,7 @@ export async function POST(req: Request) {
           const selectedPollOption = messageData.message?.pollUpdateMessage?.vote?.selectedOptions?.[0]
             || messageData.pollUpdates?.find((option: any) => option.voters?.length > 0)?.name;
           if (typeof selectedPollOption === 'string') {
+            pollSelectionLabel = selectedPollOption.replace(/\s*\[([^\[\]]+)]\s*$/, "").trim();
             const idMatch = selectedPollOption.match(/\s*\[([^\[\]]+)]\s*$/);
             msgContent = idMatch?.[1]?.trim() || selectedPollOption;
           }
@@ -324,19 +336,71 @@ export async function POST(req: Request) {
           else if (listReply?.title) msgContent = listReply.title;
         }
 
-        let mediaType = null;
-        const mediaBase64 = messageData.base64 || "";
+        let mediaType: "image" | "audio" | "video" | "document" | null = null;
+        let mediaBase64 = messageData.message?.base64 || messageData.base64 || "";
+        let mediaNode: any = null;
 
-        if (messageData.message?.imageMessage) mediaType = "image";
-        else if (messageData.message?.audioMessage) mediaType = "audio";
-        else if (messageData.message?.videoMessage) mediaType = "video";
-        else if (messageData.message?.documentMessage || messageData.message?.documentWithCaptionMessage) mediaType = "document";
+        if (messageData.message?.imageMessage) {
+          mediaType = "image";
+          mediaNode = messageData.message.imageMessage;
+        } else if (messageData.message?.stickerMessage) {
+          mediaType = "image";
+          mediaNode = messageData.message.stickerMessage;
+        } else if (messageData.message?.audioMessage) {
+          mediaType = "audio";
+          mediaNode = messageData.message.audioMessage;
+        } else if (messageData.message?.videoMessage) {
+          mediaType = "video";
+          mediaNode = messageData.message.videoMessage;
+        } else if (messageData.message?.documentMessage || messageData.message?.documentWithCaptionMessage) {
+          mediaType = "document";
+          mediaNode = messageData.message.documentMessage
+            || messageData.message.documentWithCaptionMessage?.message?.documentMessage;
+        }
+
+        if (mediaType && !mediaBase64 && process.env.EVOLUTION_URL && process.env.EVOLUTION_API_KEY) {
+          try {
+            const mediaResponse = await fetch(
+              `${process.env.EVOLUTION_URL.replace(/\/$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: process.env.EVOLUTION_API_KEY,
+                },
+                body: JSON.stringify({ message: messageData }),
+              },
+            );
+            if (mediaResponse.ok) {
+              const recoveredMedia = await mediaResponse.json();
+              mediaBase64 = recoveredMedia.base64 || "";
+              mediaNode = { ...mediaNode, ...recoveredMedia };
+            } else {
+              console.warn(`[Webhook] Evolution não recuperou mídia ${providerMessageId}: ${mediaResponse.status}`);
+            }
+          } catch (error) {
+            console.error(`[Webhook] Falha ao recuperar mídia ${providerMessageId}:`, error);
+          }
+        }
 
         if (mediaType && !msgContent) {
            msgContent = messageData.message?.imageMessage?.caption || messageData.message?.videoMessage?.caption || messageData.message?.documentWithCaptionMessage?.message?.documentMessage?.caption || `[Mídia: ${mediaType}]`;
         }
 
-        if (!msgContent && !mediaType) msgContent = "[Outros]";
+        const location = messageData.message?.locationMessage;
+        if (!msgContent && location) {
+          msgContent = location.name || location.address || "Localização compartilhada";
+        }
+        const sharedContact = messageData.message?.contactMessage;
+        if (!msgContent && sharedContact) {
+          msgContent = `Contato compartilhado: ${sharedContact.displayName || "sem nome"}`;
+        }
+        const reaction = messageData.message?.reactionMessage;
+        if (!msgContent && reaction) {
+          msgContent = `Reagiu com ${reaction.text || "uma reação"}`;
+        }
+
+        if (!msgContent && !mediaType) msgContent = `Mensagem não suportada (${rawMessageType})`;
 
         if (
           fromMe &&
@@ -468,13 +532,44 @@ export async function POST(req: Request) {
         const botNumber = (body.sender || "").replace("@s.whatsapp.net", "");
         
         // --- Processamento de Mídia ---
-        const messageMetadata: Record<string, string> = {};
+        const messageMetadata: Record<string, unknown> = {
+          schemaVersion: 1,
+          kind: mediaType || (incomingPoll ? "poll" : pollSelectionLabel ? "poll_vote" : location ? "location" : sharedContact ? "contact" : reaction ? "reaction" : "text"),
+          rawType: rawMessageType,
+        };
         if (providerMessageId) messageMetadata.providerMessageId = providerMessageId;
+        if (incomingPoll) {
+          const rawOptions = Array.isArray(incomingPoll.options) ? incomingPoll.options : [];
+          messageMetadata.poll = {
+            title: incomingPoll.name || "Enquete",
+            selectableCount: incomingPoll.selectableOptionsCount || 1,
+            options: rawOptions.map((option: any, index: number) => ({
+              id: String(index + 1),
+              label: option.optionName || option.name || option.title || `Opção ${index + 1}`,
+            })),
+          };
+        }
+        if (pollSelectionLabel) messageMetadata.pollVote = { label: pollSelectionLabel, id: msgContent };
+        if (location) {
+          messageMetadata.location = {
+            latitude: location.degreesLatitude,
+            longitude: location.degreesLongitude,
+            name: location.name,
+            address: location.address,
+          };
+        }
         if (mediaType && mediaBase64) {
            try {
-             const bufferData = Buffer.from(mediaBase64, 'base64');
-             const ext = mediaType === "image" ? "jpeg" : mediaType === "audio" ? "ogg" : mediaType === "video" ? "mp4" : "pdf";
-             const filename = `${tenantId}_${Date.now()}_webhook.${ext}`;
+              const bufferData = Buffer.from(mediaBase64, 'base64');
+              const mimeType = mediaNode?.mimetype || (mediaType === "image" ? "image/jpeg" : mediaType === "audio" ? "audio/ogg" : mediaType === "video" ? "video/mp4" : "application/octet-stream");
+              const extensionByMime: Record<string, string> = {
+                "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp",
+                "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/webm": "webm",
+                "video/mp4": "mp4", "video/quicktime": "mov", "application/pdf": "pdf",
+              };
+              const originalFileName = String(mediaNode?.fileName || "").replace(/[^a-zA-Z0-9._-]/g, "_");
+              const fallbackExtension = extensionByMime[mimeType.split(";")[0]] || (mediaType === "document" ? "bin" : mediaType);
+              const filename = `${tenantId}_${Date.now()}_${originalFileName || `webhook.${fallbackExtension}`}`;
              
              const accountId = process.env.R2_ACCOUNT_ID;
              const accessKeyId = process.env.R2_ACCESS_KEY_ID;
@@ -501,17 +596,24 @@ export async function POST(req: Request) {
                   Bucket: bucketName,
                   Key: filename,
                   Body: bufferData,
-                  ContentType: mediaType === "image" ? "image/jpeg" : mediaType === "audio" ? "audio/ogg" : "application/octet-stream",
+                  ContentType: mimeType,
                 }));
                 uploadedUrl = publicUrl ? `${publicUrl.replace(/\/$/, '')}/${filename}` : `https://${bucketName}.${accountId}.r2.cloudflarestorage.com/${filename}`;
              }
              
-             messageMetadata.type = mediaType;
-             messageMetadata.url = uploadedUrl;
-            } catch (err) {
-              console.error("[Webhook] Erro ao salvar mídia", err);
-            }
-         }
+              messageMetadata.type = mediaType;
+              messageMetadata.url = uploadedUrl;
+              messageMetadata.mimeType = mimeType;
+              messageMetadata.fileName = originalFileName || filename;
+             } catch (err) {
+               console.error("[Webhook] Erro ao salvar mídia", err);
+             }
+        } else if (mediaType) {
+          messageMetadata.type = mediaType;
+          messageMetadata.fileName = mediaNode?.fileName || undefined;
+          messageMetadata.mimeType = mediaNode?.mimetype || undefined;
+          messageMetadata.mediaUnavailable = true;
+        }
         const finalMetadata = Object.keys(messageMetadata).length > 0 ? JSON.stringify(messageMetadata) : null;
         
         let isOwner = false;
@@ -545,6 +647,11 @@ export async function POST(req: Request) {
           where: { id: conversation.id },
           data: { last_message_at: new Date() }
         });
+
+        if (incomingPoll || location || sharedContact || reaction || msgContent.startsWith("Mensagem não suportada")) {
+          console.log(`[Webhook] Evento ${rawMessageType} armazenado sem acionar resposta automática`);
+          return NextResponse.json({ success: true, stored: rawMessageType });
+        }
 
         console.log(`💬 [Tenant ${tenantId}] Mensagem sincronizada de ${contactNumber}: ${msgContent.substring(0,30)}...`);
 
@@ -737,22 +844,16 @@ export async function POST(req: Request) {
                 }
 
                 let sent = false;
+                let outboundMetadata: string | null = null;
                 const pollItems = useList
                   ? listItems.map(item => ({ text: item.title, id: item.id }))
                   : buttons;
 
-                const normalizedMainText = mainText
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .toLowerCase();
-                const optionsAlreadyVisible = pollItems.length > 0 && pollItems.every(item =>
-                  normalizedMainText.includes(
-                    item.text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
-                  )
+                const deliveryText = formatWhatsAppOptionText(
+                  mainText,
+                  pollItems,
+                  interactivePollEnabled,
                 );
-                const deliveryText = pollItems.length > 0 && !optionsAlreadyVisible
-                  ? `${mainText}\n\nEscolha uma opção:\n${pollItems.map(item => `${item.id} - ${item.text}`).join("\n")}`
-                  : mainText;
 
                 if (interactivePollEnabled && pollItems.length >= 2) {
                   sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
@@ -769,6 +870,16 @@ export async function POST(req: Request) {
                     );
                     if (!pollSent) {
                       console.log(`[Webhook] Enquete falhou para ${contactNumber}; o menu em texto foi mantido`);
+                    } else {
+                      outboundMetadata = JSON.stringify({
+                        schemaVersion: 1,
+                        kind: "poll",
+                        poll: {
+                          title: "Escolha uma opção",
+                          selectableCount: 1,
+                          options: pollItems.map((item) => ({ id: item.id, label: item.text })),
+                        },
+                      });
                     }
                   }
                 }
@@ -786,6 +897,7 @@ export async function POST(req: Request) {
                     direction: "outbound",
                     content: deliveryText,
                     ai_generated: true,
+                    metadata: outboundMetadata,
                   }
                 });
 

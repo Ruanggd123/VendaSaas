@@ -14,6 +14,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { botMessageTemplates } from "@/lib/ai/botMessageTemplates";
+import { formatWhatsAppOptionText } from "@/lib/whatsappOptions";
 
 interface Message {
   id: string;
@@ -524,7 +525,24 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       })),
     welcome: normalizeTextValue(settings?.welcome_message),
     autoAppend: String(settings?.welcome_menu_auto_append ?? true),
+    interactiveOptions: String(settings?.interactive_poll_enabled ?? true),
   });
+
+  const presentOptionMessage = (
+    text: string,
+    buttons: { label: string; value: string }[] | undefined,
+  ) => {
+    const normalizedButtons = normalizeButtons(buttons);
+    const interactiveEnabled = settings?.interactive_poll_enabled !== false;
+    return {
+      text: formatWhatsAppOptionText(
+        normalizeTextValue(text),
+        normalizedButtons.map((button) => ({ text: button.label, id: button.value })),
+        interactiveEnabled,
+      ),
+      buttons: interactiveEnabled ? normalizedButtons : [],
+    };
+  };
 
   const getCatalogDisplayPrice = (product: any): string => {
     if (!product) return "";
@@ -640,44 +658,33 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     // FILTRA APENAS NÓS PAI (sem parentId) PARA NÃO VAZAR SUB-NÓS NO MENU INICIAL
     const rootNodes = allNodes.filter((n: any) => !n.parentId);
 
-    let menuText = welcome;
-
-    if (!shouldAutoAppendMenu || hasExplicitMenuSection(welcome)) {
+    if (!shouldAutoAppendMenu) {
       return {
         id: "init_menu",
         sender: "bot",
-        text: menuText,
+        text: welcome,
         timestamp: getFormattedTime(),
         isWelcome: true,
       };
     }
 
-    if (rootNodes.length > 0) {
-      menuText += "\n\nEscolha uma das opções abaixo:\n";
-      rootNodes.forEach((node: any) => {
-        const icon = node.keyword === "1" ? "🛍️" : node.keyword === "2" ? "🕒" : node.keyword === "3" ? "📅" : "👤";
-        menuText += `\n*${node.keyword}* - ${icon} ${node.title}`;
-      });
-    } else {
-      menuText += "\n\n*1* - 🛍️ Catálogo de Produtos & Serviços\n*2* - 🕒 Horários de Atendimento\n*3* - 📅 Agendar Horário\n*4* - 👤 Falar com Atendente Humano";
-    }
-
     const defaultButtons = rootNodes.length > 0
-      ? rootNodes.slice(0, 4).map((n: any) => ({ label: `${n.keyword} - ${n.title}`, value: n.keyword }))
+      ? rootNodes.slice(0, 4).map((n: any) => ({ label: n.title, value: n.keyword }))
       : [
-          { label: "1 - Catálogo", value: "1" },
-          { label: "2 - Horários", value: "2" },
-          { label: "3 - Agendar", value: "3" },
-          { label: "4 - Humano", value: "4" },
+          { label: "Catálogo", value: "1" },
+          { label: "Horários", value: "2" },
+          { label: "Agendar", value: "3" },
+          { label: "Humano", value: "4" },
         ];
+    const presentation = presentOptionMessage(welcome, defaultButtons);
 
     return {
       id: "init_menu",
       sender: "bot",
-      text: menuText,
+      text: presentation.text,
       timestamp: getFormattedTime(),
       isWelcome: true,
-      buttons: defaultButtons,
+      buttons: presentation.buttons,
     };
   };
 
@@ -962,14 +969,14 @@ Seu agendamento foi registrado no simulador.`;
         }
 
         if (schedulingStateActive) {
-          const finalButtons = normalizeButtons(botButtons);
+          const presentation = presentOptionMessage(botResponseText, botButtons);
 
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: normalizeTextValue(botResponseText),
+            text: presentation.text,
             timestamp: currentTime,
-            buttons: finalButtons,
+            buttons: presentation.buttons,
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
@@ -1076,13 +1083,13 @@ Seu agendamento foi registrado no simulador.`;
             }
           }
 
-          const finalButtons = normalizeButtons(botButtons);
+          const presentation = presentOptionMessage(botResponseText, botButtons);
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: normalizeTextValue(botResponseText),
+            text: presentation.text,
             timestamp: currentTime,
-            buttons: finalButtons,
+            buttons: presentation.buttons,
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
@@ -1218,12 +1225,13 @@ Seu agendamento foi registrado no simulador.`;
             }
           }
 
+          const presentation = presentOptionMessage(botResponseText, botButtons);
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: normalizeTextValue(botResponseText),
+            text: presentation.text,
             timestamp: currentTime,
-            buttons: normalizeButtons(botButtons),
+            buttons: presentation.buttons,
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
@@ -1245,12 +1253,13 @@ Seu agendamento foi registrado no simulador.`;
             { label: "🏠 Menu Principal", value: "0" },
           ];
 
+          const presentation = presentOptionMessage(botResponseText, botButtons);
           const botMsg: Message = {
             id: "bot_" + Date.now(),
             sender: "bot",
-            text: normalizeTextValue(botResponseText),
+            text: presentation.text,
             timestamp: currentTime,
-            buttons: normalizeButtons(botButtons),
+            buttons: presentation.buttons,
           };
           setMessages((prev) => [...prev, botMsg]);
           return;
@@ -1259,12 +1268,13 @@ Seu agendamento foi registrado no simulador.`;
         if (clean === "confirm_pix") {
         botResponseText = "🎉 *Pagamento em Processamento!*\n\nIdentificamos a solicitação de baixa! Nosso sistema liberará sua credencial em instantes no WhatsApp! 🚀";
         botButtons = [{ label: "🏠 Menu Principal", value: "0" }];
+        const presentation = presentOptionMessage(botResponseText, botButtons);
         const botMsg: Message = {
           id: "bot_" + Date.now(),
           sender: "bot",
-          text: normalizeTextValue(botResponseText),
+          text: presentation.text,
           timestamp: currentTime,
-          buttons: normalizeButtons(botButtons),
+          buttons: presentation.buttons,
         };
         setMessages((prev) => [...prev, botMsg]);
         return;
@@ -1284,12 +1294,13 @@ Seu agendamento foi registrado no simulador.`;
         botResponseText = `🚀 Redirecionando para a aba de checkout seguro em nova janela!\n\nApós efetuar o pagamento via Pix, Cartão ou Boleto, sua conta será ativada automaticamente! ✅`;
         botButtons = [{ label: "🏠 Ir para o Menu Principal", value: "0" }];
 
+        const presentation = presentOptionMessage(botResponseText, botButtons);
         const botMsg: Message = {
           id: "bot_" + Date.now(),
           sender: "bot",
-          text: normalizeTextValue(botResponseText),
+          text: presentation.text,
           timestamp: currentTime,
-          buttons: normalizeButtons(botButtons),
+          buttons: presentation.buttons,
         };
         setMessages((prev) => [...prev, botMsg]);
         return;
@@ -1420,15 +1431,15 @@ Seu agendamento foi registrado no simulador.`;
         botButtons = generateBotInitialMenu().buttons;
       }
 
-      const finalButtons = normalizeButtons(botButtons);
+      const presentation = presentOptionMessage(botResponseText, botButtons);
       const finalProducts = normalizeMessagesProducts(botProducts);
       const botMsg: Message = {
         id: "bot_" + Date.now(),
         sender: "bot",
-        text: normalizeTextValue(botResponseText),
+        text: presentation.text,
         timestamp: currentTime,
         nodeId: matchedNode?.id || null,
-        buttons: finalButtons,
+        buttons: presentation.buttons,
         products: finalProducts,
       };
 

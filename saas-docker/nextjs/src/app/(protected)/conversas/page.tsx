@@ -4,14 +4,17 @@ import Image from "next/image";
 import {
   ArrowDown,
   ArrowLeft,
+  BarChart3,
   Bot,
   Check,
   Clock3,
   CircleAlert,
   FileText,
+  Download,
   Image as ImageIcon,
   Loader2,
   MessageSquare,
+  MapPin,
   Mic,
   Music,
   Paperclip,
@@ -30,6 +33,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type MediaType = "image" | "audio" | "video" | "document";
+type MessageKind = MediaType | "text" | "poll" | "poll_vote" | "location" | "contact" | "reaction" | "unknown";
 type ClientStatus = "sending" | "sent" | "failed";
 type MessageFetchMode = "initial" | "delta" | "before";
 type Queue = "geral" | "vendas" | "suporte" | "financeiro" | "pos_venda";
@@ -100,11 +104,30 @@ interface SendPayload {
   content: string;
   mediaUrl?: string;
   mediaType?: MediaType;
+  fileName?: string;
+  mimeType?: string;
 }
 
 interface SeenValue {
   id: string;
   time: string;
+}
+
+interface ParsedMetadata {
+  kind?: MessageKind;
+  type?: MediaType;
+  url?: string;
+  fileName?: string;
+  mimeType?: string;
+  mediaUnavailable?: boolean;
+  rawType?: string;
+  poll?: {
+    title?: string;
+    selectableCount?: number;
+    options?: Array<{ id?: string; label?: string; selected?: boolean }>;
+  };
+  pollVote?: { id?: string; label?: string };
+  location?: { latitude?: number; longitude?: number; name?: string; address?: string };
 }
 
 const QUICK_REPLIES = [
@@ -259,21 +282,29 @@ function isConversationUnread(conversation: Conversation, seen: Record<string, S
   );
 }
 
-function parseMetadata(message: Message): { type?: MediaType; url?: string } {
+function parseMetadata(message: Message): ParsedMetadata {
   if (!message.metadata) return {};
   try {
     const value: unknown = JSON.parse(message.metadata);
     if (typeof value !== "object" || value === null) return {};
     const record = value as Record<string, unknown>;
+    const legacyType =
+      record.type === "image" || record.type === "audio" || record.type === "video" || record.type === "document"
+        ? record.type
+        : undefined;
+    const kind = typeof record.kind === "string" ? record.kind as MessageKind : legacyType;
     return {
+      kind,
       type:
-        record.type === "image" ||
-        record.type === "audio" ||
-        record.type === "video" ||
-        record.type === "document"
-          ? record.type
-          : undefined,
+        legacyType || (kind === "image" || kind === "audio" || kind === "video" || kind === "document" ? kind : undefined),
       url: typeof record.url === "string" ? record.url : undefined,
+      fileName: typeof record.fileName === "string" ? record.fileName : undefined,
+      mimeType: typeof record.mimeType === "string" ? record.mimeType : undefined,
+      mediaUnavailable: record.mediaUnavailable === true,
+      rawType: typeof record.rawType === "string" ? record.rawType : undefined,
+      poll: typeof record.poll === "object" && record.poll !== null ? record.poll as ParsedMetadata["poll"] : undefined,
+      pollVote: typeof record.pollVote === "object" && record.pollVote !== null ? record.pollVote as ParsedMetadata["pollVote"] : undefined,
+      location: typeof record.location === "object" && record.location !== null ? record.location as ParsedMetadata["location"] : undefined,
     };
   } catch {
     return {};
@@ -306,6 +337,8 @@ function latestMessage(conversation: Conversation) {
 function messagePreview(message?: Message) {
   if (!message) return "Conversa ainda sem mensagens";
   const media = parseMetadata(message);
+  if (media.kind === "poll") return `Enquete: ${media.poll?.title || "Escolha uma opção"}`;
+  if (media.kind === "poll_vote") return `Selecionou: ${media.pollVote?.label || message.content}`;
   if (message.content && !message.content.startsWith("[Mídia")) return message.content;
   if (media.type === "image") return "Imagem";
   if (media.type === "audio") return "Áudio";
@@ -396,6 +429,7 @@ export default function ConversasPage() {
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recorderTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const discardRecordingRef = useRef(false);
   const dragDepthRef = useRef(0);
   const lastListFiltersRef = useRef("");
 
@@ -417,6 +451,7 @@ export default function ConversasPage() {
     () => (selected ? responseSlaState(selected) : null),
     [selected],
   );
+  const selectedUnread = selected ? isConversationUnread(selected, seen) : false;
 
   const quickCounts = useMemo(() => {
     const userId = sessionUser?.id;
@@ -887,7 +922,6 @@ export default function ConversasPage() {
     setHistorySearch("");
     setNotesDirty(false);
     setComposerError("");
-    saveSeen(conversation.id, latestMessage(conversation));
   };
 
   const toggleBulkSelection = (conversationId: string) => {
@@ -938,7 +972,7 @@ export default function ConversasPage() {
       ai_generated: false,
       created_at: new Date().toISOString(),
       metadata: payload.mediaUrl
-        ? JSON.stringify({ type: payload.mediaType ?? "document", url: payload.mediaUrl })
+        ? JSON.stringify({ schemaVersion: 1, kind: payload.mediaType ?? "document", type: payload.mediaType ?? "document", url: payload.mediaUrl, fileName: payload.fileName, mimeType: payload.mimeType })
         : null,
       clientStatus: "sending",
       clientPayload: payload,
@@ -965,6 +999,8 @@ export default function ConversasPage() {
           content: payload.content.trim(),
           mediaUrl: payload.mediaUrl,
           mediaType: payload.mediaType,
+          fileName: payload.fileName,
+          mimeType: payload.mimeType,
         }),
       });
       const data = await readJson(response);
@@ -1107,7 +1143,13 @@ export default function ConversasPage() {
         throw new Error(errorFrom(data, "O arquivo não pôde ser enviado."));
       }
       return await submitMessage(
-        { content: caption, mediaUrl: data.url, mediaType },
+        {
+          content: caption,
+          mediaUrl: data.url,
+          mediaType,
+          fileName: typeof data.fileName === "string" ? data.fileName : filename,
+          mimeType: typeof data.mimeType === "string" ? data.mimeType : file.type,
+        },
         undefined,
         targetConversation,
         false,
@@ -1217,6 +1259,11 @@ export default function ConversasPage() {
         if (recorderTimerRef.current) clearInterval(recorderTimerRef.current);
         recorderTimerRef.current = null;
         setRecordingTime(0);
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          audioChunksRef.current = [];
+          return;
+        }
         const blobType = recorder.mimeType || mimeType || "audio/webm";
         const blob = new Blob(audioChunksRef.current, { type: blobType });
         if (blob.size < 100) {
@@ -1227,6 +1274,7 @@ export default function ConversasPage() {
         void uploadAndSend(blob, "audio", `audio-${Date.now()}.${extension}`);
       };
       recorder.start();
+      discardRecordingRef.current = false;
       setRecording(true);
       setRecordingTime(0);
       recorderTimerRef.current = setInterval(() => setRecordingTime((value) => value + 1), 1_000);
@@ -1241,6 +1289,11 @@ export default function ConversasPage() {
   const stopRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
     setRecording(false);
+  };
+
+  const cancelRecording = () => {
+    discardRecordingRef.current = true;
+    stopRecording();
   };
 
   const patchConversation = async (kind: ControlKind, patch: Record<string, unknown>) => {
@@ -1502,7 +1555,9 @@ export default function ConversasPage() {
             </div>
             <div className="min-w-0">
               <h1 className="font-black tracking-tight">Conversas</h1>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{filtered.length} na fila atual</p>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                {filtered.length} na fila <span className="text-indigo-600 dark:text-indigo-400">• {quickCounts.unread} não lida{quickCounts.unread === 1 ? "" : "s"}</span>
+              </p>
             </div>
           </div>
           {instances.length > 0 && (
@@ -1521,7 +1576,7 @@ export default function ConversasPage() {
       </div>
 
         <div className="space-y-2.5 border-b border-slate-200/80 px-3 pb-3 pt-2 dark:border-white/10">
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label="Filtros rápidos">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6" aria-label="Filtros rápidos">
             {QUICK_FILTERS.map((filter) => (
               <button
                 type="button"
@@ -1818,7 +1873,7 @@ export default function ConversasPage() {
                   ) : (
                     <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 text-sm font-black text-white dark:from-indigo-950 dark:to-purple-900">{name.charAt(0).toUpperCase()}</div>
                   )}
-                  {unread && <span className="absolute -right-1 -top-1 size-4 rounded-full border-[3px] border-white bg-indigo-500 shadow-lg shadow-indigo-500/40 before:absolute before:inset-0 before:animate-ping before:rounded-full before:bg-indigo-400/60 dark:border-slate-900" aria-label="Nova mensagem" />}
+                  {unread && <span className="absolute -right-2 -top-2 rounded-full border-2 border-white bg-indigo-600 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-white shadow-lg shadow-indigo-500/40 dark:border-slate-900" aria-label="Nova mensagem">Nova</span>}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
@@ -1886,7 +1941,10 @@ export default function ConversasPage() {
                   <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
                   <div className="min-w-0">
-                    <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                      {selectedUnread && <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-black text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">Não lida</span>}
+                    </div>
                     <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {selectedInstance?.status === "open" ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
                       <span className="truncate">{selectedInstance?.connectionName || selectedInstance?.name || selected.instance_name || "WhatsApp"}: {selectedInstance?.status === "open" ? "conectado" : "desconectado"}</span>
@@ -2060,7 +2118,7 @@ export default function ConversasPage() {
                       </p>
                    ) : null}
                  </div>
-                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-slate-100/50 px-3 py-5 dark:bg-slate-950/50 sm:px-7">
+                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_34%)] bg-slate-100/60 px-3 py-5 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%)] dark:bg-slate-950/70 sm:px-7">
                    {messagesLoading && visibleMessages.length === 0 ? (
                      <div className="flex h-full items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="size-5 animate-spin" /> Carregando histórico</div>
                    ) : visibleMessages.length === 0 ? (
@@ -2110,10 +2168,49 @@ export default function ConversasPage() {
                                     : "rounded-bl-md border border-slate-200/80 bg-white text-slate-900 shadow-slate-200/50 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:shadow-slate-900/50"
                                 }`}>
                                   {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
-                                  {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
-                                  {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
-                                  {media.url && media.type === "document" && <a href={media.url} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-2 rounded-2xl bg-black/10 p-3 font-bold hover:bg-black/15"><FileText className="size-5 shrink-0" /><span className="truncate">Abrir documento</span></a>}
-                                  {message.content && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
+                                   {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
+                                   {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
+                                   {media.url && media.type === "document" && <a href={media.url} target="_blank" rel="noreferrer" className="mb-2 flex items-center gap-3 rounded-2xl bg-black/10 p-3 font-bold hover:bg-black/15"><span className="flex size-9 items-center justify-center rounded-xl bg-white/15"><FileText className="size-5" /></span><span className="min-w-0 flex-1"><span className="block truncate">{media.fileName || "Documento"}</span><span className="block truncate text-[10px] font-medium opacity-70">{media.mimeType || "Clique para abrir"}</span></span><Download className="size-4 shrink-0" /></a>}
+                                   {media.mediaUnavailable && (
+                                     <div className="mb-2 flex items-start gap-2 rounded-2xl border border-amber-300/40 bg-amber-100/20 p-3 text-xs">
+                                       <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                                       <span><strong>Mídia indisponível.</strong><br />O WhatsApp informou um arquivo, mas não permitiu recuperá-lo. Peça ao contato para reenviar.</span>
+                                     </div>
+                                   )}
+                                   {media.kind === "poll" && media.poll && (
+                                     <div className="mb-2 min-w-[240px] overflow-hidden rounded-2xl border border-current/15 bg-black/5 dark:bg-white/5">
+                                       <div className="flex items-center gap-2 border-b border-current/10 px-3 py-2.5">
+                                         <BarChart3 className="size-4 shrink-0" />
+                                         <span className="font-black">{media.poll.title || "Enquete"}</span>
+                                       </div>
+                                       <div className="space-y-1.5 p-2">
+                                         {(media.poll.options || []).map((option, optionIndex) => (
+                                           <div key={`${option.id || optionIndex}`} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${option.selected ? "bg-emerald-500/20" : "bg-white/40 dark:bg-black/10"}`}>
+                                             <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-current/30">{option.selected ? <Check className="size-3" /> : null}</span>
+                                             <span>{option.label || `Opção ${optionIndex + 1}`}</span>
+                                           </div>
+                                         ))}
+                                       </div>
+                                       <p className="px-3 pb-2 text-[10px] opacity-65">Enquete de escolha única enviada no WhatsApp</p>
+                                     </div>
+                                   )}
+                                   {media.kind === "poll_vote" && (
+                                     <div className="mb-2 flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold">
+                                       <Check className="size-4 text-emerald-500" />Selecionou: {media.pollVote?.label || message.content}
+                                     </div>
+                                   )}
+                                   {media.kind === "location" && media.location && (
+                                     <a
+                                       href={`https://www.google.com/maps?q=${media.location.latitude},${media.location.longitude}`}
+                                       target="_blank"
+                                       rel="noreferrer"
+                                       className="mb-2 flex items-center gap-3 rounded-2xl border border-current/15 bg-black/5 p-3 font-bold dark:bg-white/5"
+                                     >
+                                       <MapPin className="size-5 shrink-0 text-rose-500" />
+                                       <span className="min-w-0"><span className="block truncate">{media.location.name || "Localização compartilhada"}</span><span className="block truncate text-[10px] font-medium opacity-70">Abrir no mapa</span></span>
+                                     </a>
+                                   )}
+                                   {message.content && media.kind !== "poll_vote" && media.kind !== "location" && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
                                   <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
                                     <span>{formatTime(message.created_at)}</span>
                                     {outgoing && message.clientStatus === "sending" && <><Loader2 className="size-3 animate-spin" /><span>enviando</span></>}
@@ -2149,15 +2246,15 @@ export default function ConversasPage() {
                   <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                   <div className="flex items-end gap-2">
                     <div className="relative" ref={attachRef}>
-                      <button type="button" disabled={uploading || recording} onClick={() => setShowAttachMenu((value) => !value)} aria-expanded={showAttachMenu} aria-label="Anexar arquivo" className="rounded-xl p-2.5 text-slate-500 transition hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/5">{uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}</button>
+                       <button type="button" disabled={uploading || recording} onClick={() => setShowAttachMenu((value) => !value)} aria-expanded={showAttachMenu} aria-label="Anexar arquivo" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-indigo-500/10">{uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}<span className="hidden text-[10px] font-black sm:inline">Anexar</span></button>
                       {showAttachMenu && (
                         <div className="absolute bottom-full left-0 z-30 mb-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
                           {([{ type: "image", label: "Imagem", icon: ImageIcon }, { type: "video", label: "Vídeo", icon: Video }, { type: "audio", label: "Áudio", icon: Music }, { type: "document", label: "Documento", icon: FileText }] as const).map(({ type, label, icon: Icon }) => <button type="button" key={type} onClick={() => triggerFilePicker(type)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5"><Icon className="size-4 text-indigo-500" />{label}</button>)}
                         </div>
                       )}
                     </div>
-                    {recording ? (
-                      <div className="flex min-h-11 flex-1 items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"><span className="size-2.5 animate-pulse rounded-full bg-rose-500" /><span className="font-mono text-xs font-bold">{formatRecordingTime(recordingTime)}</span><span className="flex-1 text-xs font-bold">Gravando áudio</span><button type="button" onClick={stopRecording} className="rounded-lg bg-rose-600 p-2 text-white" aria-label="Parar e enviar gravação"><Square className="size-4" /></button></div>
+                     {recording ? (
+                       <div className="flex min-h-11 flex-1 items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"><span className="size-2.5 animate-pulse rounded-full bg-rose-500" /><span className="font-mono text-xs font-bold">{formatRecordingTime(recordingTime)}</span><span className="flex-1 text-xs font-bold">Gravando áudio</span><button type="button" onClick={cancelRecording} className="rounded-lg p-2 hover:bg-rose-100 dark:hover:bg-rose-500/10" aria-label="Cancelar gravação"><X className="size-4" /></button><button type="button" onClick={stopRecording} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-black text-white" aria-label="Parar e enviar gravação"><Square className="size-3.5" />Enviar</button></div>
                     ) : (
                       <textarea
                         rows={1}
@@ -2176,7 +2273,7 @@ export default function ConversasPage() {
                     )}
                     {!recording && !draft.trim() ? <button type="button" onClick={() => void startRecording()} disabled={uploading} className="rounded-xl p-2.5 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10" aria-label="Gravar áudio"><Mic className="size-5" /></button> : !recording && <button type="button" onClick={() => void submitMessage({ content: draft })} disabled={!draft.trim() || uploading} className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 p-2.5 text-white shadow-lg shadow-indigo-500/20 transition hover:brightness-110 disabled:opacity-50" aria-label="Enviar mensagem"><Send className="size-5" /></button>}
                   </div>
-                  <p className="mt-1 pl-12 text-[9px] text-slate-400">Enter envia, Shift+Enter quebra a linha. Cole ou arraste arquivos.</p>
+                   <p className="mt-1 pl-12 text-[9px] text-slate-400">Enter envia • Shift+Enter quebra a linha • Cole ou arraste imagens e arquivos • Limite 16 MB</p>
                 </div>
               </section>
 

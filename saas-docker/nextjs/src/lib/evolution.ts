@@ -285,3 +285,36 @@ export async function sendWhatsAppMedia(instanceName: string, number: string, me
     return false;
   }
 }
+
+/** Envia áudio como mensagem de voz nativa (PTT), em vez de arquivo genérico. */
+export async function sendWhatsAppAudio(instanceName: string, number: string, audioUrl: string) {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      console.error("Evolution sendWhatsAppAudio indisponível: configuração ausente");
+      return false;
+    }
+
+    const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({ number, audio: audioUrl, delay: 280 }),
+    });
+
+    if (!res.ok) {
+      const responseBody = await res.text().catch(() => "");
+      console.error("Evolution sendWhatsAppAudio recusou", {
+        instanceName,
+        status: res.status,
+        responseBody,
+      });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Falha ao enviar áudio na Evolution API:", error);
+    return false;
+  }
+}

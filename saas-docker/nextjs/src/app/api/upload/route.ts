@@ -20,13 +20,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
     }
 
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_SIZE = 16 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'Arquivo muito grande. Limite: 10MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Arquivo muito grande. Limite: 16MB' }, { status: 400 });
     }
 
     // Validar tipo de arquivo por extensão (whitelist segura)
-    const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.mp4', '.mp3', '.ogg', '.webm', '.m4a', '.docx', '.xlsx', '.zip'];
+    const ALLOWED_EXTENSIONS = [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp',
+      '.pdf', '.txt', '.csv', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip',
+      '.mp4', '.mov', '.mp3', '.ogg', '.webm', '.m4a', '.wav', '.aac',
+    ];
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       return NextResponse.json({ error: `Tipo de arquivo não permitido: ${ext}. Permitidos: ${ALLOWED_EXTENSIONS.join(', ')}` }, { status: 400 });
@@ -56,7 +60,7 @@ export async function POST(req: Request) {
       await writeFile(filePath, bufferData);
       
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, '');
-      return NextResponse.json({ success: true, url: `${appUrl}/uploads/${filename}` });
+      return NextResponse.json({ success: true, url: `${appUrl}/uploads/${filename}`, fileName: file.name, mimeType: file.type });
     }
 
     // Instancia o Client do S3 apontando para o Cloudflare R2
@@ -79,7 +83,7 @@ export async function POST(req: Request) {
     // Retorna a URL pública. (A URL pública precisa estar mapeada no Cloudflare)
     const fileUrl = publicUrl ? `${publicUrl.replace(/\/$/, '')}/${filename}` : `https://${bucketName}.${accountId}.r2.cloudflarestorage.com/${filename}`;
 
-    return NextResponse.json({ success: true, url: fileUrl });
+    return NextResponse.json({ success: true, url: fileUrl, fileName: file.name, mimeType: file.type });
   } catch (error) {
     console.error("Error in upload API:", error);
     return NextResponse.json({ error: 'Não foi possível enviar o arquivo. Tente novamente.' }, { status: 500 });

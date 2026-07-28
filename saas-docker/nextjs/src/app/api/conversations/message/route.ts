@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { conversationId, content, mediaUrl, mediaType } = await req.json();
+    const { conversationId, content, mediaUrl, mediaType, fileName, mimeType } = await req.json();
 
     const result = await sendConversationMessage(
       prisma,
@@ -25,6 +25,8 @@ export async function POST(req: Request) {
         content,
         mediaUrl,
         mediaType,
+        fileName,
+        mimeType,
         publicBaseUrl: process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin,
       } satisfies SendConversationPayload,
     );

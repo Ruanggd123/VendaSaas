@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { sendWhatsAppMessage, sendWhatsAppMedia } from "@/lib/evolution";
+import { sendWhatsAppAudio, sendWhatsAppMessage, sendWhatsAppMedia } from "@/lib/evolution";
 
 const SERVICE_ROLE_TYPES = ["agent", "partner", "manager", "admin", "superadmin"] as const;
 
@@ -16,6 +16,8 @@ export type SendConversationPayload = {
   content: string;
   mediaUrl?: string;
   mediaType?: string;
+  fileName?: string;
+  mimeType?: string;
   publicBaseUrl?: string;
 };
 
@@ -77,7 +79,7 @@ export async function sendConversationMessage(
   session: SendConversationSession,
   payload: SendConversationPayload,
 ): Promise<SendConversationResult> {
-  const { conversationId, content, mediaUrl, mediaType, publicBaseUrl } = payload;
+  const { conversationId, content, mediaUrl, mediaType, fileName, mimeType, publicBaseUrl } = payload;
   if (!conversationId || (!content && !mediaUrl)) {
     return { ok: false, status: 400, error: "Parâmetros inválidos" };
   }
@@ -168,7 +170,7 @@ export async function sendConversationMessage(
 
         if (exactEvolutionInstance) {
           resolvedInstanceName = evolutionInstanceName(exactEvolutionInstance);
-        } else {
+        } else if (!exactOwnedInstance) {
           for (const dbInstance of rankedInstances) {
             const openEvolutionInstance = evolutionInstances.find((instance) => {
               const name = evolutionInstanceName(instance);
@@ -187,7 +189,10 @@ export async function sendConversationMessage(
   }
 
   if (evolutionStatusUnavailable) {
-    resolvedInstanceName = rankedInstances.find((instance) => instance.status.toLowerCase() === "open")?.name || null;
+    const exactOwnedInstance = rankedInstances.find((instance) => matchesOwnedInstance(instance, roleAwareConversationName));
+    resolvedInstanceName = exactOwnedInstance
+      ? (exactOwnedInstance.status.toLowerCase() === "open" ? exactOwnedInstance.name : null)
+      : rankedInstances.find((instance) => instance.status.toLowerCase() === "open")?.name || null;
   }
 
   if (!resolvedInstanceName) {
@@ -196,7 +201,9 @@ export async function sendConversationMessage(
       status: evolutionStatusUnavailable ? 503 : 409,
       error: evolutionStatusUnavailable
         ? "Não foi possível confirmar uma conexão ativa do WhatsApp. Tente novamente em instantes"
-        : "Nenhuma instância do WhatsApp está conectada para este atendimento",
+        : roleAwareConversationName
+          ? `O WhatsApp desta conversa (${roleAwareConversationName}) está desconectado. Reconecte-o antes de responder`
+          : "Nenhuma instância do WhatsApp está conectada para este atendimento",
     };
   }
 
@@ -208,13 +215,23 @@ export async function sendConversationMessage(
 
   let success = false;
   if (absoluteMediaUrl) {
-    success = await sendWhatsAppMedia(
-      resolvedInstanceName,
-      conversation.contact_number,
-      absoluteMediaUrl,
-      finalContent,
-      explicitMediaType,
-    );
+    success = explicitMediaType === "audio"
+      ? await sendWhatsAppAudio(resolvedInstanceName, conversation.contact_number, absoluteMediaUrl)
+      : await sendWhatsAppMedia(
+          resolvedInstanceName,
+          conversation.contact_number,
+          absoluteMediaUrl,
+          finalContent,
+          explicitMediaType,
+        );
+
+    // Mensagens de voz não recebem legenda; envia o texto separadamente quando informado.
+    if (success && explicitMediaType === "audio" && finalContent) {
+      const captionSent = await sendWhatsAppMessage(resolvedInstanceName, conversation.contact_number, finalContent);
+      if (!captionSent) {
+        console.warn(`Áudio enviado, mas a legenda falhou para a conversa ${conversation.id}`);
+      }
+    }
   } else {
     success = await sendWhatsAppMessage(resolvedInstanceName, conversation.contact_number, finalContent);
   }
@@ -236,7 +253,7 @@ export async function sendConversationMessage(
       else if (lowerUrl.match(/\.(mp4|mov|avi)$/i)) type = "video";
       else if (lowerUrl.match(/\.(mp3|ogg|wav|webm)$/i)) type = "audio";
     }
-    metadata = JSON.stringify({ type, url: absoluteMediaUrl });
+    metadata = JSON.stringify({ schemaVersion: 1, kind: type, type, url: absoluteMediaUrl, fileName, mimeType });
   }
 
   const sentAt = new Date();
