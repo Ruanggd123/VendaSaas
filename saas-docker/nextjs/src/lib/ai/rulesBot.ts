@@ -272,6 +272,32 @@ export async function processMessageWithRules(
     );
   }
 
+  // Handle payment method selection for checkout
+  if (state.step === "awaiting_payment_method") {
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+    let billingType = '';
+    if (cleanText === "1" || cleanText.includes("pix")) {
+      billingType = 'PIX';
+    } else if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito") || cleanText.includes("crédito") || cleanText.includes("card")) {
+      billingType = 'CREDIT_CARD';
+    } else {
+      return "Opção inválida. Responda:\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nDigite *0* para voltar ao menu.";
+    }
+    const chosenService = state.data.chosenService;
+    const address = state.data.address;
+    const collected = state.data.collected || {};
+    collected.billingType = billingType;
+    return await processarFinalizacaoPedidoRulesBot(
+      tenantId, contactNumber, chosenService, address,
+      settings, stateKey, collected,
+      state.data.originNodeText, contactName
+    );
+  }
+
   // Check for pending debt / unpaid sale for this customer
   const phoneDigits = contactNumber.replace(/\D/g, "");
   const phoneFormats = [phoneDigits];
@@ -1524,7 +1550,29 @@ async function processarFinalizacaoPedidoRulesBot(
     const requiresPayment = chosenService.requires_payment !== false && chosenService.requires_payment !== "false";
 
     if (requiresPayment) {
-      const billingType = (chosenService.billing_type || 'PIX').toUpperCase();
+      const productBillingType = (chosenService.billing_type || '').toUpperCase();
+      const chosenBillingType = collectedData?.billingType || '';
+      const billingType = chosenBillingType || productBillingType;
+
+      // If no billing type specified (neither on product nor chosen), ask user
+      if (!billingType) {
+        const stateData: any = {
+          step: "awaiting_payment_method",
+          data: {
+            chosenService,
+            address,
+            collected: collectedData || {},
+            originNodeText,
+          }
+        };
+        await prisma.systemConfig.upsert({
+          where: { key: stateKey },
+          update: { value: JSON.stringify(stateData) },
+          create: { key: stateKey, value: JSON.stringify(stateData) }
+        });
+        return "Como você prefere pagar?\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nResponda *1* para PIX ou *2* para Cartão:";
+      }
+
       const customerName = collectedData?.name || contactName || '';
       const customerEmail = collectedData?.email || '';
       const cleanDigits = contactNumber.replace(/\D/g, "");
@@ -1579,8 +1627,9 @@ async function processarFinalizacaoPedidoRulesBot(
         }
 
         try {
-          const isProdKey = asaasKey.startsWith("$") || asaasKey.startsWith("ak_") || settings.asaas_mode === 'production';
-          const asaasUrl = isProdKey ? 'https://asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
+          const asaasUrl = settings.asaas_mode === 'production'
+            ? 'https://asaas.com/api/v3'
+            : 'https://sandbox.asaas.com/api/v3';
 
           const customer = await createCustomer({
             name: customerName,
@@ -1608,16 +1657,39 @@ async function processarFinalizacaoPedidoRulesBot(
             throw new Error(errMsg);
           }
 
-          // Create sale record
+          // Fallback: se PIX data veio vazio, tenta buscar explicitamente
+          let pixCopy = pay.pixCopiaECola || '';
+          let pixQr = pay.pixQrCodeUrl || '';
+          if (!pixCopy && !pixQr && pay.id) {
+            try {
+              const pixFallbackRes = await fetch(`${asaasUrl}/payments/${pay.id}/pixQrCode`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'access_token': asaasKey.trim(),
+                }
+              });
+              if (pixFallbackRes.ok) {
+                const pixData = await pixFallbackRes.json();
+                pixCopy = pixData.payload?.payload || pixData.payload?.copyPaste || pixCopy;
+                pixQr = pixData.payload?.url || pixData.encodedImage || pixData.qrCodeUrl || pixQr;
+              }
+            } catch (pixErr) {
+              console.error("Erro ao buscar PIX QR code explicitamente:", pixErr);
+            }
+          }
+
+          // Create sale record (after PIX fallback so we have the right data)
+          const finalPaymentLink = pay.invoiceUrl || pixQr || '';
           const sale = await prisma.sale.create({
             data: {
               tenant_id: tenantId,
               product_name: chosenService.name,
               amount: parseFloat(chosenService.price),
               status: "pending",
-              payment_link: pay.invoiceUrl || pay.pixQrCodeUrl || '',
+              payment_link: finalPaymentLink,
               payment_id: pay.id,
-              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pay.pixQrCodeUrl || ''} | pix_key:${pay.pixCopiaECola || ''}${extraNotes}`,
+              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQr || ''} | pix_key:${pixCopy || ''}${extraNotes}`,
               due_date: new Date(Date.now() + 7 * 86400000),
               retail_order_id: order.id,
             }
@@ -1625,12 +1697,17 @@ async function processarFinalizacaoPedidoRulesBot(
 
           await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
-          const pixCopy = pay.pixCopiaECola || '';
-          const pixQr = pay.pixQrCodeUrl || '';
           let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n💳 *Pagamento via PIX*`;
 
           if (pixCopy) msg += `\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\``;
           if (pixQr) msg += `\n\n📷 Se preferir, use o QR Code no app do seu banco: ${pixQr}`;
+
+          // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback
+          if (!pixCopy && !pixQr && pay.invoiceUrl) {
+            msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;
+          } else if (!pixCopy && !pixQr) {
+            msg += `\n\n❌ Não foi possível gerar o PIX. Tente novamente ou escolha outra forma de pagamento.`;
+          }
 
           msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
 

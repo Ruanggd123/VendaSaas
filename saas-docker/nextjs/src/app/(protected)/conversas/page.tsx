@@ -1481,7 +1481,7 @@ export default function ConversasPage() {
       <aside
         className={`${selectedId ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/90 md:w-[350px] md:min-w-[320px] xl:w-[390px]`}
       >
-        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200/80 px-4 dark:border-white/10">
+        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-white to-slate-50/50 px-4 dark:border-white/10 dark:from-slate-900 dark:to-slate-900/50">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
               <MessageSquare className="size-4" />
@@ -1769,10 +1769,10 @@ export default function ConversasPage() {
                   }
                 }}
                 aria-current={active ? "true" : undefined}
-                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                className={`flex w-full items-center gap-3 rounded-2xl border-2 p-3.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                   active
-                    ? "border-indigo-200 bg-indigo-50 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/15"
-                    : "border-transparent hover:bg-slate-100 dark:hover:bg-white/5"
+                    ? "border-indigo-400 bg-gradient-to-r from-indigo-50 to-white shadow-md shadow-indigo-500/10 dark:border-indigo-400 dark:from-indigo-500/20 dark:to-slate-900"
+                    : "border-transparent bg-white shadow-sm shadow-slate-200/50 hover:border-slate-200 hover:shadow-md dark:bg-slate-900/80 dark:hover:border-white/20 dark:hover:bg-slate-800/50"
                 }`}
               >
                 {bulkSelectionMode && (
@@ -2072,19 +2072,19 @@ export default function ConversasPage() {
                           return (
                             <div key={message.id}>
                               {showDateDivider && (
-                                <div className="my-3 flex items-center gap-3">
-                                  <span className="h-px flex-1 bg-slate-300/70 dark:bg-white/10" />
-                                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-black text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
+                                <div className="my-4 flex items-center gap-3">
+                                  <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-white/10" />
+                                  <span className="rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[10px] font-black tracking-wide text-slate-500 backdrop-blur-sm dark:border-white/10 dark:bg-slate-800/80 dark:text-slate-400">
                                     {formatDayDivider(message.created_at)}
                                   </span>
-                                  <span className="h-px flex-1 bg-slate-300/70 dark:bg-white/10" />
+                                  <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-white/10" />
                                 </div>
                               )}
-                              <div className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : ""}`}>
-                                <div className={`max-w-[88%] rounded-3xl px-3.5 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${
+                              <div className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : "pt-0.5"}`}>
+                                <div className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${
                                   outgoing
-                                    ? "rounded-tr-md bg-gradient-to-br from-indigo-600 to-purple-700 text-white"
-                                    : "rounded-tl-md border border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                                    ? "rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-indigo-500/20"
+                                    : "rounded-bl-md border border-slate-200/80 bg-white text-slate-900 shadow-slate-200/50 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:shadow-slate-900/50"
                                 }`}>
                                   {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
                                   {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
