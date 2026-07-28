@@ -47,9 +47,11 @@ export async function sendWhatsAppList(
     });
 
     if (!res.ok) {
+      const responseBody = await res.text().catch(() => "");
       console.error("Evolution sendList recusou", {
         instanceName,
         status: res.status,
+        responseBody,
       });
       return false;
     }
@@ -119,7 +121,8 @@ export async function sendWhatsAppButtons(
 
     const formattedButtons = buttons.slice(0, 3).map((b) => ({
       type: "reply",
-      text: b.text,
+      displayText: b.text,
+      id: b.id,
     }));
 
     const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendButtons/${encodeURIComponent(instanceName)}`, {
@@ -130,17 +133,19 @@ export async function sendWhatsAppButtons(
       },
       body: JSON.stringify({
         number,
-        text,
-        title: title || "",
+        title: title || "Opções",
+        description: text,
         footer: footer || "",
         buttons: formattedButtons,
       }),
     });
 
     if (!res.ok) {
+      const responseBody = await res.text().catch(() => "");
       console.error("Evolution sendButtons recusou", {
         instanceName,
         status: res.status,
+        responseBody,
       });
       return false;
     }

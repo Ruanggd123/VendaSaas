@@ -256,7 +256,7 @@ export async function POST(req: Request) {
               const nativeFlow = interactive.nativeFlowResponseMessage;
               if (nativeFlow?.paramsJson) {
                 const parsed = JSON.parse(nativeFlow.paramsJson);
-                msgContent = parsed.title || parsed.id || '';
+                msgContent = parsed.id || parsed.title || '';
               }
             } catch {}
             if (!msgContent && interactive.selectedDisplayText) {
@@ -272,7 +272,7 @@ export async function POST(req: Request) {
         if (!msgContent) {
           const listResponse = messageData.message?.listResponseMessage;
           if (listResponse) {
-            msgContent = listResponse.title || listResponse.singleSelectReply?.selectedRowId || '';
+            msgContent = listResponse.singleSelectReply?.selectedRowId || listResponse.title || '';
           }
         }
 
