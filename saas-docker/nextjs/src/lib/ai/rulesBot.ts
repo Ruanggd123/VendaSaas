@@ -77,7 +77,17 @@ function normalizeTextForLookup(value: any): string {
     .trim()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+function formatSchedulingDateLabel(date: Date) {
+  const dateStr = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+  return `${WEEKDAY_NAMES_PT[date.getDay()]} (${dateStr})`;
 }
 
 function getProductIdentifier(product: ProductLike | undefined): string {
@@ -185,14 +195,20 @@ function renderCollectedVariables(value: unknown, collected: Record<string, unkn
 }
 
 export function resolveChoiceIndex(value: string, labels: string[]): number {
-  if (/^\d+$/.test(value.trim())) return Number(value.trim()) - 1;
+  if (/^\d+$/.test(value.trim())) {
+    const numericIndex = Number(value.trim()) - 1;
+    if (numericIndex >= 0 && numericIndex < labels.length) return numericIndex;
+  }
   const normalized = normalizeTextForLookup(value);
-  const exactIndex = labels.findIndex((label) => normalizeTextForLookup(label) === normalized);
+  const normalizedLabels = labels.map(normalizeTextForLookup);
+  const exactIndex = normalizedLabels.findIndex((label) => label === normalized);
   if (exactIndex >= 0) return exactIndex;
 
   // Poll labels include the display price, while the workflow stores only the product name.
-  const withoutPrice = normalized.replace(/\s*-\s*r\$\s*[\d.,]+(?:\s*\/\s*mes)?\s*$/, "");
-  return labels.findIndex((label) => normalizeTextForLookup(label) === withoutPrice);
+  return normalizedLabels.findIndex((label) => {
+    if (!label || !normalized.startsWith(`${label} `)) return false;
+    return /^r\s*\d/.test(normalized.slice(label.length).trim());
+  });
 }
 
 export async function processMessageWithRules(
@@ -335,10 +351,11 @@ export async function processMessageWithRules(
       await saveState(state);
       return getMainMenuMessage(settings);
     }
+    const paymentChoice = resolveChoiceIndex(cleanText, ["PIX", "Cartão de Crédito"]);
     let billingType = '';
-    if (cleanText === "1" || cleanText.includes("pix")) {
+    if (paymentChoice === 0 || cleanText.includes("pix")) {
       billingType = 'PIX';
-    } else if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito") || cleanText.includes("crédito") || cleanText.includes("card")) {
+    } else if (paymentChoice === 1 || cleanText.includes("cartao") || cleanText.includes("credito") || cleanText.includes("crédito") || cleanText.includes("card")) {
       billingType = 'CREDIT_CARD';
     } else {
       return "Opção inválida. Responda:\n\n1️⃣ *PIX* (pagamento instantâneo)\n2️⃣ *Cartão de Crédito* (link seguro)\n\nDigite *0* para voltar ao menu.\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2";
@@ -394,11 +411,12 @@ export async function processMessageWithRules(
 
   // Converte conversas iniciadas pela versão anterior para a escolha de método.
   if (state.step === "debt_paying") {
-    if (cleanText === "1" || cleanText.includes("sim") || cleanText.includes("pagar")) {
+    const debtChoice = resolveChoiceIndex(cleanText, ["Pagar Agora", "Ir para o Menu"]);
+    if (debtChoice === 0 || cleanText.includes("sim") || cleanText.includes("pagar")) {
       state.step = "debt_payment_method";
       await saveState(state);
       return pendingPaymentPrompt;
-    } else if (cleanText === "2" || cleanText.includes("nao") || cleanText.includes("não") || cleanText === "menu" || cleanText === "voltar") {
+    } else if (debtChoice === 1 || cleanText.includes("nao") || cleanText.includes("não") || cleanText === "menu" || cleanText === "voltar") {
       state = { step: "main_menu", data: {} };
       await saveState(state);
       return getMainMenuMessage(settings);
@@ -429,7 +447,8 @@ export async function processMessageWithRules(
       ? 'https://asaas.com/api/v3'
       : 'https://sandbox.asaas.com/api/v3';
 
-    if (cleanText === "1" || cleanText.includes("pix")) {
+    const debtPaymentChoice = resolveChoiceIndex(cleanText, ["Pagar com PIX", "Pagar com Cartão", "Cancelar cobrança"]);
+    if (debtPaymentChoice === 0 || cleanText.includes("pix")) {
       if (!asaasKey || !pendingSale.payment_id) {
         return `Não foi possível gerar o PIX desta cobrança agora. Você pode tentar o cartão ou cancelar a cobrança.\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
       }
@@ -472,7 +491,7 @@ export async function processMessageWithRules(
         : response;
     }
 
-    if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito")) {
+    if (debtPaymentChoice === 1 || cleanText.includes("cartao") || cleanText.includes("credito")) {
       let cardLink = pendingSale.payment_link || "";
       if (asaasKey && pendingSale.payment_id) {
         const updatedPayment = await updatePayment(
@@ -498,7 +517,7 @@ export async function processMessageWithRules(
       return `💳 *Pagamento com Cartão de Crédito*\n\nPara preencher os dados do cartão com segurança, abra o checkout:\n🔗 ${cardLink}\n\nSe escolheu errado, você pode gerar o PIX ou cancelar:\n\n---BUTTONS---\nPagar com PIX|1\nCancelar cobrança|3`;
     }
 
-    if (cleanText === "3" || cleanText.includes("cancelar") || cleanText.includes("desistir")) {
+    if (debtPaymentChoice === 2 || cleanText.includes("cancelar") || cleanText.includes("desistir")) {
       if (asaasKey && pendingSale.payment_id) {
         const canceledPayment = await cancelPayment(pendingSale.payment_id, asaasKey, asaasUrl);
         if (canceledPayment.errors) {
@@ -784,14 +803,15 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
 
-    if (cleanText !== "1" && cleanText !== "2") {
+    const methodChoice = resolveChoiceIndex(cleanText, ["Envio Digital", "Entrega Física"]);
+    if (methodChoice < 0 || methodChoice > 1) {
       return botMessageTemplates.errors.invalidBothMethodsChoice();
     }
 
     const chosenService = state.data.chosenService;
     const deadline = chosenService.delivery_deadline || "imediato";
 
-    if (cleanText === "1") {
+    if (methodChoice === 0) {
       const addr = botMessageTemplates.labels.bothDigital(deadline);
       state.data.address = addr;
       return await processarFinalizacaoPedidoRulesBot(
@@ -819,11 +839,12 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
 
-    if (cleanText !== "1" && cleanText !== "2") {
+    const deliveryChoice = resolveChoiceIndex(cleanText, ["Entrega", "Retirada"]);
+    if (deliveryChoice < 0 || deliveryChoice > 1) {
       return botMessageTemplates.errors.invalidDeliveryChoice();
     }
 
-    if (cleanText === "1") {
+    if (deliveryChoice === 0) {
       state.step = "catalog_input_address";
       await saveState(state);
       return botMessageTemplates.prompts.requestAddress();
@@ -879,20 +900,20 @@ export async function processMessageWithRules(
     const availableDates = obterProximosDiasDisponiveis(settings);
 
     state.step = "scheduling_select_date";
+    const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
     state.data = {
       serviceName: chosenService.name,
       servicePrice: chosenService.price,
       duration: chosenService.duration_min || 60,
-      availableDates: availableDates.map(d => d.toISOString())
+      availableDates: availableDates.map(d => d.toISOString()),
+      availableDateLabels,
     };
     await saveState(state);
 
-    const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
     let response = `Você selecionou *${chosenService.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
     const dateOptions: Array<{ label: string; value: string }> = [];
     availableDates.forEach((d, idx) => {
-      const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-      const label = `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`;
+      const label = availableDateLabels[idx];
       response += `${idx + 1}️⃣ ${label}\n`;
       dateOptions.push({ label, value: String(idx + 1) });
     });
@@ -908,12 +929,11 @@ export async function processMessageWithRules(
     }
     
     const availableDates = state.data.availableDates || [];
-    const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-    const optionIdx = resolveChoiceIndex(cleanText, availableDates.map((value: string) => {
-      const date = new Date(value);
-      const dateStr = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}`;
-      return `${WEEKDAY_NAMES_PT[date.getDay()]} (${dateStr})`;
-    }));
+    const storedDateLabels = Array.isArray(state.data.availableDateLabels)
+      && state.data.availableDateLabels.length === availableDates.length
+      ? state.data.availableDateLabels.map(String)
+      : availableDates.map((value: string) => formatSchedulingDateLabel(new Date(value)));
+    const optionIdx = resolveChoiceIndex(cleanText, storedDateLabels);
     if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= availableDates.length) {
       return `❌ Opção inválida. Digite o número correspondente à data desejada (1-${availableDates.length}) ou *0* para voltar:`;
     }
@@ -950,15 +970,15 @@ export async function processMessageWithRules(
   }
 
   if (state.step === "scheduling_select_period") {
-    const periodChoice = cleanText === "manha" || cleanText === "manhã" ? "1" : cleanText === "tarde" ? "2" : cleanText;
-    if (periodChoice !== "1" && periodChoice !== "2") {
+    const periodChoice = resolveChoiceIndex(cleanText, ["Manhã", "Tarde"]);
+    if (periodChoice < 0 || periodChoice > 1) {
       return "❌ Opção inválida. Digite *1* para Manhã ou *2* para Tarde:";
     }
 
     const parsedDate = new Date(state.data.parsedDate);
     const slots = await getAvailableSlots(tenantId, parsedDate, state.data.duration || 60, settings);
     
-    const isMorning = periodChoice === "1";
+    const isMorning = periodChoice === 0;
     const filteredSlots = slots.filter(s => {
       const hour = parseInt(s.split(":")[0], 10);
       return isMorning ? hour < 12 : hour >= 12;
@@ -969,16 +989,13 @@ export async function processMessageWithRules(
       await saveState(state);
       
       const availableDates = state.data.availableDates.map((d: string) => new Date(d));
-      const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
       let errorResponse = `❌ Ocorreu um erro e o período selecionado não possui horários disponíveis.\n\n📅 Escolha outra data:\n\n`;
       availableDates.forEach((d: Date, idx: number) => {
-        const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-        errorResponse += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+        errorResponse += `${idx + 1}️⃣ ${formatSchedulingDateLabel(d)}\n`;
       });
       errorResponse += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para cancelar:`;
       return appendInteractiveOptions(errorResponse, availableDates.map((d: Date, idx: number) => {
-        const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-        return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+        return { label: formatSchedulingDateLabel(d), value: String(idx + 1) };
       }));
     }
 
@@ -1019,7 +1036,15 @@ export async function processMessageWithRules(
   }
 
   if (state.step === "scheduling_confirm") {
-    if (cleanText === "1" || cleanText.includes("confirm") || cleanText.includes("sim")) {
+    const confirmationChoice = cleanText === "sim"
+      ? 0
+      : cleanText === "nao" || cleanText === "não"
+        ? 1
+        : resolveChoiceIndex(cleanText, ["Confirmar", "Cancelar"]);
+    if (confirmationChoice < 0 || confirmationChoice > 1) {
+      return "❌ Opção inválida. Escolha *Confirmar* ou *Cancelar*.";
+    }
+    if (confirmationChoice === 0) {
       const stateDate = String(state.data.date || "");
       const stateTime = String(state.data.time || "");
       if (!stateDate || !stateTime) {
@@ -1122,20 +1147,22 @@ export async function processMessageWithRules(
   }
 
   const productsList = settings.products || [];
-  const optionIdx = parseInt(cleanText, 10) - 1;
+  const optionIdx = resolveChoiceIndex(cleanText, productsList.map((product: any) => String(product?.name || "")));
 
   // Match keyword in the active level
   if (activeLevelNodes.length > 0) {
     const exactMatchedNode = activeLevelNodes.find((node: any) => {
-      const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const cleanTitle = String(node.title || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const cleanKeyword = normalizeTextForLookup(node.keyword);
+      const cleanTitle = normalizeTextForLookup(node.title);
       return cleanText === cleanKeyword || cleanText === cleanTitle;
     });
     const matchedNode = exactMatchedNode || [...activeLevelNodes]
       .sort((left: any, right: any) => String(right.keyword || "").length - String(left.keyword || "").length)
       .find((node: any) => {
-        const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        return Boolean(cleanKeyword) && cleanText.includes(cleanKeyword);
+        const cleanKeyword = normalizeTextForLookup(node.keyword);
+        return Boolean(cleanKeyword)
+          && !/^\d+$/.test(cleanKeyword)
+          && cleanText.includes(cleanKeyword);
       });
 
     if (matchedNode) {
@@ -1285,23 +1312,22 @@ export async function processMessageWithRules(
         if (isSchedulableProduct(chosen)) {
           const availableDates = obterProximosDiasDisponiveis(settings);
           state.step = "scheduling_select_date";
+          const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
           state.data = {
             serviceName: chosen.name, servicePrice: chosen.price,
             duration: chosen.duration_min || 60,
             availableDates: availableDates.map((d: Date) => d.toISOString()),
+            availableDateLabels,
             collected: collectedData
           };
           await saveState(state);
-          const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
           let resp = `Você selecionou *${chosen.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
           availableDates.forEach((d: Date, idx: number) => {
-            const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-            resp += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+            resp += `${idx + 1}️⃣ ${availableDateLabels[idx]}\n`;
           });
           resp += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
           return appendInteractiveOptions(resp, availableDates.map((d: Date, idx: number) => {
-            const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-            return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+            return { label: availableDateLabels[idx], value: String(idx + 1) };
           }));
         }
 
@@ -1392,22 +1418,21 @@ export async function processMessageWithRules(
       if (isSchedulableProduct(chosen)) {
         const availableDates = obterProximosDiasDisponiveis(settings);
         state.step = "scheduling_select_date";
+        const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
         state.data = {
           serviceName: chosen.name, servicePrice: chosen.price,
           duration: chosen.duration_min || 60,
-          availableDates: availableDates.map((d: Date) => d.toISOString())
+          availableDates: availableDates.map((d: Date) => d.toISOString()),
+          availableDateLabels,
         };
         await saveState(state);
-        const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
         let resp = `Você selecionou *${chosen.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
         availableDates.forEach((d: Date, idx: number) => {
-          const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-          resp += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+          resp += `${idx + 1}️⃣ ${availableDateLabels[idx]}\n`;
         });
         resp += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
         return appendInteractiveOptions(resp, availableDates.map((d: Date, idx: number) => {
-          const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-          return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+          return { label: availableDateLabels[idx], value: String(idx + 1) };
         }));
       }
       // Para outros tipos, inicia fluxo de compra
