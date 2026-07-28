@@ -110,6 +110,26 @@ export const createPayment = async (data: PaymentData, apiKey?: string, apiUrl?:
   }, apiKey, apiUrl);
 };
 
+export const updatePayment = async (
+  paymentId: string,
+  data: Partial<Pick<PaymentData, 'billingType' | 'dueDate'>>,
+  apiKey?: string,
+  apiUrl?: string,
+) => {
+  return await asaasFetch(`/payments/${paymentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }, apiKey, apiUrl);
+};
+
+export const getPixQrCode = async (paymentId: string, apiKey?: string, apiUrl?: string) => {
+  return await asaasFetch(`/payments/${paymentId}/pixQrCode`, { method: 'GET' }, apiKey, apiUrl);
+};
+
+export const cancelPayment = async (paymentId: string, apiKey?: string, apiUrl?: string) => {
+  return await asaasFetch(`/payments/${paymentId}`, { method: 'DELETE' }, apiKey, apiUrl);
+};
+
 export const createSubscription = async (
   customerId: string,
   plan: SubscriptionPlan,

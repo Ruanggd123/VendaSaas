@@ -42,6 +42,7 @@ interface AISettings {
   blocked_dates: string[];
   openai_api_key?: string;
   ia_model?: string;
+  interactive_poll_enabled?: boolean;
   enable_groups?: boolean;
   whitelisted_groups?: string;
 }
@@ -125,6 +126,7 @@ const DEFAULT_AI: AISettings = {
   blocked_dates: [],
   openai_api_key: "",
   ia_model: "gpt-4o-mini",
+  interactive_poll_enabled: true,
 };
 
 // ─────────────────────────────────────────────
@@ -349,6 +351,22 @@ function AITab() {
               </p>
             </button>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-5 bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-white/10 shadow-sm">
+          <div>
+            <p className="text-sm font-extrabold text-slate-900 dark:text-white">Opções interativas no WhatsApp</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+              Exibe menus e formas de pagamento como enquete de escolha única. Desative para usar comandos numerados em texto.
+            </p>
+            <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-500">
+              Perguntas de nome, email, endereço e outras respostas abertas não são alteradas.
+            </p>
+          </div>
+          <Toggle
+            enabled={settings.interactive_poll_enabled !== false}
+            onChange={(enabled) => update("interactive_poll_enabled", enabled)}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

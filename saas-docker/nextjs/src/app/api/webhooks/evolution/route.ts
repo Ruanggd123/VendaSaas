@@ -646,6 +646,19 @@ export async function POST(req: Request) {
                 console.warn("[Webhook] Erro ao parse settings da instância:", e);
               }
 
+              let tenantBotSettings: any = {};
+              try {
+                tenantBotSettings = typeof webhookTenant?.settings === "string"
+                  ? JSON.parse(webhookTenant.settings || "{}")
+                  : (webhookTenant?.settings || {});
+              } catch (e) {
+                console.warn("[Webhook] Erro ao parse settings do tenant:", e);
+              }
+              const pollSetting = instanceSettings?.interactive_poll_enabled
+                ?? tenantBotSettings.interactive_poll_enabled
+                ?? true;
+              const interactivePollEnabled = pollSetting !== false && pollSetting !== "false";
+
               const { processMessageWithAI } = await import('@/lib/ai/engine');
               const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
               console.log(`[Webhook] processMessageWithAI retornou: ${iaResponse ? iaResponse.substring(0, 100) + "..." : "null (pausado/erro)"}`);
@@ -728,8 +741,21 @@ export async function POST(req: Request) {
                   ? listItems.map(item => ({ text: item.title, id: item.id }))
                   : buttons;
 
-                if (pollItems.length >= 2) {
-                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, mainText);
+                const normalizedMainText = mainText
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .toLowerCase();
+                const optionsAlreadyVisible = pollItems.length > 0 && pollItems.every(item =>
+                  normalizedMainText.includes(
+                    item.text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
+                  )
+                );
+                const deliveryText = pollItems.length > 0 && !optionsAlreadyVisible
+                  ? `${mainText}\n\nEscolha uma opção:\n${pollItems.map(item => `${item.id} - ${item.text}`).join("\n")}`
+                  : mainText;
+
+                if (interactivePollEnabled && pollItems.length >= 2) {
+                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
                   if (sent) {
                     const { sendWhatsAppPoll } = await import('@/lib/evolution');
                     const pollOptions = pollItems.map(item =>
@@ -747,7 +773,7 @@ export async function POST(req: Request) {
                   }
                 }
                 if (!sent) {
-                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, mainText);
+                  sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
                 }
                 if (!sent) {
                   throw new Error("Evolution recusou o envio da resposta (até texto puro falhou)");
@@ -758,7 +784,7 @@ export async function POST(req: Request) {
                     tenant_id: tenantId,
                     conversation_id: conversation.id,
                     direction: "outbound",
-                    content: mainText,
+                    content: deliveryText,
                     ai_generated: true,
                   }
                 });

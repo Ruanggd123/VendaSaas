@@ -1,7 +1,7 @@
 import Redis from "ioredis";
 import { PrismaClient } from "@prisma/client";
 import { botMessageTemplates } from "./botMessageTemplates";
-import { createCustomer, createPayment } from "@/lib/asaas";
+import { cancelPayment, createCustomer, createPayment, getPixQrCode, updatePayment } from "@/lib/asaas";
 
 const prisma = new PrismaClient();
 
@@ -315,23 +315,33 @@ export async function processMessageWithRules(
       }))
     },
     orderBy: { created_at: "desc" },
-    select: { product_name: true, amount: true, payment_link: true }
+    select: {
+      id: true,
+      product_name: true,
+      amount: true,
+      payment_link: true,
+      payment_id: true,
+      notes: true,
+    }
   });
 
-  if (pendingSale && state.step !== "debt_paying") {
-    state.step = "debt_paying";
+  const pendingPaymentPrompt = pendingSale
+    ? `Olá! Existe um pagamento pendente para *${pendingSale.product_name}* no valor de *R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}*.`
+      + `\n\nEscolha como deseja continuar:\n\n1️⃣ *PIX* — código no próprio WhatsApp\n2️⃣ *Cartão de Crédito* — checkout seguro\n3️⃣ *Cancelar esta cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
+    : "";
+
+  if (pendingSale && state.step !== "debt_payment_method" && state.step !== "debt_paying") {
+    state.step = "debt_payment_method";
     await saveState(state);
-      return `Olá! Verificamos em nosso sistema que você possui um pagamento pendente para *${pendingSale.product_name}* no valor de R$ ${pendingSale.amount.toFixed(2)}.\n\nGostaria de realizar o pagamento agora para liberar seu pedido?\n\n---BUTTONS---\nSim, pagar agora|1\nIr para o menu|2`;
+    return pendingPaymentPrompt;
   }
 
+  // Converte conversas iniciadas pela versão anterior para a escolha de método.
   if (state.step === "debt_paying") {
     if (cleanText === "1" || cleanText.includes("sim") || cleanText.includes("pagar")) {
-      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-      if (pendingSale?.payment_link) {
-        return `💳 Para efetuar o pagamento seguro via PIX ou Cartão, clique no link abaixo:\n🔗 ${pendingSale.payment_link}\n\nAssim que o pagamento for confirmado, enviaremos um aviso aqui para você! 🚀`;
-      } else {
-        return `Você pode realizar o pagamento presencialmente ou solicitar uma chave PIX com nosso atendente.`;
-      }
+      state.step = "debt_payment_method";
+      await saveState(state);
+      return pendingPaymentPrompt;
     } else if (cleanText === "2" || cleanText.includes("nao") || cleanText.includes("não") || cleanText === "menu" || cleanText === "voltar") {
       state = { step: "main_menu", data: {} };
       await saveState(state);
@@ -339,6 +349,114 @@ export async function processMessageWithRules(
     } else {
       return `Por favor, responda com *1* para Pagar Agora ou *2* para ir para o Menu Principal.\n\n---BUTTONS---\nPagar Agora|1\nIr para o Menu|2`;
     }
+  }
+
+  if (state.step === "debt_payment_method") {
+    if (!pendingSale) {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+
+    const asaasKey = settings.asaas_api_key
+      || settings.asaasApiKey
+      || settings.asaas_test_api_key
+      || settings.asaasTestApiKey
+      || settings.asaas_environment_key;
+    const asaasUrl = settings.asaas_mode === 'production'
+      ? 'https://asaas.com/api/v3'
+      : 'https://sandbox.asaas.com/api/v3';
+
+    if (cleanText === "1" || cleanText.includes("pix")) {
+      if (!asaasKey || !pendingSale.payment_id) {
+        return `Não foi possível gerar o PIX desta cobrança agora. Você pode tentar o cartão ou cancelar a cobrança.\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+      }
+
+      const updatedPayment = await updatePayment(
+        pendingSale.payment_id,
+        { billingType: 'PIX' },
+        asaasKey,
+        asaasUrl,
+      );
+      if (updatedPayment.errors) {
+        console.error("Erro ao alterar cobrança pendente para PIX:", updatedPayment.errors);
+        return `Não consegui alterar esta cobrança para PIX. Tente novamente ou escolha outra opção.\n\n---BUTTONS---\nTentar PIX novamente|1\nPagar com Cartão|2\nCancelar cobrança|3`;
+      }
+
+      const pixData = await getPixQrCode(pendingSale.payment_id, asaasKey, asaasUrl);
+      const pixCopy = typeof pixData.payload === 'string'
+        ? pixData.payload
+        : (pixData.payload?.payload || pixData.payload?.copyPaste || '');
+
+      if (!pixCopy) {
+        console.error("Asaas não retornou o PIX copia e cola da cobrança:", pixData.errors || pixData);
+        return `O gateway não retornou o código PIX. Você pode tentar novamente, usar cartão ou cancelar.\n\n---BUTTONS---\nTentar PIX novamente|1\nPagar com Cartão|2\nCancelar cobrança|3`;
+      }
+
+      const existingNotes = pendingSale.notes || `customer_phone:${phoneDigits}`;
+      const notesWithoutOldPix = existingNotes.replace(/\s*\|\s*pix_key:[^|]*/gi, "").trim();
+      await prisma.sale.update({
+        where: { id: pendingSale.id },
+        data: {
+          payment_link: updatedPayment.invoiceUrl || pendingSale.payment_link,
+          notes: `${notesWithoutOldPix} | pix_key:${pixCopy}`,
+        },
+      });
+
+      return `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\`\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código acima.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+    }
+
+    if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito")) {
+      let cardLink = pendingSale.payment_link || "";
+      if (asaasKey && pendingSale.payment_id) {
+        const updatedPayment = await updatePayment(
+          pendingSale.payment_id,
+          { billingType: 'CREDIT_CARD' },
+          asaasKey,
+          asaasUrl,
+        );
+        if (updatedPayment.errors) {
+          console.error("Erro ao alterar cobrança pendente para cartão:", updatedPayment.errors);
+          return `Não consegui alterar esta cobrança para cartão. Tente novamente ou escolha outra opção.\n\n---BUTTONS---\nPagar com PIX|1\nTentar Cartão novamente|2\nCancelar cobrança|3`;
+        }
+        cardLink = updatedPayment.invoiceUrl || cardLink;
+        if (cardLink !== pendingSale.payment_link) {
+          await prisma.sale.update({ where: { id: pendingSale.id }, data: { payment_link: cardLink } });
+        }
+      }
+
+      if (!cardLink) {
+        return `Não foi possível abrir o checkout do cartão. Escolha PIX ou cancele esta cobrança.\n\n---BUTTONS---\nPagar com PIX|1\nCancelar cobrança|3`;
+      }
+
+      return `💳 *Pagamento com Cartão de Crédito*\n\nPara preencher os dados do cartão com segurança, abra o checkout:\n🔗 ${cardLink}\n\nSe escolheu errado, você pode gerar o PIX ou cancelar:\n\n---BUTTONS---\nPagar com PIX|1\nCancelar cobrança|3`;
+    }
+
+    if (cleanText === "3" || cleanText.includes("cancelar") || cleanText.includes("desistir")) {
+      if (asaasKey && pendingSale.payment_id) {
+        const canceledPayment = await cancelPayment(pendingSale.payment_id, asaasKey, asaasUrl);
+        if (canceledPayment.errors) {
+          console.error("Erro ao cancelar cobrança pendente no Asaas:", canceledPayment.errors);
+          return `Não consegui cancelar a cobrança no gateway. Tente novamente em instantes ou escolha uma forma de pagamento.\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nTentar cancelar|3`;
+        }
+      }
+
+      await prisma.sale.update({
+        where: { id: pendingSale.id },
+        data: { status: "canceled" },
+      });
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return `❌ Cobrança de *${pendingSale.product_name}* cancelada.\n\nVocê pode escolher outro produto ou serviço:\n\n${getMainMenuMessage(settings)}`;
+    }
+
+    return pendingPaymentPrompt;
   }
 
   if (state.step.startsWith("collect_data:")) {
@@ -1709,7 +1827,9 @@ async function processarFinalizacaoPedidoRulesBot(
               });
               if (pixFallbackRes.ok) {
                 const pixData = await pixFallbackRes.json();
-                pixCopy = pixData.payload?.payload || pixData.payload?.copyPaste || pixCopy;
+                pixCopy = (typeof pixData.payload === 'string'
+                  ? pixData.payload
+                  : (pixData.payload?.payload || pixData.payload?.copyPaste)) || pixCopy;
                 pixQr = pixData.payload?.url || pixData.encodedImage || pixData.qrCodeUrl || pixQr;
               }
             } catch (pixErr) {

@@ -93,6 +93,7 @@ interface AISettings {
   enableScheduling?: boolean;
   hide_auto_catalog?: boolean;
   welcome_menu_auto_append?: boolean;
+  interactive_poll_enabled?: boolean;
   enable_groups?: boolean;
   whitelisted_groups?: string;
 }
@@ -123,6 +124,7 @@ const DEFAULT_AI: AISettings = {
   blocked_dates: [],
   welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
   welcome_menu_auto_append: true,
+  interactive_poll_enabled: true,
   enableScheduling: true,
   custom_rules_nodes: [
     { id: "opt_1", parentId: null, keyword: "1", title: "Catálogo de Produtos & Serviços", actionType: "catalog", textContent: "" },
@@ -601,6 +603,24 @@ export default function WorkflowPage() {
                       <label htmlFor="welcome_menu_auto_append" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                         Adicionar menu automático abaixo da mensagem
                       </label>
+                    </div>
+
+                    <div className="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="interactive_poll_enabled"
+                          checked={settings.interactive_poll_enabled !== false}
+                          onChange={(e) => updateField("interactive_poll_enabled", e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label htmlFor="interactive_poll_enabled" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                          Usar opções interativas (enquete)
+                        </label>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+                        Desative para enviar menus numerados em texto. Perguntas abertas continuam aguardando a resposta digitada.
+                      </p>
                     </div>
                   </div>
                 )}
