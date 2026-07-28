@@ -276,6 +276,16 @@ export async function POST(req: Request) {
           }
         }
 
+        // A Evolution descriptografa votos e inclui o nome selecionado no webhook.
+        if (!msgContent) {
+          const selectedPollOption = messageData.message?.pollUpdateMessage?.vote?.selectedOptions?.[0]
+            || messageData.pollUpdates?.find((option: any) => option.voters?.length > 0)?.name;
+          if (typeof selectedPollOption === 'string') {
+            const idMatch = selectedPollOption.match(/\s*\[([^\[\]]+)]\s*$/);
+            msgContent = idMatch?.[1]?.trim() || selectedPollOption;
+          }
+        }
+
         // Fallback: WhatsApp Cloud API format
         if (!msgContent) {
           const buttonReply = messageData.message?.interactive?.button_reply;
@@ -677,29 +687,26 @@ export async function POST(req: Request) {
                 }
 
                 let sent = false;
-                if (useList && listItems.length > 0) {
-                  const { sendWhatsAppList } = await import('@/lib/evolution');
-                  sent = await sendWhatsAppList(
-                    instanceName,
-                    contactNumber,
-                    "Opções",
-                    mainText,
-                    [{ title: "Selecione uma opção", rows: listItems.map(item => ({
-                      title: item.title,
-                      rowId: item.id,
-                    }))}],
-                    undefined,
-                    "Ver opções"
-                  );
-                  if (!sent) {
-                    console.log(`[Webhook] Lista interativa falhou para ${contactNumber}, tentando como texto puro`);
-                  }
-                }
-                if (!sent && buttons.length > 0) {
-                  const { sendWhatsAppButtons } = await import('@/lib/evolution');
-                  sent = await sendWhatsAppButtons(instanceName, contactNumber, mainText, buttons);
-                  if (!sent) {
-                    console.log(`[Webhook] Botões falharam para ${contactNumber}, tentando como texto puro`);
+                const pollItems = useList
+                  ? listItems.map(item => ({ text: item.title, id: item.id }))
+                  : buttons;
+
+                if (pollItems.length >= 2) {
+                  sent = await sendWhatsAppMessage(instanceName, contactNumber, mainText);
+                  if (sent) {
+                    const { sendWhatsAppPoll } = await import('@/lib/evolution');
+                    const pollOptions = pollItems.map(item =>
+                      item.text === item.id ? item.text : `${item.text} [${item.id}]`
+                    );
+                    const pollSent = await sendWhatsAppPoll(
+                      instanceName,
+                      contactNumber,
+                      "Escolha uma opção",
+                      pollOptions,
+                    );
+                    if (!pollSent) {
+                      console.log(`[Webhook] Enquete falhou para ${contactNumber}; o menu em texto foi mantido`);
+                    }
                   }
                 }
                 if (!sent) {

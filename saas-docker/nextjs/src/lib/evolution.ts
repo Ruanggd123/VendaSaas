@@ -102,6 +102,56 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
 }
 
 /**
+ * Envia opções como enquete de escolha única. Enquetes usam um formato nativo
+ * que funciona no WhatsApp móvel e Web mesmo quando quick replies não renderizam.
+ */
+export async function sendWhatsAppPoll(
+  instanceName: string,
+  number: string,
+  title: string,
+  options: string[],
+) {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+      console.error("Evolution sendPoll indisponível: configuração ausente");
+      return false;
+    }
+
+    const values = options.map((option) => option.trim()).filter(Boolean).slice(0, 12);
+    if (values.length < 2) return false;
+
+    const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendPoll/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        number,
+        name: title,
+        selectableCount: 1,
+        values,
+      }),
+    });
+
+    if (!res.ok) {
+      const responseBody = await res.text().catch(() => "");
+      console.error("Evolution sendPoll recusou", {
+        instanceName,
+        status: res.status,
+        responseBody,
+      });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Falha ao enviar enquete na Evolution API:", error);
+    return false;
+  }
+}
+
+/**
  * Envia uma mensagem com botões interativos via WhatsApp (Evolution API)
  * Máximo de 3 botões.
  */
