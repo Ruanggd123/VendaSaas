@@ -123,6 +123,23 @@ function appendNodeCheckoutText(customText: unknown, message: string): string {
   return `${String(customText).trim()}\n\n${message}`;
 }
 
+function appendInteractiveOptions(
+  message: string,
+  options: Array<{ label: string; value: string }>,
+): string {
+  const validOptions = options.filter((option) => option.label.trim() && option.value.trim());
+  if (validOptions.length === 0) return message;
+
+  const marker = validOptions.length > 3 ? "---LIST---" : "---BUTTONS---";
+  return `${message.trim()}\n\n${marker}\n${validOptions
+    .map((option) => `${option.label}|${option.value}`)
+    .join("\n")}`;
+}
+
+function getInteractiveNodes(nodes: any[]): any[] {
+  return nodes.filter((node: any) => node.showInPoll !== false);
+}
+
 function resolveProductFromNode(products: any[], node: any): ProductLike | null {
   if (!node) return null;
   return findProductByRef(products, node.productId)
@@ -231,6 +248,12 @@ export async function processMessageWithRules(
 
   const customNodes = settings.custom_rules_nodes || [];
 
+  if (["reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"].includes(cleanText)) {
+    state = { step: "main_menu", data: { menu_sent: true } };
+    await saveState(state);
+    return getMainMenuMessage(settings);
+  }
+
   // Handle name collection for checkout payment
   if (state.step === "awaiting_checkout_name") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
@@ -327,7 +350,7 @@ export async function processMessageWithRules(
 
   const pendingPaymentPrompt = pendingSale
     ? `Olá! Existe um pagamento pendente para *${pendingSale.product_name}* no valor de *R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}*.`
-      + `\n\nEscolha como deseja continuar:\n\n1️⃣ *PIX* — código no próprio WhatsApp\n2️⃣ *Cartão de Crédito* — checkout seguro\n3️⃣ *Cancelar esta cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
+      + `\n\nEscolha como deseja continuar:\n\n1️⃣ *Pagar com PIX* — código no próprio WhatsApp\n2️⃣ *Pagar com Cartão* — checkout seguro\n3️⃣ *Cancelar cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
     : "";
 
   if (pendingSale && state.step !== "debt_payment_method" && state.step !== "debt_paying") {
@@ -393,6 +416,7 @@ export async function processMessageWithRules(
       const pixCopy = typeof pixData.payload === 'string'
         ? pixData.payload
         : (pixData.payload?.payload || pixData.payload?.copyPaste || '');
+      const encodedImage = typeof pixData.encodedImage === "string" ? pixData.encodedImage.trim() : "";
 
       if (!pixCopy) {
         console.error("Asaas não retornou o PIX copia e cola da cobrança:", pixData.errors || pixData);
@@ -409,7 +433,10 @@ export async function processMessageWithRules(
         },
       });
 
-      return `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\`\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código acima.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+      const response = `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\`\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código acima.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+      return encodedImage
+        ? `${response}\n\n---IMAGE---\n${encodedImage.replace(/^data:image\/[^;]+;base64,/, "")}`
+        : response;
     }
 
     if (cleanText === "2" || cleanText.includes("cartao") || cleanText.includes("credito")) {
@@ -691,12 +718,18 @@ export async function processMessageWithRules(
     } else if (deliveryType === "both") {
       state.step = "catalog_select_both_methods";
       await saveState(state);
-      return botMessageTemplates.catalog.bothMethods(chosenService, { deadline });
+      return appendInteractiveOptions(botMessageTemplates.catalog.bothMethods(chosenService, { deadline }), [
+        { label: "Envio Digital", value: "1" },
+        { label: "Entrega Física", value: "2" },
+      ]);
     } else {
       // Default: physical
       state.step = "catalog_select_delivery_method";
       await saveState(state);
-      return botMessageTemplates.catalog.deliveryOrPickup(chosenService);
+      return appendInteractiveOptions(botMessageTemplates.catalog.deliveryOrPickup(chosenService), [
+        { label: "Entrega", value: "1" },
+        { label: "Retirada", value: "2" },
+      ]);
     }
   }
 
@@ -812,12 +845,15 @@ export async function processMessageWithRules(
 
     const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
     let response = `Você selecionou *${chosenService.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
+    const dateOptions: Array<{ label: string; value: string }> = [];
     availableDates.forEach((d, idx) => {
       const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-      response += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
+      const label = `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`;
+      response += `${idx + 1}️⃣ ${label}\n`;
+      dateOptions.push({ label, value: String(idx + 1) });
     });
     response += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
-    return response;
+    return appendInteractiveOptions(response, dateOptions);
   }
 
   if (state.step === "scheduling_select_date") {
@@ -851,10 +887,17 @@ export async function processMessageWithRules(
     await saveState(state);
     
     let periodMsg = `Data definida: *${dateFormatted}*.\n\nEscolha o período desejado:\n`;
-    if (hasMorning) periodMsg += `1️⃣ Manhã\n`;
-    if (hasAfternoon) periodMsg += `2️⃣ Tarde\n`;
+    const periodOptions: Array<{ label: string; value: string }> = [];
+    if (hasMorning) {
+      periodMsg += `1️⃣ Manhã\n`;
+      periodOptions.push({ label: "Manhã", value: "1" });
+    }
+    if (hasAfternoon) {
+      periodMsg += `2️⃣ Tarde\n`;
+      periodOptions.push({ label: "Tarde", value: "2" });
+    }
     periodMsg += `\nDigite o número da opção ou *0* para voltar.`;
-    return periodMsg;
+    return appendInteractiveOptions(periodMsg, periodOptions);
   }
 
   if (state.step === "scheduling_select_period") {
@@ -883,7 +926,10 @@ export async function processMessageWithRules(
         errorResponse += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
       });
       errorResponse += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para cancelar:`;
-      return errorResponse;
+      return appendInteractiveOptions(errorResponse, availableDates.map((d: Date, idx: number) => {
+        const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+      }));
     }
 
     state.data.period = isMorning ? "manha" : "tarde";
@@ -896,7 +942,10 @@ export async function processMessageWithRules(
       response += `${idx + 1}️⃣ ${s}\n`;
     });
     response += `\nDigite o número do horário desejado ou *0* para voltar.`;
-    return response;
+    return appendInteractiveOptions(response, filteredSlots.map((slot, idx) => ({
+      label: slot,
+      value: String(idx + 1),
+    })));
   }
 
   if (state.step === "scheduling_select_time") {
@@ -971,7 +1020,10 @@ export async function processMessageWithRules(
           response += `${idx + 1}️⃣ ${slot}\n`;
         });
         response += `\nDigite o número do novo horário desejado ou *0* para voltar.`;
-        return response;
+        return appendInteractiveOptions(response, availableSlots.map((slot, idx) => ({
+          label: slot,
+          value: String(idx + 1),
+        })));
       }
       
       let extraNotes = "";
@@ -1053,7 +1105,14 @@ export async function processMessageWithRules(
           state.step = "catalog_select_product";
           state.data._productNodes = productNodes.map((n: any) => n.id);
           await saveState(state);
-          return response;
+          return appendInteractiveOptions(response, productNodes.flatMap((node: any, idx: number) =>
+            node.showInPoll === false
+              ? []
+              : [{
+                  label: resolveProductFromNode(settings.products || [], node)?.name || node.title,
+                  value: String(idx + 1),
+                }]
+          ));
         } else {
           // Fallback: show all products from settings (original behavior)
           const productsList = settings.products || [];
@@ -1070,7 +1129,10 @@ export async function processMessageWithRules(
             response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
             state.step = "catalog_select_product";
             await saveState(state);
-            return response;
+            return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
+              label: product.name,
+              value: String(idx + 1),
+            })));
           }
         }
         return response;
@@ -1090,7 +1152,10 @@ export async function processMessageWithRules(
         
         state.step = "scheduling_select_service";
         await saveState(state);
-        return response;
+        return appendInteractiveOptions(response, servicesList.map((service: any, idx: number) => ({
+          label: service.name,
+          value: String(idx + 1),
+        })));
       }
       else if (matchedNode.actionType === "human") {
         await prisma.conversation.updateMany({
@@ -1164,7 +1229,10 @@ export async function processMessageWithRules(
             resp += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
           });
           resp += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
-          return resp;
+          return appendInteractiveOptions(resp, availableDates.map((d: Date, idx: number) => {
+            const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+          }));
         }
 
         // Para outros tipos, inicia fluxo de compra
@@ -1211,11 +1279,17 @@ export async function processMessageWithRules(
         } else if (deliveryType === "both") {
           state.step = "catalog_select_both_methods";
           await saveState(state);
-          return botMessageTemplates.catalog.bothMethods(chosen, { deadline });
+          return appendInteractiveOptions(botMessageTemplates.catalog.bothMethods(chosen, { deadline }), [
+            { label: "Envio Digital", value: "1" },
+            { label: "Entrega Física", value: "2" },
+          ]);
         } else {
           state.step = "catalog_select_delivery_method";
           await saveState(state);
-          return botMessageTemplates.catalog.deliveryOrPickup(chosen);
+          return appendInteractiveOptions(botMessageTemplates.catalog.deliveryOrPickup(chosen), [
+            { label: "Entrega", value: "1" },
+            { label: "Retirada", value: "2" },
+          ]);
         }
       } else {
         // default text / submenu Presentation text
@@ -1261,7 +1335,10 @@ export async function processMessageWithRules(
           resp += `${idx + 1}️⃣ ${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})\n`;
         });
         resp += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
-        return resp;
+        return appendInteractiveOptions(resp, availableDates.map((d: Date, idx: number) => {
+          const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+          return { label: `${WEEKDAY_NAMES_PT[d.getDay()]} (${dateStr})`, value: String(idx + 1) };
+        }));
       }
       // Para outros tipos, inicia fluxo de compra
       const collectedData = state.data.collected || {};
@@ -1306,11 +1383,17 @@ export async function processMessageWithRules(
       } else if (deliveryType === "both") {
         state.step = "catalog_select_both_methods";
         await saveState(state);
-        return botMessageTemplates.catalog.bothMethods(chosen, { deadline });
+        return appendInteractiveOptions(botMessageTemplates.catalog.bothMethods(chosen, { deadline }), [
+          { label: "Envio Digital", value: "1" },
+          { label: "Entrega Física", value: "2" },
+        ]);
       } else {
         state.step = "catalog_select_delivery_method";
         await saveState(state);
-        return botMessageTemplates.catalog.deliveryOrPickup(chosen);
+        return appendInteractiveOptions(botMessageTemplates.catalog.deliveryOrPickup(chosen), [
+          { label: "Entrega", value: "1" },
+          { label: "Retirada", value: "2" },
+        ]);
       }
     }
   }
@@ -1365,18 +1448,19 @@ function getMainMenuMessage(settings: any): string {
       ? welcome
       : welcome + "\n\n" + "Escolha uma opção abaixo:\n\n";
 
-    if (rootNodes.length > 3) {
-      const listLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
+    const interactiveNodes = getInteractiveNodes(rootNodes);
+    if (interactiveNodes.length > 3) {
+      const listLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
       if (!hasExplicitMenuSection(welcome)) {
         msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
       }
       msg += "\n\n---LIST---\n" + listLines.join("\n");
     } else {
-      const buttonLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
+      const buttonLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
       if (!hasExplicitMenuSection(welcome)) {
         msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
       }
-      msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
+      if (buttonLines.length > 0) msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
     }
 
     return msg;
@@ -1456,9 +1540,10 @@ function getSubmenuMessage(parentNode: any, allNodes: any[]): string {
   msg += "\nDigite *0* ou *voltar* para retornar ao menu anterior.";
 
   // Botões interativos (até 3) ou lista (mais de 3)
-  if (subNodes.length > 0) {
-    const optionLines = subNodes.map((n: any) => `${n.title}|${n.keyword}`);
-    if (subNodes.length > 3) {
+  const interactiveNodes = getInteractiveNodes(subNodes);
+  if (interactiveNodes.length > 0) {
+    const optionLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
+    if (interactiveNodes.length > 3) {
       msg += "\n\n---LIST---\n" + optionLines.join("\n");
     } else {
       msg += "\n\n---BUTTONS---\n" + optionLines.join("\n");
@@ -1816,7 +1901,7 @@ async function processarFinalizacaoPedidoRulesBot(
           // Fallback: se PIX data veio vazio, tenta buscar explicitamente
           let pixCopy = pay.pixCopiaECola || '';
           let pixQr = pay.pixQrCodeUrl || '';
-          if (!pixCopy && !pixQr && pay.id) {
+          if ((!pixCopy || !pixQr) && pay.id) {
             try {
               const pixFallbackRes = await fetch(`${asaasUrl}/payments/${pay.id}/pixQrCode`, {
                 method: 'GET',
@@ -1838,8 +1923,9 @@ async function processarFinalizacaoPedidoRulesBot(
           }
 
           // Create sale record (after PIX fallback so we have the right data)
-          const finalPaymentLink = pay.invoiceUrl || pixQr || '';
-          const sale = await prisma.sale.create({
+          const pixQrUrl = /^https?:\/\//i.test(pixQr) ? pixQr : "";
+          const finalPaymentLink = pay.invoiceUrl || pixQrUrl;
+          await prisma.sale.create({
             data: {
               tenant_id: tenantId,
               product_name: chosenService.name,
@@ -1847,19 +1933,21 @@ async function processarFinalizacaoPedidoRulesBot(
               status: "pending",
               payment_link: finalPaymentLink,
               payment_id: pay.id,
-              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQr || ''} | pix_key:${pixCopy || ''}${extraNotes}`,
+              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQrUrl} | pix_key:${pixCopy || ''}${extraNotes}`,
               due_date: new Date(Date.now() + 7 * 86400000),
               retail_order_id: order.id,
             }
           });
 
-          await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+          await prisma.systemConfig.upsert({
+            where: { key: stateKey },
+            update: { value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
+            create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
+          });
 
           let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n💳 *Pagamento via PIX*`;
 
           if (pixCopy) msg += `\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\``;
-          if (pixQr) msg += `\n\n📷 Se preferir, use o QR Code no app do seu banco: ${pixQr}`;
-
           // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback
           if (!pixCopy && !pixQr && pay.invoiceUrl) {
             msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;
@@ -1868,6 +1956,10 @@ async function processarFinalizacaoPedidoRulesBot(
           }
 
           msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
+          msg += `\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+          if (pixQr) {
+            msg += `\n\n---IMAGE---\n${pixQr.replace(/^data:image\/[^;]+;base64,/, "")}`;
+          }
 
           return appendNodeCheckoutText(originNodeText, msg);
 

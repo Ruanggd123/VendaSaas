@@ -176,6 +176,7 @@ export default function WorkflowCanvas({ settings, updateField, setSelectedNodeI
         title: node.data.title || 'Nova Opção',
         actionType: node.data.actionType || 'text',
         textContent: node.data.textContent || '',
+        showInPoll: node.data.showInPoll !== false,
         paymentMode: node.data.paymentMode || 'both',
         position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
         variableName: node.data.variableName || '',

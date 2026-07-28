@@ -522,6 +522,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
         productName: normalizeTextValue(n?.productName),
         productId: normalizeTextValue(n?.productId),
         paymentMode: normalizeTextValue(n?.paymentMode),
+        showInPoll: n?.showInPoll !== false,
       })),
     welcome: normalizeTextValue(settings?.welcome_message),
     autoAppend: String(settings?.welcome_menu_auto_append ?? true),
@@ -533,7 +534,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     buttons: { label: string; value: string }[] | undefined,
   ) => {
     const normalizedButtons = normalizeButtons(buttons);
-    const interactiveEnabled = settings?.interactive_poll_enabled !== false;
+    const interactiveEnabled = settings?.interactive_poll_enabled !== false && normalizedButtons.length >= 2;
     return {
       text: formatWhatsAppOptionText(
         normalizeTextValue(text),
@@ -668,8 +669,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
       };
     }
 
+    const pollNodes = rootNodes.filter((node: any) => node.showInPoll !== false);
     const defaultButtons = rootNodes.length > 0
-      ? rootNodes.slice(0, 4).map((n: any) => ({ label: n.title, value: n.keyword }))
+      ? pollNodes.slice(0, 12).map((n: any) => ({ label: n.title, value: n.keyword }))
       : [
           { label: "Catálogo", value: "1" },
           { label: "Horários", value: "2" },
@@ -1116,11 +1118,15 @@ Seu agendamento foi registrado no simulador.`;
               const prodIdx = catalogChoice - 1;
               const selectedProd = prods[prodIdx];
 
-              // Procura se o usuário configurou um sub-nó específico para este produto
+              // O catálogo de produção usa a posição visual, não o gatilho do nó.
               const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
-              const customSubNode = catalogNode
-                ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(catalogChoice))
-                : null;
+              const catalogProductNodes = catalogNode
+                ? allNodes.filter((n: any) => n.parentId === catalogNode.id && n.actionType === "product")
+                : [];
+              const customSubNode = catalogProductNodes[prodIdx]
+                || (catalogNode
+                  ? allNodes.find((n: any) => n.parentId === catalogNode.id && n.keyword === String(catalogChoice))
+                  : null);
 
               const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
               const paymentMode = customSubNode?.paymentMode || "both";
@@ -1347,6 +1353,22 @@ Seu agendamento foi registrado no simulador.`;
         if (matchedNode.actionType === "catalog") {
           setInCatalogView(true);
           botResponseText = buildCatalogTextFromNode(matchedNode, allNodes, prods);
+          const productNodes = allNodes.filter(
+            (node: any) => node.parentId === matchedNode.id && node.actionType === "product"
+          );
+          botButtons = productNodes.length > 0
+            ? productNodes.flatMap((node: any, idx: number) =>
+                node.showInPoll === false
+                  ? []
+                  : [{
+                      label: resolveProductFromNode(node)?.name || node.title,
+                      value: String(idx + 1),
+                    }]
+              )
+            : prods.map((product: any, idx: number) => ({
+                label: product.name || `Produto ${idx + 1}`,
+                value: String(idx + 1),
+              }));
           botProducts = undefined;
         } else if (matchedNode.actionType === "product" || matchedNode.actionType === "checkout") {
           setInCatalogView(false);
@@ -1422,7 +1444,9 @@ Seu agendamento foi registrado no simulador.`;
             botResponseText += `\n*${child.keyword}* - ${child.title}`;
           });
           botResponseText += "\n\nDigite *0* para voltar ao menu principal.";
-          botButtons = children.map((c: any) => ({ label: `${c.keyword} - ${c.title}`, value: c.keyword }));
+          botButtons = children
+            .filter((child: any) => child.showInPoll !== false)
+            .map((c: any) => ({ label: `${c.keyword} - ${c.title}`, value: c.keyword }));
         }
         } else if (clean === "09:00" || clean === "10:30" || clean === "14:00" || clean === "16:30") {
           botResponseText = `✅ *Horário aceito no simulador:* ${clean}.\n\nEsse fluxo simplifica para validação e não dispara agenda real no simulador.`;

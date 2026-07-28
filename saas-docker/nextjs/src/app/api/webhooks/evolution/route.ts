@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { getProfilePicture, sendWhatsAppMessage } from "@/lib/evolution";
+import { getProfilePicture, sendWhatsAppMedia, sendWhatsAppMessage } from "@/lib/evolution";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
@@ -514,6 +514,37 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, ignored: "Echo da IA" });
           }
 
+          if (mediaType) {
+            const recentMediaSentBySite = await prisma.message.findFirst({
+              where: {
+                conversation_id: conversation.id,
+                direction: "outbound",
+                ai_generated: false,
+                metadata: { contains: `"kind":"${mediaType}"` },
+                created_at: { gte: new Date(Date.now() - 30_000) },
+                NOT: { metadata: { contains: '"providerMessageId"' } },
+              },
+              orderBy: { created_at: "desc" },
+            });
+            if (recentMediaSentBySite) {
+              let existingMetadata: Record<string, unknown> = {};
+              try {
+                existingMetadata = JSON.parse(recentMediaSentBySite.metadata || "{}");
+              } catch {}
+              await prisma.message.update({
+                where: { id: recentMediaSentBySite.id },
+                data: {
+                  metadata: JSON.stringify({
+                    ...existingMetadata,
+                    providerMessageId: providerMessageId || existingMetadata.providerMessageId,
+                  }),
+                },
+              });
+              console.log(`[Webhook] Eco de mídia associado à mensagem ${recentMediaSentBySite.id}`);
+              return NextResponse.json({ success: true, ignored: "Eco de mídia do site" });
+            }
+          }
+
           // Fallback: compara com o conteúdo da última mensagem de saída gerada pela IA
           const lastAiMsg = await prisma.message.findFirst({
             where: {
@@ -560,7 +591,10 @@ export async function POST(req: Request) {
         }
         if (mediaType && mediaBase64) {
            try {
-              const bufferData = Buffer.from(mediaBase64, 'base64');
+              const normalizedBase64 = mediaBase64
+                .replace(/^data:[^;]+;base64,/i, "")
+                .replace(/\s/g, "");
+              const bufferData = Buffer.from(normalizedBase64, 'base64');
               const mimeType = mediaNode?.mimetype || (mediaType === "image" ? "image/jpeg" : mediaType === "audio" ? "audio/ogg" : mediaType === "video" ? "video/mp4" : "application/octet-stream");
               const extensionByMime: Record<string, string> = {
                 "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp",
@@ -779,8 +813,16 @@ export async function POST(req: Request) {
                   .replace(/\n{3,}/g, "\n\n");
               };
               const sendAndStoreResponse = async (text: string) => {
-                const cleanedText = normalizeText(text);
+                let cleanedText = normalizeText(text);
                 if (!cleanedText) return;
+
+                const imageMarker = '\n---IMAGE---\n';
+                const imageIdx = cleanedText.indexOf(imageMarker);
+                let imagePayload = "";
+                if (imageIdx !== -1) {
+                  imagePayload = cleanedText.slice(imageIdx + imageMarker.length).trim();
+                  cleanedText = cleanedText.slice(0, imageIdx).trim();
+                }
 
                 // Detecta lista interativa no formato:
                 // Texto da mensagem
@@ -852,7 +894,7 @@ export async function POST(req: Request) {
                 const deliveryText = formatWhatsAppOptionText(
                   mainText,
                   pollItems,
-                  interactivePollEnabled,
+                  interactivePollEnabled && pollItems.length >= 2,
                 );
 
                 if (interactivePollEnabled && pollItems.length >= 2) {
@@ -888,6 +930,22 @@ export async function POST(req: Request) {
                 }
                 if (!sent) {
                   throw new Error("Evolution recusou o envio da resposta (até texto puro falhou)");
+                }
+
+                if (imagePayload) {
+                  const imageSource = /^https?:\/\//i.test(imagePayload)
+                    ? imagePayload
+                    : imagePayload.replace(/\s/g, "");
+                  const imageSent = await sendWhatsAppMedia(
+                    instanceName,
+                    contactNumber,
+                    imageSource,
+                    "QR Code PIX",
+                    "image",
+                  );
+                  if (!imageSent) {
+                    console.warn(`[Webhook] Não foi possível enviar o QR PIX como imagem para ${contactNumber}`);
+                  }
                 }
 
                 await prisma.message.create({

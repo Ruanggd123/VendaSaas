@@ -127,10 +127,10 @@ const DEFAULT_AI: AISettings = {
   interactive_poll_enabled: true,
   enableScheduling: true,
   custom_rules_nodes: [
-    { id: "opt_1", parentId: null, keyword: "1", title: "Catálogo de Produtos & Serviços", actionType: "catalog", textContent: "" },
-    { id: "opt_2", parentId: null, keyword: "2", title: "Horários de Atendimento", actionType: "text", textContent: "Nosso horário de funcionamento é de Segunda a Sexta das 08:00 às 18:00." },
-    { id: "opt_3", parentId: null, keyword: "3", title: "Agendar Horário", actionType: "scheduling", textContent: "" },
-    { id: "opt_4", parentId: null, keyword: "4", title: "Falar com Atendente Humano", actionType: "human", textContent: "Transferindo seu atendimento para a nossa equipe humana..." },
+    { id: "opt_1", parentId: null, keyword: "1", title: "Catálogo de Produtos & Serviços", actionType: "catalog", textContent: "", showInPoll: true },
+    { id: "opt_2", parentId: null, keyword: "2", title: "Horários de Atendimento", actionType: "text", textContent: "Nosso horário de funcionamento é de Segunda a Sexta das 08:00 às 18:00.", showInPoll: true },
+    { id: "opt_3", parentId: null, keyword: "3", title: "Agendar Horário", actionType: "scheduling", textContent: "", showInPoll: true },
+    { id: "opt_4", parentId: null, keyword: "4", title: "Falar com Atendente Humano", actionType: "human", textContent: "Transferindo seu atendimento para a nossa equipe humana...", showInPoll: true },
   ],
 };
 
@@ -479,6 +479,7 @@ export default function WorkflowPage() {
                     title: "Nova Opção",
                     actionType: "text",
                     textContent: "Responda aqui...",
+                    showInPoll: true,
                   });
                   updateField("custom_rules_nodes", newNodes);
                 }}
@@ -687,6 +688,24 @@ export default function WorkflowPage() {
                       </select>
                     </div>
 
+                    <div className="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="showInPoll"
+                          checked={selectedNode.showInPoll !== false}
+                          onChange={(e) => setSelectedNodeField("showInPoll", e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <label htmlFor="showInPoll" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                          Exibir esta opção na enquete
+                        </label>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+                        Se ocultar, o gatilho ainda poderá ser digitado pelo cliente.
+                      </p>
+                    </div>
+
                     {(selectedNode.actionType === "checkout" || selectedNode.actionType === "product") && (
                       <div className="space-y-2">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">💳 Forma de Pagamento</label>
@@ -755,6 +774,7 @@ export default function WorkflowPage() {
                           title: "Sub-opção",
                           actionType: "text",
                           textContent: "Responda a esta sub-opção...",
+                          showInPoll: true,
                         });
                         updateField("custom_rules_nodes", newNodes);
                       }}
@@ -863,6 +883,7 @@ export default function WorkflowPage() {
                           title: `Opção ${nextNum}`,
                           actionType: "text",
                           textContent: "Digite a resposta desta opção...",
+                          showInPoll: true,
                         });
                         updateField("custom_rules_nodes", newNodes);
                       }}
@@ -958,6 +979,20 @@ export default function WorkflowPage() {
                               <option value="human">👤 Transferir para Atendente Humano</option>
                             </select>
 
+                          <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={node.showInPoll !== false}
+                              onChange={(e) => {
+                                const newNodes = [...(settings.custom_rules_nodes || [])];
+                                newNodes[nodeIdx].showInPoll = e.target.checked;
+                                updateField("custom_rules_nodes", newNodes);
+                              }}
+                              className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            Exibir esta opção na enquete
+                          </label>
+
                           {/* MOSTRA FORMA DE PAGAMENTO APENAS SE FOR PAGAMENTO OU CHECKOUT! */}
                             {(node.actionType === "checkout" || node.actionType === "product") && (
                               <div className="space-y-1">
@@ -1039,6 +1074,7 @@ export default function WorkflowPage() {
                                     productName: prod.name || "",
                                     productPrice: prod.price != null ? String(prod.price) : "",
                                     productDescription: prod.description || "",
+                                    showInPoll: true,
                                   });
                                 }
                               });
@@ -1064,6 +1100,7 @@ export default function WorkflowPage() {
                                   title: `Sub-opção ${children.length + 1}`,
                                   actionType: "text",
                                   textContent: "Digite a resposta desta sub-opção...",
+                                  showInPoll: true,
                                 });
                                 updateField("custom_rules_nodes", newNodes);
                               }}

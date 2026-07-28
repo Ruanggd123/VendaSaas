@@ -213,6 +213,7 @@ export async function sendConversationMessage(
     ? `${baseUrl || ""}${mediaUrl}`
     : mediaUrl;
 
+  const sendStartedAt = new Date();
   let success = false;
   if (absoluteMediaUrl) {
     success = explicitMediaType === "audio"
@@ -257,6 +258,64 @@ export async function sendConversationMessage(
   }
 
   const sentAt = new Date();
+
+  if (absoluteMediaUrl && explicitMediaType) {
+    const webhookEcho = await prisma.message.findFirst({
+      where: {
+        tenant_id: session.tenant_id,
+        conversation_id: conversation.id,
+        direction: "outbound",
+        AND: [
+          { metadata: { contains: `"kind":"${explicitMediaType}"` } },
+          { metadata: { contains: '"providerMessageId"' } },
+        ],
+        created_at: { gte: sendStartedAt },
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    if (webhookEcho) {
+      let webhookMetadata: Record<string, unknown> = {};
+      try {
+        webhookMetadata = JSON.parse(webhookEcho.metadata || "{}");
+      } catch {}
+      const mergedMetadata = JSON.stringify({
+        ...webhookMetadata,
+        schemaVersion: 1,
+        kind: explicitMediaType,
+        type: explicitMediaType,
+        url: absoluteMediaUrl,
+        fileName,
+        mimeType,
+      });
+      const [message, updatedConversation] = await prisma.$transaction([
+        prisma.message.update({
+          where: { id: webhookEcho.id },
+          data: {
+            content: finalContent || "[Mídia Enviada]",
+            metadata: mergedMetadata,
+          },
+        }),
+        prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            instance_name: resolvedInstanceName,
+            ai_paused: true,
+            last_message_at: sentAt,
+            ...(!conversation.assigned_to && session.role !== "partner" ? { assigned_to: session.id } : {}),
+          },
+          include: { assignee: { select: { id: true, name: true, email: true } } },
+        }),
+      ]);
+
+      return {
+        ok: true,
+        message,
+        conversation: updatedConversation,
+        resolvedInstanceName,
+      };
+    }
+  }
 
   const [newMessage, updatedConversation] = await prisma.$transaction([
     prisma.message.create({

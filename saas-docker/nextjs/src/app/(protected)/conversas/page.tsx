@@ -24,6 +24,7 @@ import {
   Send,
   Sparkles,
   Square,
+  Trash2,
   UserCheck,
   Video,
   Wifi,
@@ -365,10 +366,41 @@ function mediaTypeForFile(file: File, fallback: MediaType = "document"): MediaTy
 }
 
 function sortMessages(messages: Message[]) {
-  return messages.sort((a, b) => {
+  return [...messages].sort((a, b) => {
     const timeDifference = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     return timeDifference || a.id.localeCompare(b.id);
   });
+}
+
+function dedupeMediaEchoes(messages: Message[]) {
+  return messages.reduce<Message[]>((result, message) => {
+    const media = parseMetadata(message);
+    const isOutgoing = message.direction === "outbound" || message.direction === "outgoing";
+    const isSiteRecord = message.content === "[Mídia Enviada]" || message.content === "[Arquivo Enviado]";
+    const isProviderEcho = /^\[Mídia:\s*(image|audio|video|document)]$/i.test(message.content);
+    if (!isOutgoing || !media.type || (!isSiteRecord && !isProviderEcho)) {
+      result.push(message);
+      return result;
+    }
+
+    const duplicateIndex = result.findLastIndex((candidate) => {
+      const candidateMedia = parseMetadata(candidate);
+      const candidateIsSiteRecord = candidate.content === "[Mídia Enviada]" || candidate.content === "[Arquivo Enviado]";
+      const candidateIsProviderEcho = /^\[Mídia:\s*(image|audio|video|document)]$/i.test(candidate.content);
+      const elapsed = Math.abs(new Date(message.created_at).getTime() - new Date(candidate.created_at).getTime());
+      return (candidate.direction === "outbound" || candidate.direction === "outgoing")
+        && candidateMedia.type === media.type
+        && elapsed <= 120_000
+        && ((isSiteRecord && candidateIsProviderEcho) || (isProviderEcho && candidateIsSiteRecord));
+    });
+
+    if (duplicateIndex === -1) {
+      result.push(message);
+    } else if (isSiteRecord) {
+      result[duplicateIndex] = message;
+    }
+    return result;
+  }, []);
 }
 
 export default function ConversasPage() {
@@ -393,6 +425,7 @@ export default function ConversasPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [listError, setListError] = useState("");
   const [messagesError, setMessagesError] = useState("");
+  const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const [composerError, setComposerError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadName, setUploadName] = useState("");
@@ -443,8 +476,9 @@ export default function ConversasPage() {
   const selectedLeadNotes = selectedLead?.notes || "";
   const historySearchTerm = historySearch.trim().toLocaleLowerCase("pt-BR");
   const visibleMessages = useMemo(() => {
-    if (!historySearchTerm) return messages;
-    return messages.filter((message) => (message.content || "").toLocaleLowerCase("pt-BR").includes(historySearchTerm));
+    const deduped = dedupeMediaEchoes(messages);
+    if (!historySearchTerm) return deduped;
+    return deduped.filter((message) => (message.content || "").toLocaleLowerCase("pt-BR").includes(historySearchTerm));
   }, [historySearchTerm, messages]);
   const hasHistoryFilter = historySearchTerm.length > 0;
   const selectedResponseSla = useMemo(
@@ -953,6 +987,49 @@ export default function ConversasPage() {
       messagesRef.current = next;
       return next;
     });
+  };
+
+  const deleteMessage = async (message: Message) => {
+    if (message.id.startsWith("client-")) {
+      setMessages((current) => {
+        const next = current.filter((item) => item.id !== message.id);
+        messagesRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    if (!window.confirm("Excluir esta mensagem do histórico do site? Ela continuará visível no WhatsApp.")) return;
+    setDeletingMessageIds((current) => new Set(current).add(message.id));
+    setMessagesError("");
+    try {
+      const response = await fetch("/api/conversations/message", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id }),
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível excluir a mensagem."));
+      const deletedIds = new Set(
+        Array.isArray(data.deletedIds)
+          ? data.deletedIds.filter((id): id is string => typeof id === "string")
+          : [message.id],
+      );
+      setMessages((current) => {
+        const next = current.filter((item) => !deletedIds.has(item.id));
+        messagesRef.current = next;
+        return next;
+      });
+      void fetchConversations();
+    } catch (error) {
+      setMessagesError(error instanceof Error ? error.message : "Não foi possível excluir a mensagem.");
+    } finally {
+      setDeletingMessageIds((current) => {
+        const next = new Set(current);
+        next.delete(message.id);
+        return next;
+      });
+    }
   };
 
   const submitMessage = async (
@@ -2162,11 +2239,27 @@ export default function ConversasPage() {
                                 </div>
                               )}
                               <div className={`flex ${outgoing ? "justify-end" : "justify-start"} ${firstInGroup ? "pt-3" : "pt-0.5"}`}>
-                                <div className={`max-w-[88%] rounded-3xl px-4 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${
+                                 <div className={`group/message relative max-w-[88%] rounded-3xl px-4 py-3 text-sm font-medium leading-relaxed shadow-sm sm:max-w-[72%] ${
                                   outgoing
                                     ? "rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-indigo-500/20"
                                     : "rounded-bl-md border border-slate-200/80 bg-white text-slate-900 shadow-slate-200/50 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:shadow-slate-900/50"
-                                }`}>
+                                 }`}>
+                                   <button
+                                     type="button"
+                                     onClick={() => void deleteMessage(message)}
+                                     disabled={deletingMessageIds.has(message.id)}
+                                     title="Excluir do histórico do site"
+                                     aria-label="Excluir mensagem do histórico"
+                                     className={`absolute top-1.5 z-10 rounded-full p-1.5 opacity-60 shadow-sm transition hover:opacity-100 disabled:cursor-wait sm:opacity-0 sm:group-hover/message:opacity-100 ${
+                                       outgoing
+                                         ? "-left-9 bg-white text-slate-500 hover:text-rose-600 dark:bg-slate-800"
+                                         : "-right-9 bg-white text-slate-500 hover:text-rose-600 dark:bg-slate-800"
+                                     }`}
+                                   >
+                                     {deletingMessageIds.has(message.id)
+                                       ? <Loader2 className="size-3.5 animate-spin" />
+                                       : <Trash2 className="size-3.5" />}
+                                   </button>
                                   {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
                                    {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
                                    {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
