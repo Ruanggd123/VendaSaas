@@ -118,6 +118,7 @@ export async function sendWhatsAppButtons(
     }
 
     const formattedButtons = buttons.slice(0, 3).map((b) => ({
+      type: "reply",
       text: b.text,
     }));
 
