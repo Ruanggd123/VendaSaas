@@ -795,8 +795,8 @@ export async function POST(req: Request) {
               } catch (e) {
                 console.warn("[Webhook] Erro ao parse settings do tenant:", e);
               }
-              const pollSetting = instanceSettings?.interactive_poll_enabled
-                ?? tenantBotSettings.interactive_poll_enabled
+              const pollSetting = tenantBotSettings.interactive_poll_enabled
+                ?? instanceSettings?.interactive_poll_enabled
                 ?? true;
               const interactivePollEnabled = pollSetting !== false && pollSetting !== "false";
 
@@ -890,6 +890,9 @@ export async function POST(req: Request) {
                 const pollItems = useList
                   ? listItems.map(item => ({ text: item.title, id: item.id }))
                   : buttons;
+                const pollTitle = /nossos servi[cç]os e pre[cç]os|cat[aá]logo/i.test(mainText)
+                  ? "Escolha um produto ou serviço"
+                  : "Escolha uma opção";
 
                 const deliveryText = formatWhatsAppOptionText(
                   mainText,
@@ -907,7 +910,7 @@ export async function POST(req: Request) {
                     const pollSent = await sendWhatsAppPoll(
                       instanceName,
                       contactNumber,
-                      "Escolha uma opção",
+                      pollTitle,
                       pollOptions,
                     );
                     if (!pollSent) {
@@ -917,7 +920,7 @@ export async function POST(req: Request) {
                         schemaVersion: 1,
                         kind: "poll",
                         poll: {
-                          title: "Escolha uma opção",
+                          title: pollTitle,
                           selectableCount: 1,
                           options: pollItems.map((item) => ({ id: item.id, label: item.text })),
                         },

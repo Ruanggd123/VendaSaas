@@ -2,7 +2,7 @@
 
 import WorkflowCanvas from "./WorkflowCanvas";
 import { SmartphoneSimulator } from "../../../components/workflow/SmartphoneSimulator";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Settings,
   FileCode,
@@ -21,6 +21,16 @@ import {
   Wand2,
   ChevronRight,
   ChevronLeft,
+  BookOpen,
+  Calendar,
+  UserCheck,
+  MessageCircle,
+  ClipboardPenLine,
+  ShoppingCart,
+  Box,
+  Users,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const DEFAULT_SAAS_PRODUCTS = [
@@ -197,6 +207,7 @@ export default function WorkflowPage() {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [nodeSearchQuery, setNodeSearchQuery] = useState("");
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchConfig();
@@ -223,7 +234,11 @@ export default function WorkflowPage() {
     }
   };
 
-  const saveConfig = async (updatedSettings = settings) => {
+  const saveConfig = async (updatedSettings = settings, silent = false) => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/settings/whatsapp", {
@@ -232,7 +247,7 @@ export default function WorkflowPage() {
         body: JSON.stringify(updatedSettings),
       });
       if (!res.ok) throw new Error();
-      setAlert({ type: "success", msg: "Configurações salvas com sucesso! ✅" });
+      if (!silent) setAlert({ type: "success", msg: "Configurações salvas com sucesso! ✅" });
       setJsonText(JSON.stringify(updatedSettings, null, 2));
     } catch {
       setAlert({ type: "error", msg: "Erro ao salvar as configurações. Tente novamente." });
@@ -244,8 +259,13 @@ export default function WorkflowPage() {
   const updateField = (key: keyof AISettings, val: any) => {
     const updated = { ...settings, [key]: val };
     setSettings(updated);
-    saveConfig(updated);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => void saveConfig(updated, true), 650);
   };
+
+  useEffect(() => () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+  }, []);
 
   const handleImportJson = () => {
     try {
@@ -340,6 +360,145 @@ export default function WorkflowPage() {
   };
 
   const currentProductOptionValue = getProductOptionValue(selectedNode);
+  const selectedKeywordConflict = selectedNode
+    ? (settings.custom_rules_nodes || []).some((node: any) =>
+        node.id !== selectedNode.id
+        && (node.parentId || null) === (selectedNode.parentId || null)
+        && String(node.keyword || "").trim().toLowerCase() === String(selectedNode.keyword || "").trim().toLowerCase()
+      )
+    : false;
+
+  const nextKeywordForParent = (parentId: string | null) => {
+    const siblings = (settings.custom_rules_nodes || []).filter((node: any) => (node.parentId || null) === parentId);
+    const used = new Set(siblings.map((node: any) => String(node.keyword || "")));
+    let candidate = 1;
+    while (used.has(String(candidate))) candidate += 1;
+    return String(candidate);
+  };
+
+  const addWorkflowNode = (actionType = "text", requestedParentId?: string | null) => {
+    const parentId = requestedParentId !== undefined
+      ? requestedParentId
+      : selectedNodeId && selectedNodeId !== "start"
+        ? selectedNodeId
+        : null;
+    const keyword = nextKeywordForParent(parentId);
+    const labels: Record<string, string> = {
+      text: "Nova resposta",
+      catalog: "Catálogo",
+      product: "Produto",
+      checkout: "Comprar agora",
+      scheduling: "Agendar horário",
+      collect_data: "Solicitar informação",
+      human: "Falar com atendente",
+    };
+    const node = {
+      id: `node_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      parentId,
+      keyword,
+      title: labels[actionType] || "Nova etapa",
+      actionType,
+      textContent: actionType === "text" ? "Digite aqui a mensagem enviada ao cliente." : "",
+      showInPoll: true,
+      paymentMode: "both",
+      variableName: actionType === "collect_data" ? "informacao_cliente" : "",
+    };
+    updateField("custom_rules_nodes", [...(settings.custom_rules_nodes || []), node]);
+    setSelectedNodeId(node.id);
+    setIsRightPanelOpen(true);
+  };
+
+  const descendantIds = (nodeId: string) => {
+    const ids = new Set<string>();
+    const visit = (id: string) => {
+      if (ids.has(id)) return;
+      ids.add(id);
+      (settings.custom_rules_nodes || [])
+        .filter((node: any) => node.parentId === id)
+        .forEach((child: any) => visit(child.id));
+    };
+    visit(nodeId);
+    return ids;
+  };
+
+  const deleteSelectedNode = () => {
+    if (!selectedNode) return;
+    const ids = descendantIds(selectedNode.id);
+    if (!window.confirm(`Excluir "${selectedNode.title}" e ${Math.max(0, ids.size - 1)} etapa(s) dependente(s)?`)) return;
+    updateField("custom_rules_nodes", (settings.custom_rules_nodes || []).filter((node: any) => !ids.has(node.id)));
+    setSelectedNodeId(selectedNode.parentId || "start");
+  };
+
+  const moveSelectedNode = (direction: -1 | 1) => {
+    if (!selectedNode) return;
+    const nodes = [...(settings.custom_rules_nodes || [])];
+    const siblingIndexes = nodes
+      .map((node: any, index: number) => ({ node, index }))
+      .filter(({ node }: any) => (node.parentId || null) === (selectedNode.parentId || null));
+    const siblingPosition = siblingIndexes.findIndex(({ node }: any) => node.id === selectedNode.id);
+    const target = siblingIndexes[siblingPosition + direction];
+    if (!target) return;
+    const currentIndex = siblingIndexes[siblingPosition].index;
+    [nodes[currentIndex], nodes[target.index]] = [nodes[target.index], nodes[currentIndex]];
+    updateField("custom_rules_nodes", nodes);
+  };
+
+  const duplicateSelectedNode = () => {
+    if (!selectedNode) return;
+    const clone = {
+      ...selectedNode,
+      id: `node_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      keyword: nextKeywordForParent(selectedNode.parentId || null),
+      title: `${selectedNode.title} (cópia)`,
+      position: undefined,
+    };
+    updateField("custom_rules_nodes", [...(settings.custom_rules_nodes || []), clone]);
+    setSelectedNodeId(clone.id);
+  };
+
+  const createCatalogFlow = () => {
+    if (!selectedNode || selectedNode.actionType !== "catalog") return;
+    const nodes = [...(settings.custom_rules_nodes || [])].filter((node: any) =>
+      !(node.parentId === selectedNode.id && node.actionType === "checkout")
+    );
+    const existingProductIds = new Set(nodes
+      .filter((node: any) => node.parentId === selectedNode.id && node.actionType === "product")
+      .map((node: any) => String(node.productId || node.productName || "")));
+    (settings.products || []).forEach((product: any, index: number) => {
+      const reference = String(product.id ?? product.name ?? "");
+      if (existingProductIds.has(reference)) return;
+      const productNodeId = `product_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 5)}`;
+      nodes.push({
+        id: productNodeId,
+        parentId: selectedNode.id,
+        keyword: String(index + 1),
+        title: product.name,
+        actionType: "product",
+        textContent: "",
+        productId: product.id != null ? String(product.id) : "",
+        productName: product.name || "",
+        productPrice: product.price != null ? String(product.price) : "",
+        productDescription: product.description || "",
+        showInPoll: true,
+      });
+      nodes.push({
+        id: `checkout_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 5)}`,
+        parentId: productNodeId,
+        keyword: "1",
+        title: "Comprar agora",
+        actionType: "checkout",
+        textContent: "Vamos finalizar seu pedido.",
+        paymentMode: "both",
+        productId: product.id != null ? String(product.id) : "",
+        productName: product.name || "",
+        productPrice: product.price != null ? String(product.price) : "",
+        productDescription: product.description || "",
+        showInPoll: true,
+      });
+    });
+    updateField("custom_rules_nodes", nodes);
+    setAlert({ type: "success", msg: "Catálogo conectado ao fluxo real." });
+  };
 
   const applyProductToNode = (nodeIdx: number, productIdx: number) => {
     const newNodes = [...(settings.custom_rules_nodes || [])];
@@ -446,7 +605,6 @@ export default function WorkflowPage() {
             </div>
           )}
 
-            {activeTab === "canvas" && (
               <>
                 <button
                   onClick={() => setShowTemplatesModal(true)}
@@ -457,7 +615,26 @@ export default function WorkflowPage() {
                 </button>
 
                 <button
+                  onClick={() => setShowProductsModal(true)}
+                  className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-sky-200 dark:border-sky-500/20"
+                  title="Ver produtos disponíveis para vincular ao fluxo"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">Produtos</span>
+                </button>
+
+                <button
+                  onClick={() => setShowGroupsModal(true)}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-purple-200 dark:border-purple-500/20"
+                  title="Configurar atendimento em grupos"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">Grupos</span>
+                </button>
+
+                <button
                   onClick={() => {
+                    if (!window.confirm("Limpar todo o fluxo? Esta ação remove todas as etapas personalizadas.")) return;
                     updateField("custom_rules_nodes", []);
                     setSelectedNodeId("start");
                     setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. 🧹" });
@@ -471,17 +648,7 @@ export default function WorkflowPage() {
 
               <button
                 onClick={() => {
-                  const newNodes = [...(settings.custom_rules_nodes || [])];
-                  newNodes.push({
-                    id: "node_" + Math.random().toString(36).substr(2, 9),
-                    parentId: selectedNodeId !== "start" ? selectedNodeId : null,
-                    keyword: String(newNodes.length + 1),
-                    title: "Nova Opção",
-                    actionType: "text",
-                    textContent: "Responda aqui...",
-                    showInPoll: true,
-                  });
-                  updateField("custom_rules_nodes", newNodes);
+                  addWorkflowNode("text");
                 }}
                 className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 border border-indigo-200 dark:border-indigo-500/20"
               >
@@ -489,7 +656,6 @@ export default function WorkflowPage() {
                 <span>+ Opção</span>
               </button>
             </>
-          )}
 
           <button
             onClick={() => {
@@ -526,6 +692,27 @@ export default function WorkflowPage() {
               />
             )}
 
+            <div className="absolute bottom-5 left-5 z-30 w-56 rounded-2xl border border-slate-200 bg-white/95 p-2.5 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
+              <div className="mb-2 px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Adicionar após {selectedNode?.title || "Início"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { type: "text", label: "Mensagem", icon: MessageCircle, color: "text-indigo-600" },
+                  { type: "collect_data", label: "Pergunta", icon: ClipboardPenLine, color: "text-pink-600" },
+                  { type: "catalog", label: "Catálogo", icon: BookOpen, color: "text-sky-600" },
+                  { type: "product", label: "Produto", icon: Box, color: "text-cyan-600" },
+                  { type: "scheduling", label: "Agenda", icon: Calendar, color: "text-emerald-600" },
+                  { type: "checkout", label: "Pagamento", icon: ShoppingCart, color: "text-fuchsia-600" },
+                  { type: "human", label: "Humano", icon: UserCheck, color: "text-amber-600" },
+                ].map(({ type, label, icon: Icon, color }) => (
+                  <button key={type} type="button" onClick={() => addWorkflowNode(type)} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2 text-left text-[10px] font-black text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 dark:border-white/5 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-indigo-500/10">
+                    <Icon className={`size-3.5 ${color}`} />{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* BOTÃO FLUTUANTE DE ACESSO RÁPIDO AO SIMULADOR */}
             <button
               onClick={() => setActiveTab("simulator")}
@@ -539,10 +726,10 @@ export default function WorkflowPage() {
         )}
 
         {/* DIREITA: PROPRIEDADES DO NÓ SELECIONADO (PAINEL DESLIZANTE QUE PODE SER ENCOLHIDO) */}
-        {activeTab === "canvas" && (
+        {(activeTab === "canvas" || activeTab === "simulator") && (
           <aside
-            className={`border-l border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
-              isRightPanelOpen ? "w-80 p-5 space-y-6 overflow-y-auto" : "w-12 p-2 items-center"
+            className={`order-2 border-l border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
+              isRightPanelOpen ? "w-[380px] p-5 space-y-6 overflow-y-auto" : "w-12 p-2 items-center"
             }`}
           >
             {/* BOTÃO RETRÁTIL DO PAINEL LATERAL */}
@@ -628,6 +815,26 @@ export default function WorkflowPage() {
 
                 {selectedNode && (
                   <div className="space-y-4">
+                    <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-4 dark:border-indigo-500/20 dark:from-indigo-500/10 dark:to-purple-500/10">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">Editando etapa</p>
+                      <p className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{selectedNode.title}</p>
+                      <p className="mt-1 text-[10px] font-medium text-slate-500">Tudo que for alterado aqui é usado no fluxo real.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Etapa anterior</label>
+                      <select
+                        value={selectedNode.parentId || "start"}
+                        onChange={(e) => setSelectedNodeField("parentId", e.target.value === "start" ? null : e.target.value)}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+                      >
+                        <option value="start">Início do atendimento</option>
+                        {(settings.custom_rules_nodes || [])
+                          .filter((node: any) => node.id !== selectedNode.id && !descendantIds(selectedNode.id).has(node.id))
+                          .map((node: any) => <option key={node.id} value={node.id}>{node.title}</option>)}
+                      </select>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                         🔑 Gatilho de Ativação (Dígito ou Palavra-chave)
@@ -635,19 +842,18 @@ export default function WorkflowPage() {
                       <input
                         type="text"
                         value={selectedNode.keyword || ""}
-                        onChange={(e) => {
-                          if (selectedNodeIndex > -1) {
-                            const newNodes = [...(settings.custom_rules_nodes || [])];
-                            newNodes[selectedNodeIndex].keyword = e.target.value;
-                            updateField("custom_rules_nodes", newNodes);
-                          }
-                        }}
+                        onChange={(e) => setSelectedNodeField("keyword", e.target.value)}
                         placeholder="Ex: 1, 2, pix, suporte"
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
                       />
                       <p className="text-[10px] text-slate-500 font-medium">
                         Quando o cliente enviar este dígito ou palavra no WhatsApp, esta opção ou sub-menu será ativado.
                       </p>
+                      {selectedKeywordConflict && (
+                        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+                          Este gatilho já é usado por outra opção no mesmo nível. Escolha outro para evitar conflito.
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -655,13 +861,7 @@ export default function WorkflowPage() {
                       <input
                         type="text"
                         value={selectedNode.title || ""}
-                        onChange={(e) => {
-                          if (selectedNodeIndex > -1) {
-                            const newNodes = [...(settings.custom_rules_nodes || [])];
-                            newNodes[selectedNodeIndex].title = e.target.value;
-                            updateField("custom_rules_nodes", newNodes);
-                          }
-                        }}
+                        onChange={(e) => setSelectedNodeField("title", e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
                       />
                     </div>
@@ -670,13 +870,7 @@ export default function WorkflowPage() {
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Tipo de Ação</label>
                       <select
                         value={selectedNode.actionType || "text"}
-                        onChange={(e) => {
-                          if (selectedNodeIndex > -1) {
-                            const newNodes = [...(settings.custom_rules_nodes || [])];
-                            newNodes[selectedNodeIndex].actionType = e.target.value;
-                            updateField("custom_rules_nodes", newNodes);
-                          }
-                        }}
+                        onChange={(e) => setSelectedNodeField("actionType", e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
                       >
                         <option value="text">💬 Texto Personalizado / Submenu</option>
@@ -684,9 +878,23 @@ export default function WorkflowPage() {
                         <option value="product">🧩 Produto (exibe e segue submenu)</option>
                         <option value="checkout">🛒 Checkout / Pagamento</option>
                         <option value="scheduling">📅 Iniciar Agendamento</option>
+                        <option value="collect_data">📝 Fazer Pergunta / Coletar Dado</option>
                         <option value="human">👤 Transferir para Humano</option>
                       </select>
                     </div>
+
+                    {selectedNode.actionType === "collect_data" && (
+                      <div className="space-y-2 rounded-2xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-500/20 dark:bg-pink-500/10">
+                        <label className="block text-xs font-bold text-pink-800 dark:text-pink-300">Nome da informação salva</label>
+                        <input
+                          value={selectedNode.variableName || ""}
+                          onChange={(e) => setSelectedNodeField("variableName", e.target.value.replace(/[^a-zA-Z0-9_]/g, "_"))}
+                          placeholder="Ex: nome, email, cidade"
+                          className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-pink-500 dark:border-pink-500/20 dark:bg-slate-950"
+                        />
+                        <p className="text-[10px] text-pink-700/80 dark:text-pink-300/80">A resposta do cliente fica disponível para as próximas etapas e para o pedido.</p>
+                      </div>
+                    )}
 
                     <div className="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 space-y-2">
                       <div className="flex items-center gap-2">
@@ -714,7 +922,7 @@ export default function WorkflowPage() {
                           onChange={(e) => setSelectedNodeField("paymentMode", e.target.value)}
                           className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
                         >
-                          <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
+                          <option value="both">⭐ Cliente escolhe entre PIX e Cartão</option>
                           <option value="pix">⚡ Pix Direto no WhatsApp</option>
                           <option value="link">🔗 Link de Checkout no Site</option>
                         </select>
@@ -744,39 +952,39 @@ export default function WorkflowPage() {
                       </div>
                     )}
 
-                    {selectedNode.actionType === "text" && (
+                    {(
                       <div className="space-y-2">
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Texto da Resposta</label>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          {selectedNode.actionType === "collect_data"
+                            ? "Pergunta enviada ao cliente"
+                            : selectedNode.actionType === "human"
+                              ? "Mensagem antes da transferência"
+                              : selectedNode.actionType === "catalog"
+                                ? "Título/introdução do catálogo"
+                                : selectedNode.actionType === "product"
+                                  ? "Texto antes dos detalhes do produto"
+                                  : "Mensagem desta etapa"}
+                        </label>
                         <textarea
-                          rows={4}
+                          rows={5}
                           value={selectedNode.textContent || ""}
-                          onChange={(e) => {
-                            if (selectedNodeIndex > -1) {
-                              const newNodes = [...(settings.custom_rules_nodes || [])];
-                              newNodes[selectedNodeIndex].textContent = e.target.value;
-                              updateField("custom_rules_nodes", newNodes);
-                            }
-                          }}
+                          onChange={(e) => setSelectedNodeField("textContent", e.target.value)}
                           placeholder="Digite a resposta personalizada enviada ao cliente..."
                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
                         />
                       </div>
                     )}
 
+                    {selectedNode.actionType === "catalog" && (
+                      <button type="button" onClick={createCatalogFlow} className="w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-black text-sky-700 transition hover:bg-sky-100 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
+                        <Package className="mr-2 inline size-4" />Criar/atualizar opções com meus produtos
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
-                        const newNodes = [...(settings.custom_rules_nodes || [])];
-                        newNodes.push({
-                          id: "node_" + Math.random().toString(36).substr(2, 9),
-                          parentId: selectedNodeId,
-                          keyword: "1",
-                          title: "Sub-opção",
-                          actionType: "text",
-                          textContent: "Responda a esta sub-opção...",
-                          showInPoll: true,
-                        });
-                        updateField("custom_rules_nodes", newNodes);
+                          addWorkflowNode("text", selectedNode.id);
                       }}
                       className="w-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
                     >
@@ -784,17 +992,12 @@ export default function WorkflowPage() {
                       <span>+ Adicionar Sub-opção</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newNodes = (settings.custom_rules_nodes || []).filter((n: any) => n.id !== selectedNodeId && n.parentId !== selectedNodeId);
-                        updateField("custom_rules_nodes", newNodes);
-                        setSelectedNodeId("start");
-                      }}
-                      className="w-full mt-2 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-rose-100 transition-all"
-                    >
-                      Excluir Este Nó
-                    </button>
+                    <div className="grid grid-cols-4 gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
+                      <button type="button" onClick={() => moveSelectedNode(-1)} title="Mover para cima" className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"><ChevronUp className="mx-auto size-4" /></button>
+                      <button type="button" onClick={() => moveSelectedNode(1)} title="Mover para baixo" className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"><ChevronDown className="mx-auto size-4" /></button>
+                      <button type="button" onClick={duplicateSelectedNode} title="Duplicar etapa" className="rounded-xl border border-indigo-200 p-2 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500/20 dark:text-indigo-300"><Copy className="mx-auto size-4" /></button>
+                      <button type="button" onClick={deleteSelectedNode} title="Excluir etapa e dependências" className="rounded-xl border border-rose-200 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-500/20 dark:text-rose-300"><X className="mx-auto size-4" /></button>
+                    </div>
                   </div>
                 )}
               </>
@@ -804,9 +1007,9 @@ export default function WorkflowPage() {
 
         {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO COM PAINEL DE REGRAS COMPLETO */}
         {activeTab === "simulator" && (
-          <div className="flex-1 h-full bg-slate-900/90 backdrop-blur-xl flex flex-col lg:flex-row items-center justify-center p-6 gap-8 overflow-y-auto">
+          <div className="flex-1 h-full bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_46%)] bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-6 overflow-y-auto">
             {/* PAINEL LATERAL COMPLETO DE GERENCIAMENTO DE NÓS E TESTES */}
-            <div className="w-96 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            {false && (<div className="hidden">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-emerald-500" />
@@ -1006,7 +1209,7 @@ export default function WorkflowPage() {
                                 }}
                                 className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
                               >
-                                <option value="both">⭐ Ambos (Pix no Chat + Link do Site)</option>
+                                <option value="both">⭐ Cliente escolhe entre PIX e Cartão</option>
                                   <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
                                   <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
                                 </select>
@@ -1132,7 +1335,7 @@ export default function WorkflowPage() {
                   return filteredRootNodes.map((rootNode: any) => renderNodeItem(rootNode, 0));
                 })()}
               </div>
-            </div>
+            </div>)}
 
             {/* CELULAR SMARTPHONE SIMULATOR */}
             <SmartphoneSimulator

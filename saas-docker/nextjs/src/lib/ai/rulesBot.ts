@@ -1090,7 +1090,9 @@ export async function processMessageWithRules(
         const productNodes = customNodes.filter((n: any) => n.parentId === matchedNode.id && n.actionType === 'product');
         
         if (productNodes.length > 0) {
-          response = "📋 *Nossos Serviços e Preços:*\n\n";
+          response = matchedNode.textContent?.trim()
+            ? `${matchedNode.textContent.trim()}\n\n`
+            : "📋 *Nossos Serviços e Preços:*\n\n";
           productNodes.forEach((pn: any, idx: number) => {
             const prod = resolveProductFromNode(settings.products || [], pn);
             if (prod) {
@@ -1105,21 +1107,25 @@ export async function processMessageWithRules(
           state.step = "catalog_select_product";
           state.data._productNodes = productNodes.map((n: any) => n.id);
           await saveState(state);
-          return appendInteractiveOptions(response, productNodes.flatMap((node: any, idx: number) =>
-            node.showInPoll === false
-              ? []
-              : [{
-                  label: resolveProductFromNode(settings.products || [], node)?.name || node.title,
-                  value: String(idx + 1),
-                }]
-          ));
+          return appendInteractiveOptions(response, productNodes.flatMap((node: any, idx: number) => {
+            if (node.showInPoll === false) return [];
+            const product = resolveProductFromNode(settings.products || [], node);
+            return [{
+              label: product
+                ? `${product.name} - R$ ${getProductDisplayPrice(product)}`
+                : node.title,
+              value: String(idx + 1),
+            }];
+          }));
         } else {
           // Fallback: show all products from settings (original behavior)
           const productsList = settings.products || [];
           if (productsList.length === 0) {
             response = "📋 No momento não temos serviços cadastrados no catálogo.";
           } else {
-            response = "📋 *Nossos Serviços e Preços:*\n\n";
+            response = matchedNode.textContent?.trim()
+              ? `${matchedNode.textContent.trim()}\n\n`
+              : "📋 *Nossos Serviços e Preços:*\n\n";
             productsList.forEach((p: any, idx: number) => {
               const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
               response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
@@ -1130,7 +1136,7 @@ export async function processMessageWithRules(
             state.step = "catalog_select_product";
             await saveState(state);
             return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
-              label: product.name,
+              label: `${product.name} - R$ ${getProductDisplayPrice(product)}`,
               value: String(idx + 1),
             })));
           }
@@ -1143,7 +1149,9 @@ export async function processMessageWithRules(
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
-        let response = `📅 *Iniciar Agendamento*\nSelecione o número do serviço que deseja agendar:\n\n`;
+        let response = matchedNode.textContent?.trim()
+          ? `${matchedNode.textContent.trim()}\n\n`
+          : `📅 *Iniciar Agendamento*\nSelecione o serviço que deseja agendar:\n\n`;
         servicesList.forEach((p: any, idx: number) => {
           const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
           response += `${idx + 1}️⃣ ${p.name} (R$ ${displayPrice})\n`;
@@ -1181,11 +1189,13 @@ export async function processMessageWithRules(
       }
       else if (matchedNode.actionType === "product") {
         const prod = resolveProductFromNode(settings.products || [], matchedNode);
+        const customProductText = String(matchedNode.textContent || "").trim();
         if (!prod) {
-          response = `📦 *${matchedNode.title}*`;
+          response = customProductText || `📦 *${matchedNode.title}*`;
         } else {
           const displayPrice = getProductDisplayPrice(prod);
-          response = `📦 *${prod.name}* - R$ ${displayPrice}\n\n`;
+          response = customProductText ? `${customProductText}\n\n` : "";
+          response += `📦 *${prod.name}* - R$ ${displayPrice}\n\n`;
           if (prod.description) response += `${prod.description}\n\n`;
           if (prod.image_url && prod.send_photo !== false) response += `${prod.image_url}\n\n`;
         }
@@ -1210,7 +1220,9 @@ export async function processMessageWithRules(
           return `❌ *${chosen.name}* está esgotado no momento. Digite *0* para voltar.`;
         }
         
-        const collectedData = state.data.collected || {};
+        const collectedData = { ...(state.data.collected || {}) };
+        if (matchedNode.paymentMode === "pix") collectedData.billingType = "PIX";
+        if (matchedNode.paymentMode === "link") collectedData.billingType = "CREDIT_CARD";
         
         if (isSchedulableProduct(chosen)) {
           const availableDates = obterProximosDiasDisponiveis(settings);
@@ -1452,13 +1464,13 @@ function getMainMenuMessage(settings: any): string {
     if (interactiveNodes.length > 3) {
       const listLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
       if (!hasExplicitMenuSection(welcome)) {
-        msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+        msg += rootNodes.map((n: any) => `*${n.keyword}* - *${n.title}*`).join("\n");
       }
       msg += "\n\n---LIST---\n" + listLines.join("\n");
     } else {
       const buttonLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
       if (!hasExplicitMenuSection(welcome)) {
-        msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+        msg += rootNodes.map((n: any) => `*${n.keyword}* - *${n.title}*`).join("\n");
       }
       if (buttonLines.length > 0) msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
     }
@@ -1533,8 +1545,8 @@ function getSubmenuMessage(parentNode: any, allNodes: any[]): string {
   msg += `Selecione uma opção abaixo:\n\n`;
   
   const subNodes = allNodes.filter((n: any) => n.parentId === parentNode.id);
-  subNodes.forEach((node: any, idx: number) => {
-    msg += `${idx + 1}️⃣ *${node.title}*\n`;
+  subNodes.forEach((node: any) => {
+    msg += `*${node.keyword}* - *${node.title}*\n`;
   });
   
   msg += "\nDigite *0* ou *voltar* para retornar ao menu anterior.";

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
   Controls,
   Background,
   MiniMap,
+  Panel,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
@@ -12,279 +13,227 @@ import {
   Node,
   NodeChange,
   EdgeChange,
-  BackgroundVariant
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import { nodeTypes } from './CustomNodes';
+  BackgroundVariant,
+} from "@xyflow/react";
+import { LayoutDashboard, MousePointer2 } from "lucide-react";
+import "@xyflow/react/dist/style.css";
+import { nodeTypes } from "./CustomNodes";
 
-export default function WorkflowCanvas({ settings, updateField, setSelectedNodeId }: any) {
+type WorkflowCanvasProps = {
+  settings: any;
+  updateField: (field: any, value: any) => void;
+  selectedNodeId: string | null;
+  setSelectedNodeId: (id: string | null) => void;
+};
+
+const editorOnlyFields = new Set(["childrenCount", "products", "parentActionType", "parentTitle"]);
+
+function automaticPositions(customNodes: any[]) {
+  const childrenByParent = new Map<string, any[]>();
+  customNodes.forEach((node) => {
+    const parent = node.parentId || "start";
+    childrenByParent.set(parent, [...(childrenByParent.get(parent) || []), node]);
+  });
+
+  const positions = new Map<string, { x: number; y: number }>();
+  const placeChildren = (parentId: string, centerX: number, level: number, path: Set<string>) => {
+    const children = childrenByParent.get(parentId) || [];
+    const spacing = Math.max(280, 920 / Math.max(children.length, 1));
+    const startX = centerX - ((children.length - 1) * spacing) / 2;
+    children.forEach((child, index) => {
+      if (path.has(child.id)) return;
+      const x = startX + index * spacing;
+      positions.set(child.id, { x, y: 70 + level * 210 });
+      placeChildren(child.id, x, level + 1, new Set(path).add(child.id));
+    });
+  };
+
+  positions.set("start", { x: 400, y: 30 });
+  placeChildren("start", 400, 1, new Set(["start"]));
+  return positions;
+}
+
+export default function WorkflowCanvas({ settings, updateField, selectedNodeId, setSelectedNodeId }: WorkflowCanvasProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
-  const initialized = useRef(false);
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSyncRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
 
   useEffect(() => {
-    nodesRef.current = nodes;
-  }, [nodes]);
-
-  useEffect(() => {
-    edgesRef.current = edges;
-  }, [edges]);
-
-  // Carrega custom_rules_nodes em React Flow Nodes
-  useEffect(() => {
-    const initialNodes: Node[] = [];
-    const initialEdges: Edge[] = [];
-
-    // O Nó Start é obrigatório
-    initialNodes.push({
-      id: 'start',
-      type: 'startNode',
-      position: { x: 400, y: 50 },
+    const customNodes = Array.isArray(settings.custom_rules_nodes) ? settings.custom_rules_nodes : [];
+    const calculated = automaticPositions(customNodes);
+    const nextNodes: Node[] = [{
+      id: "start",
+      type: "startNode",
+      position: calculated.get("start")!,
       data: { welcome_message: settings.welcome_message },
-    });
+    }];
+    const nextEdges: Edge[] = [];
 
-    const hasNodesProp = Object.hasOwn(settings, 'custom_rules_nodes');
-    const customNodes = settings.custom_rules_nodes || [];
-
-    // Só cria nós padrão na primeira carga se não houver configuração salva
-    if (!hasNodesProp && !initialized.current) {
-      initialized.current = true;
-      initialNodes.push(
-        { id: 'opt_1', type: 'menuNode', position: { x: 100, y: 250 }, data: { keyword: '1', title: 'Catálogo', actionType: 'catalog', textContent: '' } },
-        { id: 'opt_2', type: 'menuNode', position: { x: 350, y: 250 }, data: { keyword: '2', title: 'Horários', actionType: 'text', textContent: 'Nosso horário é das 08h às 18h.' } },
-        { id: 'opt_3', type: 'menuNode', position: { x: 600, y: 250 }, data: { keyword: '3', title: 'Agendar', actionType: 'scheduling', textContent: '' } },
-        { id: 'opt_4', type: 'menuNode', position: { x: 850, y: 250 }, data: { keyword: '4', title: 'Humano', actionType: 'human', textContent: 'Transferindo para o atendente...' } }
-      );
-      initialEdges.push(
-        { id: 'e_start-opt_1', source: 'start', target: 'opt_1' },
-        { id: 'e_start-opt_2', source: 'start', target: 'opt_2' },
-        { id: 'e_start-opt_3', source: 'start', target: 'opt_3' },
-        { id: 'e_start-opt_4', source: 'start', target: 'opt_4' }
-      );
-
-      const defaultData = [
-        { id: 'opt_1', parentId: null, keyword: '1', title: 'Catálogo', actionType: 'catalog', textContent: '' },
-        { id: 'opt_2', parentId: null, keyword: '2', title: 'Horários', actionType: 'text', textContent: 'Nosso horário é das 08h às 18h.' },
-        { id: 'opt_3', parentId: null, keyword: '3', title: 'Agendar', actionType: 'scheduling', textContent: '' },
-        { id: 'opt_4', parentId: null, keyword: '4', title: 'Humano', actionType: 'human', textContent: 'Transferindo para o atendente...' }
-      ];
-      updateField("custom_rules_nodes", defaultData);
-    } else if (customNodes.length > 0) {
-      // Cálculo de Layout Hierárquico Árvore Visual
-      const levelMap = new Map<string, number>();
-      const parentChildrenMap = new Map<string, any[]>();
-
-      // Agrupa filhos por pai
-      customNodes.forEach((cn: any) => {
-        const pKey = cn.parentId || 'start';
-        if (!parentChildrenMap.has(pKey)) {
-          parentChildrenMap.set(pKey, []);
-        }
-        parentChildrenMap.get(pKey)!.push(cn);
-      });
-
-      // Calcula nível de profundidade
-      const getLevel = (nodeId: string): number => {
-        const cn = customNodes.find((n: any) => n.id === nodeId);
-        if (!cn || !cn.parentId) return 1;
-        return (levelMap.get(cn.parentId) || getLevel(cn.parentId)) + 1;
-      };
-
-      customNodes.forEach((cn: any) => {
-        levelMap.set(cn.id, getLevel(cn.id));
-      });
-
-      // Distribuição inteligente de X e Y
-      const level1Nodes = customNodes.filter((cn: any) => !cn.parentId);
-      const totalL1 = level1Nodes.length || 1;
-      const l1Spacing = 300;
-      const startX = Math.max(100, 450 - ((totalL1 - 1) * l1Spacing) / 2);
-
-      const xPositions = new Map<string, number>();
-
-      level1Nodes.forEach((cn: any, idx: number) => {
-        xPositions.set(cn.id, startX + idx * l1Spacing);
-      });
-
-      // Posiciona filhos diretamente abaixo ou espalhados do pai
-      customNodes.forEach((cn: any) => {
-        if (cn.parentId) {
-          const parentX = xPositions.get(cn.parentId) || 450;
-          const siblings = parentChildrenMap.get(cn.parentId) || [];
-          const sIdx = siblings.findIndex((s: any) => s.id === cn.id);
-          const totalSiblings = siblings.length;
-          const subSpacing = 260;
-          const subStartX = parentX - ((totalSiblings - 1) * subSpacing) / 2;
-          xPositions.set(cn.id, subStartX + sIdx * subSpacing);
-        }
-      });
-
-      const productsList = settings.products || [];
-
-      customNodes.forEach((cn: any) => {
-        const hasChildren = customNodes.some((n: any) => n.parentId === cn.id);
-        const parentNode = customNodes.find((n: any) => n.id === cn.parentId);
-        const level = levelMap.get(cn.id) || 1;
-
-        // Se o nó possui posição arrastada pelo usuário, usa a posição salva!
-        const xPos = typeof cn.position?.x === "number" ? cn.position.x : (xPositions.get(cn.id) || 450);
-        const yPos = typeof cn.position?.y === "number" ? cn.position.y : (50 + level * 180);
-
-        initialNodes.push({
-          id: cn.id,
-          type: 'menuNode',
-          position: { x: xPos, y: yPos },
-          data: {
-            ...cn,
-            childrenCount: hasChildren ? 1 : 0,
-            products: productsList,
-            parentActionType: parentNode?.actionType,
-            parentTitle: parentNode?.title,
-          }
-        });
-
-        initialEdges.push({
-          id: `e_${cn.parentId || 'start'}-${cn.id}`,
-          source: cn.parentId || 'start',
-          target: cn.id
-        });
-      });
-    }
-
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [settings.welcome_message, settings.custom_rules_nodes]);
-
-  const syncGraphToBackend = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
-    const custom_rules_nodes: any[] = [];
-    currentNodes.forEach((node) => {
-      if (node.id === 'start') return;
-      const parentEdge = currentEdges.find((e) => e.target === node.id);
-      let parentId = null;
-      if (parentEdge && parentEdge.source !== 'start') {
-        parentId = parentEdge.source;
-      }
-
-      custom_rules_nodes.push({
+    customNodes.forEach((node: any) => {
+      const parent = customNodes.find((candidate: any) => candidate.id === node.parentId);
+      nextNodes.push({
         id: node.id,
-        parentId,
-        keyword: node.data.keyword || '0',
-        title: node.data.title || 'Nova Opção',
-        actionType: node.data.actionType || 'text',
-        textContent: node.data.textContent || '',
-        showInPoll: node.data.showInPoll !== false,
-        paymentMode: node.data.paymentMode || 'both',
-        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
-        variableName: node.data.variableName || '',
-        productId: node.data.productId || '',
-        productPrice: node.data.productPrice || '',
-        productDescription: node.data.productDescription || '',
-        productName: node.data.productName || ''
+        type: "menuNode",
+        position: typeof node.position?.x === "number" && typeof node.position?.y === "number"
+          ? node.position
+          : calculated.get(node.id) || { x: 400, y: 260 },
+        data: {
+          ...node,
+          products: settings.products || [],
+          childrenCount: customNodes.filter((candidate: any) => candidate.parentId === node.id).length,
+          parentActionType: parent?.actionType,
+          parentTitle: parent?.title,
+        },
+      });
+      nextEdges.push({
+        id: `edge-${node.parentId || "start"}-${node.id}`,
+        source: node.parentId || "start",
+        target: node.id,
+        type: "smoothstep",
+        animated: selectedNodeId === node.id,
+        style: { strokeWidth: selectedNodeId === node.id ? 2.5 : 1.5, stroke: selectedNodeId === node.id ? "#7c3aed" : "#94a3b8" },
       });
     });
 
-    updateField('custom_rules_nodes', custom_rules_nodes);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+  }, [selectedNodeId, settings.custom_rules_nodes, settings.products, settings.welcome_message]);
+
+  const persistGraph = useCallback((nextNodes: Node[], nextEdges: Edge[]) => {
+    const persisted = nextNodes.flatMap((node) => {
+      if (node.id === "start") return [];
+      const parentEdge = nextEdges.find((edge) => edge.target === node.id);
+      const data = Object.fromEntries(
+        Object.entries(node.data).filter(([key]) => !editorOnlyFields.has(key)),
+      );
+      return [{
+        ...data,
+        id: node.id,
+        parentId: parentEdge?.source && parentEdge.source !== "start" ? parentEdge.source : null,
+        position: { x: Math.round(node.position.x), y: Math.round(node.position.y) },
+      }];
+    });
+    updateField("custom_rules_nodes", persisted);
   }, [updateField]);
 
-  const queueSyncGraph = useCallback((nextNodes: Node[], nextEdges: Edge[]) => {
-    pendingSyncRef.current = { nodes: nextNodes, edges: nextEdges };
+  const queuePersist = useCallback((nextNodes: Node[], nextEdges: Edge[]) => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => persistGraph(nextNodes, nextEdges), 120);
+  }, [persistGraph]);
 
-    if (syncTimerRef.current !== null) {
-      clearTimeout(syncTimerRef.current);
-    }
-
-    syncTimerRef.current = setTimeout(() => {
-      syncTimerRef.current = null;
-      const payload = pendingSyncRef.current;
-      if (!payload) return;
-      syncGraphToBackend(payload.nodes, payload.edges);
-      pendingSyncRef.current = null;
-    }, 0);
-  }, [syncGraphToBackend]);
-
-  useEffect(() => {
-    return () => {
-      if (syncTimerRef.current !== null) {
-        clearTimeout(syncTimerRef.current);
-      }
-    };
+  useEffect(() => () => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
   }, []);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
-  );
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((current) => {
+      const safeChanges = changes.filter((change) => !(change.type === "remove" && change.id === "start"));
+      const removedIds = new Set(safeChanges.filter((change) => change.type === "remove").map((change) => change.id));
+      if (removedIds.size > 0) {
+        let foundChild = true;
+        while (foundChild) {
+          foundChild = false;
+          edgesRef.current.forEach((edge) => {
+            if (removedIds.has(edge.source) && !removedIds.has(edge.target)) {
+              removedIds.add(edge.target);
+              foundChild = true;
+            }
+          });
+        }
+        removedIds.forEach((id) => {
+          if (!safeChanges.some((change) => change.type === "remove" && change.id === id)) {
+            safeChanges.push({ type: "remove", id });
+          }
+        });
+        if (selectedNodeId && removedIds.has(selectedNodeId)) setSelectedNodeId("start");
+      }
+      const next = applyNodeChanges(safeChanges, current);
+      if (safeChanges.some((change) => change.type === "remove")) {
+        const nodeIds = new Set(next.map((node) => node.id));
+        const nextEdges = edgesRef.current.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+        setEdges(nextEdges);
+        queuePersist(next, nextEdges);
+      }
+      return next;
+    });
+  }, [queuePersist, selectedNodeId, setSelectedNodeId]);
 
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
-  );
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setEdges((current) => {
+      const next = applyEdgeChanges(changes, current);
+      if (changes.some((change) => change.type === "remove")) queuePersist(nodesRef.current, next);
+      return next;
+    });
+  }, [queuePersist]);
 
-  const onConnect = useCallback((params: Connection | Edge) => {
-    const nextEdges = addEdge(params, edgesRef.current);
-    setEdges(nextEdges);
-    queueSyncGraph(nodesRef.current, nextEdges);
-  }, [queueSyncGraph]);
-
-  const onNodeDragStop = useCallback((_: any, node: Node) => {
-    const updated = nodesRef.current.map((n) => (n.id === node.id ? { ...n, position: node.position } : n));
-    setNodes(updated);
-    queueSyncGraph(updated, edgesRef.current);
-  }, [queueSyncGraph]);
-
-  const onNodeClick = (_: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
+  const createsCycle = (source: string, target: string, currentEdges: Edge[]) => {
+    const pending = [target];
+    const visited = new Set<string>();
+    while (pending.length) {
+      const current = pending.pop()!;
+      if (current === source) return true;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      currentEdges.filter((edge) => edge.source === current).forEach((edge) => pending.push(edge.target));
+    }
+    return false;
   };
 
-  const onPaneClick = () => {
-    setSelectedNodeId(null);
-  };
+  const onConnect = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target || connection.target === "start" || connection.source === connection.target) return;
+    if (createsCycle(connection.source, connection.target, edgesRef.current)) return;
+    const withoutOldParent = edgesRef.current.filter((edge) => edge.target !== connection.target);
+    const next = addEdge({ ...connection, type: "smoothstep" }, withoutOldParent);
+    setEdges(next);
+    queuePersist(nodesRef.current, next);
+  }, [queuePersist]);
 
-  const isEmpty = nodes.length <= 1 && edges.length === 0;
+  const organize = () => {
+    const customNodes = nodesRef.current.filter((node) => node.id !== "start").map((node) => ({
+      id: node.id,
+      parentId: edgesRef.current.find((edge) => edge.target === node.id)?.source || null,
+    }));
+    const positions = automaticPositions(customNodes);
+    const next = nodesRef.current.map((node) => ({ ...node, position: positions.get(node.id) || node.position }));
+    setNodes(next);
+    queuePersist(next, edgesRef.current);
+  };
 
   return (
-    <div style={{ width: '100%', height: '100%' }} className="relative">
-      {isEmpty && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4 opacity-20">☰</div>
-            <p className="text-zinc-600 text-sm font-medium">Canvas vazio</p>
-            <p className="text-zinc-700 text-xs mt-1">Clique em &quot;+ Novo Nó&quot; no topo para começar</p>
-          </div>
-        </div>
-      )}
+    <div className="relative size-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        onNodeDragStop={onNodeDragStop}
+        onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+        onPaneClick={() => setSelectedNodeId(null)}
+        onNodeDragStop={(_, dragged) => {
+          const next = nodesRef.current.map((node) => node.id === dragged.id ? { ...node, position: dragged.position } : node);
+          setNodes(next);
+          queuePersist(next, edgesRef.current);
+        }}
         nodeTypes={nodeTypes}
         fitView
-        className="bg-slate-100 dark:bg-slate-950"
+        fitViewOptions={{ padding: 0.25 }}
+        minZoom={0.25}
+        maxZoom={1.6}
+        deleteKeyCode={["Backspace", "Delete"]}
+        className="bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.08),_transparent_32%)] dark:bg-slate-950"
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#27272a" />
-        <Controls className="bg-zinc-900 border-zinc-800 fill-white text-white [&_button]:hover:bg-zinc-700 [&_button]:border-zinc-700" />
-        <MiniMap
-          nodeColor={(node) => {
-            if (node.type === 'startNode') return '#7c3aed';
-            const action = node.data?.actionType;
-            if (action === 'catalog') return '#0ea5e9';
-            if (action === 'product') return '#06b6d4';
-            if (action === 'scheduling') return '#10b981';
-            if (action === 'human') return '#f59e0b';
-            return '#6366f1';
-          }}
-          maskColor="rgba(9,9,11,0.8)"
-          className="border border-zinc-800 rounded-lg overflow-hidden !bg-zinc-950"
-        />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#94a3b8" />
+        <Controls className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-white/10 dark:bg-slate-900" />
+        <MiniMap pannable zoomable nodeColor={(node) => node.id === "start" ? "#7c3aed" : "#6366f1"} maskColor="rgba(15,23,42,.72)" className="!rounded-2xl !border !border-white/10 !bg-slate-900" />
+        <Panel position="top-left" className="m-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
+          <div className="flex items-center gap-2 px-2 text-[11px] font-bold text-slate-500"><MousePointer2 className="size-3.5 text-indigo-500" /> Arraste para mover. Conecte pelas bolinhas.</div>
+          <button type="button" onClick={organize} className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-2 text-[11px] font-black text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300"><LayoutDashboard className="size-3.5" /> Organizar</button>
+        </Panel>
       </ReactFlow>
     </div>
   );

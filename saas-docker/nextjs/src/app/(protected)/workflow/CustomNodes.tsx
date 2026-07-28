@@ -1,6 +1,6 @@
 import React from "react";
 import { Handle, Position } from "@xyflow/react";
-import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart, Package } from "lucide-react";
+import { Play, MessageSquare, BookOpen, Calendar, UserCheck, GitBranch, Sparkles, ShoppingCart, Package, EyeOff, GitFork } from "lucide-react";
 
 const actionConfig: Record<string, { color: string; bg: string; border: string }> = {
   catalog: { color: "text-sky-700 dark:text-sky-300", bg: "bg-sky-50 dark:bg-sky-500/10", border: "border-sky-200 dark:border-sky-500/20" },
@@ -80,7 +80,7 @@ export const MenuNode = ({ data, selected }: any) => {
 
   return (
     <div
-      className={`w-64 p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none bg-white dark:bg-slate-900 shadow-xl ${
+      className={`w-64 p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none bg-white dark:bg-slate-900 shadow-lg ${
         selected
           ? "border-purple-500 ring-4 ring-purple-500/20 shadow-purple-500/20"
           : "border-slate-200/90 dark:border-slate-800 hover:border-purple-300"
@@ -94,6 +94,7 @@ export const MenuNode = ({ data, selected }: any) => {
             {data.keyword || "*"}
           </div>
           <div className="flex-1 font-black text-xs text-slate-900 dark:text-white truncate">{data.title || "Nova Opção"}</div>
+          {data.showInPoll === false && <EyeOff className="size-3.5 shrink-0 text-slate-400" aria-label="Oculto na enquete" />}
         </div>
 
         {data.actionType === "catalog" && (
@@ -141,6 +142,16 @@ export const MenuNode = ({ data, selected }: any) => {
           <p className="text-[9px] font-medium text-slate-500 leading-relaxed line-clamp-2 border-t border-slate-100 dark:border-slate-800/80 pt-1.5 mt-0.5">
             {data.productDescription}
           </p>
+        )}
+        {data.textContent && data.actionType !== "product" && data.actionType !== "catalog" && (
+          <p className="line-clamp-2 border-t border-slate-100 pt-1.5 text-[9px] font-medium leading-relaxed text-slate-500 dark:border-slate-800/80">
+            {data.textContent}
+          </p>
+        )}
+        {data.childrenCount > 0 && (
+          <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+            <GitFork className="size-3 text-purple-500" /> {data.childrenCount} próxima(s) etapa(s)
+          </div>
         )}
       </div>
 

@@ -30,4 +30,25 @@ assert.equal(
   "Qual é o seu nome?",
 );
 
+const catalogOptions = [
+  { text: "Site Institucional - R$ 497", id: "1" },
+  { text: "Plataforma Completa - R$ 997", id: "2" },
+];
+const catalog = `📋 *Nossos Serviços e Preços:*
+
+1️⃣ *Site Institucional* - R$ 497
+   _Site responsivo e otimizado._
+
+2️⃣ *Plataforma Completa* - R$ 997
+   _CRM completo e painel de vendas._
+
+✍️ Responda enviando o número do produto.
+
+Digite *0* ou *voltar* para retornar ao menu principal.`;
+
+assert.equal(
+  formatWhatsAppOptionText(catalog, catalogOptions, true),
+  "📋 *Nossos Serviços e Preços:*\n\nDigite *0* ou *voltar* para retornar ao menu principal.",
+);
+
 console.log("whatsappOptions tests passed");

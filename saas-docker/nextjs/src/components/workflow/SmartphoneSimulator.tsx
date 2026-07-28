@@ -451,6 +451,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
   const [schedulingState, setSchedulingState] = useState<SchedulingState | null>(null);
   const [checkoutDeliveryState, setCheckoutDeliveryState] = useState<CheckoutDeliveryState | null>(null);
+  const [collectingNodeId, setCollectingNodeId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [inCatalogView, setInCatalogView] = useState(false);
@@ -512,7 +513,6 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
   const simulatorMenuFingerprint = JSON.stringify({
     nodes: ensureArray(settings?.custom_rules_nodes)
-      .filter((n: any) => !n?.parentId)
       .map((n: any) => ({
         id: n?.id,
         keyword: normalizeTextValue(n?.keyword),
@@ -611,7 +611,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
   const buildCheckoutFlow = (
     product: any,
-    _paymentMode: string,
+    paymentMode: string,
     originNode: any,
     addressLabel: string = botMessageTemplates.labels.digitalImmediate()
     ) => {
@@ -634,6 +634,29 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     const originUrl = typeof window !== "undefined" ? window.location.origin : "https://nexus-six-olive.vercel.app";
     const checkoutLink = `${originUrl}/checkout/${tenantId || "default"}?product=${encodeURIComponent(product.name || "")}&order=simulador`;
+
+    if (paymentMode === "pix") {
+      return {
+        text: appendNodeCustomText(originNode, botMessageTemplates.checkout.withPayment({
+          product,
+          address: addressLabel,
+          paymentMode: "pix",
+          pixCopiaECola: "PIX-SIMULADOR-COPIA-E-COLA",
+          paymentMethod: "PIX no WhatsApp",
+        })),
+        buttons: [{ label: "🏠 Menu Principal", value: "0" }],
+      };
+    }
+
+    if (paymentMode === "both") {
+      return {
+        text: appendNodeCustomText(originNode, `🛒 *${product.name}*\n💰 R$ ${formatProductPrice(product.price)}\n\nComo você prefere pagar?`),
+        buttons: [
+          { label: "⚡ PIX no WhatsApp", value: `gen_pix_chat_${product.name}` },
+          { label: "💳 Cartão no checkout", value: `open_link_${checkoutLink}` },
+        ],
+      };
+    }
 
     return {
       text: appendNodeCustomText(
@@ -694,6 +717,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setMessages([generateBotInitialMenu()]);
     setCurrentParentId(null);
     setInCatalogView(false);
+    setCollectingNodeId(null);
   }, [simulatorMenuFingerprint]);
 
   useEffect(() => {
@@ -706,6 +730,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setCurrentParentId(null);
     setSchedulingState(null);
     setCheckoutDeliveryState(null);
+    setCollectingNodeId(null);
     setInCatalogView(false);
     if (onActiveNodeChange) onActiveNodeChange(null);
   };
@@ -761,6 +786,33 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
         const checkoutDeliveryStateActive = checkoutDeliveryState?.phase;
 
         const serviceListForScheduling = parseSchedulingServiceList(prods);
+
+        if (collectingNodeId) {
+          const sourceNode = allNodes.find((node: any) => node.id === collectingNodeId);
+          const children = allNodes.filter((node: any) => node.parentId === collectingNodeId);
+          setCollectingNodeId(null);
+          if (children.length > 0) {
+            setCurrentParentId(collectingNodeId);
+            botResponseText = `✅ Informação registrada em *${sourceNode?.variableName || "dado_coletado"}*.\n\nEscolha como deseja continuar:`;
+            botButtons = children
+              .filter((child: any) => child.showInPoll !== false)
+              .map((child: any) => ({ label: child.title, value: child.keyword }));
+          } else {
+            const initial = generateBotInitialMenu();
+            setCurrentParentId(null);
+            botResponseText = `✅ Informação registrada em *${sourceNode?.variableName || "dado_coletado"}*.\n\n${initial.text}`;
+            botButtons = initial.buttons;
+          }
+          const presentation = presentOptionMessage(botResponseText, botButtons);
+          setMessages((previous) => [...previous, {
+            id: "bot_" + Date.now(),
+            sender: "bot",
+            text: presentation.text,
+            timestamp: currentTime,
+            buttons: presentation.buttons,
+          }]);
+          return;
+        }
 
         if (schedulingStateActive) {
           const currentState = schedulingState as SchedulingState;
@@ -1130,6 +1182,9 @@ Seu agendamento foi registrado no simulador.`;
 
               const productForCheckout = resolveProductFromNode(customSubNode) || selectedProd;
               const paymentMode = customSubNode?.paymentMode || "both";
+              const productChildren = customSubNode
+                ? allNodes.filter((node: any) => node.parentId === customSubNode.id)
+                : [];
 
               setCheckoutDeliveryState(null);
 
@@ -1139,6 +1194,15 @@ Seu agendamento foi registrado no simulador.`;
                   { label: "🏠 Menu Principal", value: "0" },
                   { label: "👤 Falar com Consultor", value: "4" },
                 ];
+              } else if (customSubNode?.actionType === "product" && productChildren.length > 0) {
+                setInCatalogView(false);
+                setCurrentParentId(customSubNode.id);
+                botResponseText = `📦 *${productForCheckout.name}*\n💰 R$ ${formatProductPrice(productForCheckout.price)}`;
+                if (productForCheckout.description) botResponseText += `\n\n${productForCheckout.description}`;
+                botResponseText += "\n\nEscolha como deseja continuar:";
+                botButtons = productChildren
+                  .filter((child: any) => child.showInPoll !== false)
+                  .map((child: any) => ({ label: child.title, value: child.keyword }));
               } else if (isSchedulableProduct(productForCheckout)) {
                 const selectedService = serviceListForScheduling.find(
                   (service) => normalizeLookupValue(service.name) === normalizeLookupValue(productForCheckout.name)
@@ -1357,16 +1421,18 @@ Seu agendamento foi registrado no simulador.`;
             (node: any) => node.parentId === matchedNode.id && node.actionType === "product"
           );
           botButtons = productNodes.length > 0
-            ? productNodes.flatMap((node: any, idx: number) =>
-                node.showInPoll === false
-                  ? []
-                  : [{
-                      label: resolveProductFromNode(node)?.name || node.title,
-                      value: String(idx + 1),
-                    }]
-              )
+            ? productNodes.flatMap((node: any, idx: number) => {
+                if (node.showInPoll === false) return [];
+                const product = resolveProductFromNode(node);
+                return [{
+                  label: product
+                    ? `${product.name} - R$ ${getCatalogDisplayPrice(product)}`
+                    : node.title,
+                  value: String(idx + 1),
+                }];
+              })
             : prods.map((product: any, idx: number) => ({
-                label: product.name || `Produto ${idx + 1}`,
+                label: `${product.name || `Produto ${idx + 1}`} - R$ ${getCatalogDisplayPrice(product)}`,
                 value: String(idx + 1),
               }));
           botProducts = undefined;
@@ -1426,6 +1492,10 @@ Seu agendamento foi registrado no simulador.`;
               services,
             });
           }
+        } else if (matchedNode.actionType === "collect_data") {
+          setInCatalogView(false);
+          setCollectingNodeId(matchedNode.id);
+          botResponseText = matchedNode.textContent || "Por favor, envie a informação solicitada:";
         } else if (matchedNode.actionType === "human") {
           setInCatalogView(false);
           botResponseText = matchedNode.textContent && matchedNode.textContent.trim().length > 0

@@ -23,22 +23,33 @@ export function formatWhatsAppOptionText(
   const normalizedLabels = options.map((option) => normalizeForMatch(option.text));
 
   if (interactiveEnabled) {
+    let insideOptionDetails = false;
     return cleanText
       .split("\n")
       .filter((line) => {
         const normalizedLine = normalizeForMatch(line);
-        if (!normalizedLine) return true;
+        const isBackInstruction = normalizedLine.includes("digite 0") || normalizedLine.includes("voltar");
+        if (insideOptionDetails && isBackInstruction) {
+          insideOptionDetails = false;
+          return true;
+        }
 
         const isChoiceInstruction =
-          /^(escolha|selecione).*(opcao|opcoes)/.test(normalizedLine) ||
-          /digite.*numero.*opcao/.test(normalizedLine) ||
+          /^(escolha|selecione).*(opcao|opcoes|produto|servico|item)/.test(normalizedLine) ||
+          /(digite|envie|responda).*(numero|opcao)/.test(normalizedLine) ||
           (normalizedLine.includes("digite") &&
             normalizedLabels.filter((label) => label && normalizedLine.includes(label)).length >= 2);
         if (isChoiceInstruction) return false;
 
         const isNumberedLine = /^\d/.test(normalizedLine);
         const containsOption = normalizedLabels.some((label) => label && normalizedLine.includes(label));
-        return !(isNumberedLine && containsOption);
+        if (isNumberedLine && containsOption) {
+          insideOptionDetails = true;
+          return false;
+        }
+
+        if (insideOptionDetails) return false;
+        return true;
       })
       .join("\n")
       .replace(/\n{3,}/g, "\n\n")
