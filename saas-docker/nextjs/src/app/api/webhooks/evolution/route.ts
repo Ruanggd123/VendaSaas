@@ -560,7 +560,7 @@ export async function POST(req: Request) {
 
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
-            console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber}`);
+              console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber} (fromMe=${fromMe}, isMessageToMyself=${isMessageToMyself}, ai_paused=${conversation.ai_paused})`);
 
             // Se for mídia sem texto legível (imagem/vídeo/documento sem legenda), responde direto sem chamar IA
             if (mediaType && mediaType !== "audio" && !messageData.message?.imageMessage?.caption && !messageData.message?.videoMessage?.caption) {
@@ -601,6 +601,7 @@ export async function POST(req: Request) {
 
               const { processMessageWithAI } = await import('@/lib/ai/engine');
               const iaResponse = await processMessageWithAI(tenantId, contactNumber, msgContent, isMessageToMyself, instanceSettings);
+              console.log(`[Webhook] processMessageWithAI retornou: ${iaResponse ? iaResponse.substring(0, 100) + "..." : "null (pausado/erro)"}`);
             
               const normalizeText = (text: string) => {
                 if (!text) return "";
@@ -675,7 +676,7 @@ export async function POST(req: Request) {
                   }
                 }
 
-                let sent: boolean;
+                let sent = false;
                 if (useList && listItems.length > 0) {
                   const { sendWhatsAppList } = await import('@/lib/evolution');
                   sent = await sendWhatsAppList(
@@ -690,14 +691,22 @@ export async function POST(req: Request) {
                     undefined,
                     "Ver opções"
                   );
-                } else if (buttons.length > 0) {
+                  if (!sent) {
+                    console.log(`[Webhook] Lista interativa falhou para ${contactNumber}, tentando como texto puro`);
+                  }
+                }
+                if (!sent && buttons.length > 0) {
                   const { sendWhatsAppButtons } = await import('@/lib/evolution');
                   sent = await sendWhatsAppButtons(instanceName, contactNumber, mainText, buttons);
-                } else {
+                  if (!sent) {
+                    console.log(`[Webhook] Botões falharam para ${contactNumber}, tentando como texto puro`);
+                  }
+                }
+                if (!sent) {
                   sent = await sendWhatsAppMessage(instanceName, contactNumber, mainText);
                 }
                 if (!sent) {
-                  throw new Error("Evolution recusou o envio da resposta automática da IA");
+                  throw new Error("Evolution recusou o envio da resposta (até texto puro falhou)");
                 }
 
                 await prisma.message.create({
@@ -734,7 +743,30 @@ export async function POST(req: Request) {
               }
             }
           } catch (aiErr) {
-            console.error("[Webhook] Erro ao processar IA (mensagem salva no banco mesmo assim):", aiErr);
+            const aiErrMessage = aiErr instanceof Error ? aiErr.message : String(aiErr);
+            console.error(`[Webhook] ERRO ao processar IA para ${contactNumber}:`, aiErrMessage);
+            // Tenta enviar um aviso genérico via texto puro como fallback emergencial
+            try {
+              const { sendWhatsAppMessage } = await import('@/lib/evolution');
+              const emergencyFallback = "Desculpe, estou com instabilidade no momento. Já estou verificando e logo volto a responder.";
+              await sendWhatsAppMessage(instanceName, contactNumber, emergencyFallback);
+              await prisma.message.create({
+                data: {
+                  tenant_id: tenantId,
+                  conversation_id: conversation.id,
+                  direction: "outbound",
+                  content: emergencyFallback,
+                  ai_generated: true,
+                }
+              });
+              await prisma.conversation.update({
+                where: { id: conversation.id },
+                data: { last_message_at: new Date() }
+              });
+              console.log(`[Webhook] Fallback emergencial enviado para ${contactNumber}`);
+            } catch (fallbackErr) {
+              console.error(`[Webhook] Até o fallback emergencial falhou para ${contactNumber}:`, fallbackErr);
+            }
           }
         }
       }

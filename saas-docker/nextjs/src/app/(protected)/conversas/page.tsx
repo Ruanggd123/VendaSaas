@@ -36,7 +36,7 @@ type Queue = "geral" | "vendas" | "suporte" | "financeiro" | "pos_venda";
 type Priority = "low" | "normal" | "high" | "urgent";
 type ServiceStatus = "active" | "pending" | "resolved";
 type ControlKind = "assignment" | "ai" | "metadata" | "notes";
-type QuickFilter = "all" | "unread" | "mine" | "urgent" | "unassigned";
+type QuickFilter = "all" | "waiting" | "unread" | "mine" | "urgent" | "unassigned";
 type ActiveFilterChip = { id: string; label: string; clear: () => void };
 
 interface Message {
@@ -138,6 +138,7 @@ const RESPONSE_LIMIT_BY_PRIORITY: Record<Priority, number> = {
 };
 const QUICK_FILTERS: { value: QuickFilter; label: string; description: string }[] = [
   { value: "all", label: "Todas", description: "Todas as conversas" },
+  { value: "waiting", label: "Humano", description: "Aguardando atendente humano" },
   { value: "unread", label: "Não lidas", description: "Apenas novas mensagens recebidas" },
   { value: "mine", label: "Minhas", description: "Conversas atribuídas a você" },
   { value: "urgent", label: "Urgentes", description: "Prioridade urgente" },
@@ -423,6 +424,7 @@ export default function ConversasPage() {
     let urgent = 0;
     let mine = 0;
     let unassigned = 0;
+    let waiting = 0;
 
     for (const conversation of conversations) {
       const metadata = parseLeadCategory(conversation.leads?.[0]?.category);
@@ -431,9 +433,10 @@ export default function ConversasPage() {
       if (metadata.priority === "urgent") urgent += 1;
       if (userId && conversation.assigned_to === userId) mine += 1;
       if (!conversation.assigned_to) unassigned += 1;
+      if (conversation.ai_paused) waiting += 1;
     }
 
-    return { all: conversations.length, unread, urgent, mine, unassigned };
+    return { all: conversations.length, unread, urgent, mine, unassigned, waiting };
   }, [conversations, seen, sessionUser?.id]);
 
   const clearAllFilters = useCallback(() => {
@@ -497,6 +500,7 @@ export default function ConversasPage() {
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     return conversations.filter((conversation) => {
+      if (quickFilter === "waiting" && !conversation.ai_paused) return false;
       if (quickFilter === "unread" && !isConversationUnread(conversation, seen)) return false;
       if (quickFilter === "urgent" && parseLeadCategory(conversation.leads?.[0]?.category).priority !== "urgent") return false;
       if (quickFilter === "mine") {
@@ -1536,13 +1540,15 @@ export default function ConversasPage() {
                 <span className="mt-0.5 block text-[9px] font-normal text-slate-500 dark:text-slate-400">
                   {filter.value === "all"
                     ? quickCounts.all
-                    : filter.value === "unread"
-                      ? quickCounts.unread
-                      : filter.value === "mine"
-                        ? quickCounts.mine
-                        : filter.value === "urgent"
-                          ? quickCounts.urgent
-                          : quickCounts.unassigned}
+                    : filter.value === "waiting"
+                      ? quickCounts.waiting
+                      : filter.value === "unread"
+                        ? quickCounts.unread
+                        : filter.value === "mine"
+                          ? quickCounts.mine
+                          : filter.value === "urgent"
+                            ? quickCounts.urgent
+                            : quickCounts.unassigned}
                 </span>
               </button>
             ))}
@@ -1841,7 +1847,14 @@ export default function ConversasPage() {
                         Sem resposta: {responseSla.label}
                       </span>
                     ) : null}
-                    <span className="ml-auto shrink-0">{conversation.ai_paused ? "Humano" : "IA ativa"}</span>
+                    {conversation.ai_paused ? (
+                      <span className="ml-auto shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-800 dark:bg-amber-500/15 dark:text-amber-400">Humano</span>
+                    ) : (
+                      <span className="ml-auto shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">IA ativa</span>
+                    )}
+                    {unread && conversation.ai_paused && (
+                      <span className="ml-1 shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[9px] font-black text-rose-700 dark:bg-rose-500/15 dark:text-rose-400">Precisa de humano</span>
+                    )}
                   </div>
                 </div>
               </div>
