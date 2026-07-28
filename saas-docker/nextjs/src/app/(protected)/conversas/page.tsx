@@ -318,6 +318,11 @@ function isNearBottom(element: HTMLDivElement | null) {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
+function isNearTop(element: HTMLDivElement | null) {
+  if (!element) return false;
+  return element.scrollTop < 150;
+}
+
 function mediaTypeForFile(file: File, fallback: MediaType = "document"): MediaType {
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("audio/")) return "audio";
@@ -1272,7 +1277,8 @@ export default function ConversasPage() {
   };
 
   const handleScroll = () => {
-    const atBottom = isNearBottom(scrollRef.current);
+    const el = scrollRef.current;
+    const atBottom = isNearBottom(el);
     if (atBottom) {
       setShowNewMessages(false);
       if (selectedId) {
@@ -1281,6 +1287,10 @@ export default function ConversasPage() {
           .find((message) => message.direction !== "outbound" && message.direction !== "outgoing");
         saveSeen(selectedId, incoming);
       }
+    }
+    if (hasMoreMessages && !olderMessagesLoading && isNearTop(el) && selectedId) {
+      setOlderMessagesLoading(true);
+      fetchMessages(selectedId, "before").finally(() => setOlderMessagesLoading(false));
     }
   };
 
@@ -1769,10 +1779,12 @@ export default function ConversasPage() {
                   }
                 }}
                 aria-current={active ? "true" : undefined}
-                className={`flex w-full items-center gap-3 rounded-2xl border-2 p-3.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                className={`flex w-full items-center gap-3 rounded-2xl border-2 p-3.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                   active
                     ? "border-indigo-400 bg-gradient-to-r from-indigo-50 to-white shadow-md shadow-indigo-500/10 dark:border-indigo-400 dark:from-indigo-500/20 dark:to-slate-900"
-                    : "border-transparent bg-white shadow-sm shadow-slate-200/50 hover:border-slate-200 hover:shadow-md dark:bg-slate-900/80 dark:hover:border-white/20 dark:hover:bg-slate-800/50"
+                    : unread
+                      ? "border-indigo-100 bg-indigo-50/50 shadow-sm hover:border-indigo-200 hover:shadow-md dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:hover:border-indigo-500/30"
+                      : "border-transparent bg-white shadow-sm shadow-slate-200/50 hover:border-slate-200 hover:shadow-md dark:bg-slate-900/80 dark:hover:border-white/20 dark:hover:bg-slate-800/50"
                 }`}
               >
                 {bulkSelectionMode && (
@@ -1800,14 +1812,14 @@ export default function ConversasPage() {
                   ) : (
                     <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 text-sm font-black text-white dark:from-indigo-950 dark:to-purple-900">{name.charAt(0).toUpperCase()}</div>
                   )}
-                  {unread && <span className="absolute -right-1 -top-1 size-3 rounded-full border-2 border-white bg-indigo-500 dark:border-slate-900" aria-label="Nova mensagem" />}
+                  {unread && <span className="absolute -right-1 -top-1 size-4 rounded-full border-[3px] border-white bg-indigo-500 shadow-lg shadow-indigo-500/40 before:absolute before:inset-0 before:animate-ping before:rounded-full before:bg-indigo-400/60 dark:border-slate-900" aria-label="Nova mensagem" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className={`truncate text-xs ${unread ? "font-black" : "font-bold"}`}>{name}</span>
+                    <span className={`truncate text-xs ${unread ? "font-extrabold text-slate-900 dark:text-white" : "font-bold text-slate-700 dark:text-slate-300"}`}>{name}</span>
                     <span className={`shrink-0 text-[10px] font-bold ${unread ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`}>{timeAgo(latest?.created_at || conversation.last_message_at || conversation.created_at)}</span>
                   </div>
-                  <p className={`mt-1 truncate text-xs ${unread ? "font-bold text-slate-800 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>{messagePreview(latest)}</p>
+                  <p className={`mt-1 truncate text-xs leading-relaxed ${unread ? "font-semibold text-slate-800 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>{messagePreview(latest)}</p>
                   <div className="mt-2 flex items-center gap-1.5 overflow-hidden text-[9px] font-black tracking-wide">
                     <span className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">{labelFor(QUEUE_OPTIONS, category.queue)}</span>
                     <span className={`shrink-0 rounded-md px-1.5 py-0.5 ${serviceStatus === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : serviceStatus === "pending" ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400"}`}>{labelFor(SERVICE_STATUS_OPTIONS, serviceStatus)}</span>
@@ -2052,16 +2064,14 @@ export default function ConversasPage() {
                          <div className="space-y-2">
                         {hasMoreMessages && (
                           <div className="flex justify-center pb-2">
-                          <button
-                            type="button"
-                            disabled={olderMessagesLoading}
-                            onClick={() => void fetchMessages(selected.id, "before")}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black text-slate-600 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-60 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
-                          >
-                            {olderMessagesLoading && <Loader2 className="size-3 animate-spin" />}
-                            Carregar anteriores
-                          </button>
-                        </div>
+                            <div className="inline-flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                              {olderMessagesLoading ? (
+                                <><Loader2 className="size-3 animate-spin" /> Carregando...</>
+                              ) : (
+                                "Role para cima para carregar mais"
+                              )}
+                            </div>
+                          </div>
                         )}
                          {visibleMessages.map((message, index) => {
                            const outgoing = message.direction === "outbound" || message.direction === "outgoing";

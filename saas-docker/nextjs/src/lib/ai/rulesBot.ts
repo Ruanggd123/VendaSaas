@@ -1236,23 +1236,28 @@ function getMainMenuMessage(settings: any): string {
   const welcome = rawWelcome.replace(/[¤–‘‹’¼]/g, "").trim();
 
   const shouldAppendMenu = settings.welcome_menu_auto_append !== false;
-  if (!shouldAppendMenu || hasExplicitMenuSection(welcome)) {
+  if (!shouldAppendMenu) {
     return welcome;
   }
 
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
 
   if (rootNodes.length > 0) {
-    let msg = welcome + "\n\n";
-    msg += "Escolha uma opção abaixo:\n\n";
+    let msg = hasExplicitMenuSection(welcome)
+      ? welcome
+      : welcome + "\n\n" + "Escolha uma opção abaixo:\n\n";
 
     if (rootNodes.length > 3) {
       const listLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
-      msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      if (!hasExplicitMenuSection(welcome)) {
+        msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      }
       msg += "\n\n---LIST---\n" + listLines.join("\n");
     } else {
       const buttonLines = rootNodes.map((n: any) => `${n.title}|${n.keyword}`);
-      msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      if (!hasExplicitMenuSection(welcome)) {
+        msg += rootNodes.map((n: any, i: number) => `${i + 1}️⃣ *${n.title}*`).join("\n");
+      }
       msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
     }
 
@@ -1265,21 +1270,25 @@ function getMainMenuMessage(settings: any): string {
     return welcome;
   }
 
-  let msg = welcome + "\n\nConfira nossos produtos e serviços:\n";
-  products.forEach((p: any, i: number) => {
-    const idx = i + 1;
-    const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-    if (isSchedulableProduct(p)) {
-      msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
-    } else if (p.stock !== undefined && p.stock !== null) {
-      msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
-    } else {
-      msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
-    }
-  });
-  msg += "\n\nDigite o *número* da opção para mais detalhes.";
+  let msg = hasExplicitMenuSection(welcome)
+    ? welcome
+    : welcome + "\n\nConfira nossos produtos e serviços:\n";
 
-  // Gera botões (até 3) ou lista (mais de 3)
+  if (!hasExplicitMenuSection(welcome)) {
+    products.forEach((p: any, i: number) => {
+      const idx = i + 1;
+      const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+      if (isSchedulableProduct(p)) {
+        msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
+      } else if (p.stock !== undefined && p.stock !== null) {
+        msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
+      } else {
+        msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
+      }
+    });
+    msg += "\n\nDigite o *número* da opção para mais detalhes.";
+  }
+
   if (products.length > 3) {
     const listLines = products.map((p: any, i: number) => `${p.name}|${i + 1}`);
     msg += "\n\n---LIST---\n" + listLines.join("\n");
