@@ -10,8 +10,6 @@ import {
   Edit3,
   Check,
   ExternalLink,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { botMessageTemplates } from "@/lib/ai/botMessageTemplates";
 import { formatWhatsAppOptionText } from "@/lib/whatsappOptions";
@@ -403,8 +401,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [inCatalogView, setInCatalogView] = useState(false);
-  const [bubbleMaxWidthPercent, setBubbleMaxWidthPercent] = useState(88);
-  const [showUserNumbers, setShowUserNumbers] = useState(true);
+  const [currentCatalogNodeId, setCurrentCatalogNodeId] = useState<string | null>(null);
   const [simulatedUserNumber] = useState(() => {
     const areaCodes = ["11", "21", "31", "41", "51"];
     const selectedArea = areaCodes[Math.floor(Math.random() * areaCodes.length)] || "11";
@@ -414,6 +411,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const simulationVersionRef = useRef(0);
+  const isProcessingRef = useRef(false);
 
   const getFormattedTime = () => {
     const now = new Date();
@@ -459,32 +459,29 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     return null;
   };
 
+  const renderCollectedVariables = (value: unknown): string => normalizeTextValue(value).replace(
+    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}|\{\s*([a-zA-Z0-9_]+)\s*\}/g,
+    (match, doubleKey, singleKey) => collectedData[doubleKey || singleKey] ?? match,
+  );
+
   const simulatorMenuFingerprint = JSON.stringify({
-    nodes: ensureArray(settings?.custom_rules_nodes)
-      .map((n: any) => ({
-        id: n?.id,
-        keyword: normalizeTextValue(n?.keyword),
-        title: normalizeTextValue(n?.title),
-        actionType: normalizeTextValue(n?.actionType),
-        textContent: normalizeTextValue(n?.textContent),
-        productName: normalizeTextValue(n?.productName),
-        productId: normalizeTextValue(n?.productId),
-        paymentMode: normalizeTextValue(n?.paymentMode),
-        showInPoll: n?.showInPoll !== false,
-      })),
+    nodes: ensureArray(settings?.custom_rules_nodes).map((node: any) => Object.fromEntries(
+      Object.entries(node || {}).filter(([key]) => key !== "position"),
+    )),
     welcome: normalizeTextValue(settings?.welcome_message),
+    botName: normalizeTextValue(settings?.ai_name),
     autoAppend: String(settings?.welcome_menu_auto_append ?? true),
     interactiveOptions: String(settings?.interactive_poll_enabled ?? true),
     hideAutoCatalog: String(settings?.hide_auto_catalog ?? false),
-    products: ensureArray(settings?.products).map((product: any) => ({
-      id: product?.id,
-      name: product?.name,
-      price: product?.price,
-      monthly: product?.monthly,
-      stock: product?.stock,
-      deliveryType: product?.delivery_type,
-      deliveryDeadline: product?.delivery_deadline,
-    })),
+    products: ensureArray(settings?.products),
+    scheduling: {
+      days: settings?.business_days,
+      start: settings?.business_hours_start,
+      end: settings?.business_hours_end,
+      perDay: settings?.schedule_per_day,
+      blockedDates: settings?.blocked_dates,
+      gap: settings?.appointment_gap_min,
+    },
   });
 
   const presentOptionMessage = (
@@ -516,7 +513,8 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     );
 
     const appendCatalogLines = (productsToRender: any[], shouldResolve = false) => {
-      let result = "📋 *Nossos Serviços e Preços:*\n\n";
+      const customIntro = renderCollectedVariables(catalogNode?.textContent).trim();
+      let result = customIntro ? `${customIntro}\n\n` : "📋 *Nossos Serviços e Preços:*\n\n";
 
       productsToRender.forEach((product: any, idx: number) => {
         const resolvedProduct = shouldResolve ? resolveProductFromNode(product) : null;
@@ -573,6 +571,9 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     originNode: any,
     addressLabel: string = botMessageTemplates.labels.digitalImmediate()
     ) => {
+    const renderedOriginNode = originNode
+      ? { ...originNode, textContent: renderCollectedVariables(originNode.textContent) }
+      : originNode;
     if (!product) {
       return {
         text: "❌ Produto não encontrado no catálogo.",
@@ -583,7 +584,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     if (!isPaymentRequired(product)) {
       return {
         text: appendNodeCustomText(
-          originNode,
+          renderedOriginNode,
           buildNoPaymentMessage(product, addressLabel)
         ),
         buttons: [{ label: "🏠 Menu Principal", value: "0" }],
@@ -595,7 +596,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     if (paymentMode === "pix") {
       return {
-        text: appendNodeCustomText(originNode, botMessageTemplates.checkout.withPayment({
+        text: appendNodeCustomText(renderedOriginNode, botMessageTemplates.checkout.withPayment({
           product,
           address: addressLabel,
           paymentMode: "pix",
@@ -608,7 +609,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     if (paymentMode === "both") {
       return {
-        text: appendNodeCustomText(originNode, `🛒 *${product.name}*\n💰 R$ ${formatProductPrice(product.price)}\n\nComo você prefere pagar?`),
+        text: appendNodeCustomText(renderedOriginNode, `🛒 *${product.name}*\n💰 R$ ${formatProductPrice(product.price)}\n\nComo você prefere pagar?`),
         buttons: [
           { label: "⚡ PIX no WhatsApp", value: `gen_pix_chat_${product.name}` },
           { label: "💳 Cartão no checkout", value: `open_link_${checkoutLink}` },
@@ -618,7 +619,7 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
 
     return {
       text: appendNodeCustomText(
-        originNode,
+        renderedOriginNode,
         botMessageTemplates.checkout.withPayment({
           product,
           address: addressLabel,
@@ -672,11 +673,19 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   };
 
   useEffect(() => {
+    simulationVersionRef.current += 1;
+    if (processingTimerRef.current) {
+      clearTimeout(processingTimerRef.current);
+      processingTimerRef.current = null;
+    }
+    setIsTyping(false);
+    isProcessingRef.current = false;
     setMessages([generateBotInitialMenu()]);
     setCurrentParentId(null);
     setSchedulingState(null);
     setCheckoutDeliveryState(null);
     setInCatalogView(false);
+    setCurrentCatalogNodeId(null);
     setCollectingNodeId(null);
     setCollectedData({});
     setIsHumanHandoff(false);
@@ -687,6 +696,12 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   }, [messages, isTyping]);
 
   const handleReset = () => {
+    simulationVersionRef.current += 1;
+    isProcessingRef.current = false;
+    if (processingTimerRef.current) {
+      clearTimeout(processingTimerRef.current);
+      processingTimerRef.current = null;
+    }
     setMessages([generateBotInitialMenu()]);
     setInput("");
     setCurrentParentId(null);
@@ -696,12 +711,17 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setCollectedData({});
     setIsHumanHandoff(false);
     setInCatalogView(false);
+    setCurrentCatalogNodeId(null);
     if (onActiveNodeChange) onActiveNodeChange(null);
   };
 
   const startEditMessage = (msg: Message) => {
+    const sourceNode = msg.nodeId
+      ? ensureArray<any>(settings?.custom_rules_nodes).find((node: any) => node.id === msg.nodeId)
+      : null;
+    if (!msg.isWelcome && !sourceNode) return;
     setEditingMessageId(msg.id);
-    setEditingText(msg.text);
+    setEditingText(msg.isWelcome ? normalizeTextValue(settings?.welcome_message) : normalizeTextValue(sourceNode?.textContent));
   };
 
   const saveEditMessage = (msg: Message) => {
@@ -719,6 +739,8 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
   };
 
   const processUserInput = (userText: string) => {
+    if (isProcessingRef.current || isHumanHandoff) return;
+    isProcessingRef.current = true;
     const safeUserText = normalizeTextValue(userText);
     const clean = safeUserText.trim().toLowerCase();
     const cleanLookup = normalizeLookupValue(clean);
@@ -736,9 +758,17 @@ export function SmartphoneSimulator({ settings, tenantId, onActiveNodeChange, on
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    const processingVersion = simulationVersionRef.current;
+    if (processingTimerRef.current) clearTimeout(processingTimerRef.current);
+    processingTimerRef.current = setTimeout(() => {
+      processingTimerRef.current = null;
+      if (processingVersion !== simulationVersionRef.current) {
+        isProcessingRef.current = false;
+        return;
+      }
       try {
         setIsTyping(false);
+        isProcessingRef.current = false;
 
       let botResponseText = "";
       let botButtons: { label: string; value: string }[] | undefined = undefined;
@@ -1151,6 +1181,7 @@ Seu agendamento foi registrado no simulador.`;
           if (clean === "0" || clean === "voltar" || clean === "menu" || clean === "inicio") {
             setCurrentParentId(null);
             setInCatalogView(false);
+            setCurrentCatalogNodeId(null);
             const initial = generateBotInitialMenu();
             botResponseText = initial.text;
             botButtons = initial.buttons;
@@ -1160,6 +1191,7 @@ Seu agendamento foi registrado no simulador.`;
             if (!isNaN(catalogChoice) && catalogChoice <= 0) {
               setCurrentParentId(null);
               setInCatalogView(false);
+              setCurrentCatalogNodeId(null);
               const initial = generateBotInitialMenu();
               botResponseText = initial.text;
               botButtons = initial.buttons;
@@ -1168,7 +1200,7 @@ Seu agendamento foi registrado no simulador.`;
               const selectedProd = prods[prodIdx];
 
               // O catálogo de produção usa a posição visual, não o gatilho do nó.
-              const catalogNode = allNodes.find((n: any) => n.actionType === "catalog");
+              const catalogNode = allNodes.find((n: any) => n.id === currentCatalogNodeId && n.actionType === "catalog");
               const catalogProductNodes = catalogNode
                 ? allNodes.filter((n: any) => n.parentId === catalogNode.id && n.actionType === "product")
                 : [];
@@ -1184,6 +1216,7 @@ Seu agendamento foi registrado no simulador.`;
                 : [];
 
               setCheckoutDeliveryState(null);
+              setCurrentCatalogNodeId(null);
 
               if (!productForCheckout) {
                 botResponseText = "❌ Produto não encontrado no catálogo.";
@@ -1432,6 +1465,7 @@ Seu agendamento foi registrado no simulador.`;
 
         if (matchedNode.actionType === "catalog") {
           setInCatalogView(true);
+          setCurrentCatalogNodeId(matchedNode.id);
           botResponseText = buildCatalogTextFromNode(matchedNode, allNodes, prods);
           const productNodes = allNodes.filter(
             (node: any) => node.parentId === matchedNode.id && node.actionType === "product"
@@ -1456,11 +1490,12 @@ Seu agendamento foi registrado no simulador.`;
           setInCatalogView(false);
           const chosenProduct = resolveProductFromNode(matchedNode);
           if (chosenProduct) {
-            botResponseText = matchedNode.textContent?.trim() ? `${matchedNode.textContent.trim()}\n\n` : "";
+            const customProductText = renderCollectedVariables(matchedNode.textContent).trim();
+            botResponseText = customProductText ? `${customProductText}\n\n` : "";
             botResponseText += `📦 *${chosenProduct.name}* - R$ ${formatProductPrice(chosenProduct.price)}`;
             if (chosenProduct.description) botResponseText += `\n\n${chosenProduct.description}`;
           } else {
-            botResponseText = matchedNode.textContent || `📦 *${matchedNode.title}*`;
+            botResponseText = renderCollectedVariables(matchedNode.textContent) || `📦 *${matchedNode.title}*`;
           }
         } else if (matchedNode.actionType === "checkout") {
           setInCatalogView(false);
@@ -1528,8 +1563,9 @@ Seu agendamento foi registrado no simulador.`;
           setInCatalogView(false);
           const services = parseSchedulingServiceList(prods);
 
-          const serviceIntro = matchedNode.textContent && matchedNode.textContent.trim().length > 0
-            ? matchedNode.textContent
+          const renderedSchedulingText = renderCollectedVariables(matchedNode.textContent);
+          const serviceIntro = renderedSchedulingText.trim().length > 0
+            ? renderedSchedulingText
             : "📅 *Iniciar Agendamento*\n\nSelecione o número do serviço que deseja agendar:";
           const hasManualMenu = hasExplicitMenuSection(serviceIntro);
 
@@ -1559,14 +1595,14 @@ Seu agendamento foi registrado no simulador.`;
         } else if (matchedNode.actionType === "collect_data") {
           setInCatalogView(false);
           setCollectingNodeId(matchedNode.id);
-          botResponseText = matchedNode.textContent || "Por favor, envie a informação solicitada:";
+          botResponseText = renderCollectedVariables(matchedNode.textContent) || "Por favor, envie a informação solicitada:";
         } else if (matchedNode.actionType === "human") {
           setInCatalogView(false);
           setIsHumanHandoff(true);
-          botResponseText = matchedNode.textContent || "Atendimento automático pausado. Um atendente humano continuará esta conversa.";
+          botResponseText = renderCollectedVariables(matchedNode.textContent) || "Atendimento automático pausado. Um atendente humano continuará esta conversa.";
         } else {
           setInCatalogView(false);
-          botResponseText = matchedNode.textContent || `Você selecionou a opção *${matchedNode.title}*.`;
+          botResponseText = renderCollectedVariables(matchedNode.textContent) || `Você selecionou a opção *${matchedNode.title}*.`;
         }
 
         // APENAS PARA NÓS NORMAIS QUE NÃO SÃO CATÁLOGO: APRESENTA OS SUB-NÓS (FILHOS)
@@ -1651,7 +1687,7 @@ Seu agendamento foi registrado no simulador.`;
   };
 
   return (
-    <div className="w-[370px] h-[660px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans shrink-0 overflow-hidden">
+    <div className="h-[660px] w-full max-w-[370px] bg-slate-950 rounded-[44px] p-3.5 shadow-2xl border-4 border-slate-800 flex flex-col relative select-none font-sans shrink-0 overflow-hidden">
       {/* BARRA DE STATUS SUPERIOR */}
       <div className="h-6 px-6 pt-1 flex items-center justify-between text-[11px] font-bold text-white z-20">
         <span>11:55</span>
@@ -1693,52 +1729,17 @@ Seu agendamento foi registrado no simulador.`;
       <div className="relative flex-1 bg-[radial-gradient(circle_at_20%_10%,#d5ddd8_0%,#d5e5dc_40%,#dbeef0_100%)] dark:bg-[#0b141a] p-3.5 overflow-y-auto space-y-3 text-xs">
         <div className="text-center my-1 space-y-1">
           <span className="inline-block bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 text-[9px] font-bold px-2.5 py-1 rounded-full shadow-xs border border-emerald-200 dark:border-emerald-500/30">
-            🔒 Dica: clique no ✏️ para editar o balão.
+            Prévia ao vivo. Use o lápis para editar a mensagem de origem.
           </span>
-        </div>
-
-        <div className="rounded-xl border border-emerald-100/80 dark:border-white/10 bg-white/70 dark:bg-slate-800/50 p-2 space-y-1.5 shadow-sm">
-          <div className="text-[9px] font-bold text-slate-600 dark:text-slate-200 flex items-center justify-between gap-2">
-            <span className="text-[8px] uppercase tracking-[0.18em]">Configuração de visual</span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
-              showUserNumbers
-                ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-200"
-                : "bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200"
-            }`}>
-              {showUserNumbers ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-              <span>{showUserNumbers ? "Número do usuário visível" : "Número oculto"}</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-[9px] text-slate-600 dark:text-slate-300">
-            <span className="whitespace-nowrap font-bold">Largura das caixas:</span>
-            <input
-              type="range"
-              min={70}
-              max={100}
-              value={bubbleMaxWidthPercent}
-              onChange={(e) => setBubbleMaxWidthPercent(Number(e.target.value))}
-              className="w-full h-1.5 accent-emerald-600"
-            />
-            <span className="w-11 text-right font-black">{bubbleMaxWidthPercent}%</span>
-          </div>
-          <label className="flex items-center justify-between gap-2 cursor-pointer text-[9px] text-slate-700 dark:text-slate-200">
-            <span className="font-bold">Mostrar número do usuário</span>
-            <input
-              type="checkbox"
-              checked={showUserNumbers}
-              onChange={(e) => setShowUserNumbers(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-slate-300 accent-emerald-600"
-            />
-          </label>
           {Object.keys(collectedData).length > 0 && (
-            <div className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
-              {Object.keys(collectedData).length} dado(s) coletado(s) nesta simulação
-            </div>
+            <span className="ml-1 inline-block rounded-full border border-pink-200 bg-pink-50 px-2.5 py-1 text-[9px] font-bold text-pink-700 dark:border-pink-500/30 dark:bg-pink-500/10 dark:text-pink-300">
+              {Object.keys(collectedData).length} dado(s) coletado(s)
+            </span>
           )}
         </div>
 
         {messages.map((msg) => {
-          const userMeta = msg.sender === "user" ? (showUserNumbers ? `Você • ${simulatedUserNumber}` : "Você") : settings?.ai_name || "Bot da loja";
+          const userMeta = msg.sender === "user" ? `Você • ${simulatedUserNumber}` : settings?.ai_name || "Bot da loja";
           return (
             <div
               key={msg.id}
@@ -1750,7 +1751,7 @@ Seu agendamento foi registrado no simulador.`;
                     ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-none"
                     : "bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-none"
                 }`}
-                style={{ maxWidth: `${bubbleMaxWidthPercent}%` }}
+                style={{ maxWidth: "88%" }}
               >
                 <div className={`text-[8px] font-bold uppercase tracking-[0.12em] ${
                   msg.sender === "user" ? "text-emerald-900/75 dark:text-emerald-100/85" : "text-slate-500 dark:text-slate-300"
@@ -1759,7 +1760,7 @@ Seu agendamento foi registrado no simulador.`;
                 </div>
 
                 {/* BOTÃO DE EDIÇÃO DIRETO NO BALÃO */}
-                {msg.sender === "bot" && editingMessageId !== msg.id && (
+                {msg.sender === "bot" && (msg.isWelcome || msg.nodeId) && editingMessageId !== msg.id && (
                   <button
                     onClick={() => startEditMessage(msg)}
                     className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 bg-emerald-600 text-white p-1 rounded-full shadow-md hover:scale-110 transition-all z-20"
@@ -1828,8 +1829,8 @@ Seu agendamento foi registrado no simulador.`;
                     {msg.buttons.map((btn, bIdx) => (
                       <button
                         key={bIdx}
-                        onClick={() => !isHumanHandoff && processUserInput(btn.value)}
-                        disabled={isHumanHandoff}
+                        onClick={() => !isHumanHandoff && !isTyping && processUserInput(btn.value)}
+                        disabled={isHumanHandoff || isTyping}
                         className="flex w-full items-center gap-2 border-t border-slate-200 dark:border-white/10 px-2.5 py-2 text-left text-[10px] font-bold text-slate-700 dark:text-slate-200 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-emerald-500/10"
                       >
                         <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-emerald-600 bg-white dark:bg-slate-800" />
@@ -1867,14 +1868,14 @@ Seu agendamento foi registrado no simulador.`;
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !isHumanHandoff && input.trim() && processUserInput(input)}
-          placeholder={isHumanHandoff ? "Atendimento automático pausado" : "Digite uma opção ou mensagem..."}
-          disabled={isHumanHandoff}
+          onKeyDown={(e) => e.key === "Enter" && !isHumanHandoff && !isTyping && input.trim() && processUserInput(input)}
+          placeholder={isHumanHandoff ? "Atendimento automático pausado" : isTyping ? "O bot está respondendo..." : "Digite uma opção ou mensagem..."}
+          disabled={isHumanHandoff || isTyping}
           className="flex-1 bg-white dark:bg-[#2a3942] border-none rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none font-medium disabled:cursor-not-allowed disabled:opacity-60"
         />
         <button
-          onClick={() => !isHumanHandoff && input.trim() && processUserInput(input)}
-          disabled={isHumanHandoff}
+          onClick={() => !isHumanHandoff && !isTyping && input.trim() && processUserInput(input)}
+          disabled={isHumanHandoff || isTyping}
           className="w-8 h-8 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="w-4 h-4" />

@@ -5,16 +5,45 @@ import { sendConversationMessage, type SendConversationPayload } from "@/lib/con
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { unlink } from "fs/promises";
 import { basename, join } from "path";
+import { deleteWhatsAppMessage, updateWhatsAppMessage, type WhatsAppMessageKey } from "@/lib/evolution";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
+
+function parseMessageMetadata(metadata: string | null): Record<string, any> {
+  try { return JSON.parse(metadata || "{}"); } catch { return {}; }
+}
+
+function providerKeyFor(message: { metadata: string | null; direction: string }, contactNumber: string): WhatsAppMessageKey | null {
+  const metadata = parseMessageMetadata(message.metadata);
+  const id = String(metadata.providerMessageId || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    remoteJid: String(metadata.providerRemoteJid || `${contactNumber.replace(/\D/g, "")}@s.whatsapp.net`),
+    fromMe: metadata.providerFromMe === true || ["outbound", "outgoing"].includes(message.direction),
+    ...(metadata.providerParticipant ? { participant: String(metadata.providerParticipant) } : {}),
+  };
+}
+
+async function resolveOwnedInstance(session: { id: string; tenant_id: string; role: string }, instanceName: string | null) {
+  if (!instanceName) return null;
+  return prisma.whatsappInstance.findFirst({
+    where: {
+      tenant_id: session.tenant_id,
+      ...(session.role === "partner" ? { partner_id: session.id } : {}),
+      OR: [{ name: instanceName }, { connectionName: instanceName }],
+    },
+    select: { name: true },
+  });
+}
 
 export async function POST(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { conversationId, content, mediaUrl, mediaType, fileName, mimeType } = await req.json();
+    const { conversationId, content, mediaUrl, mediaType, fileName, mimeType, replyToMessageId, mentioned } = await req.json();
 
     const result = await sendConversationMessage(
       prisma,
@@ -30,6 +59,8 @@ export async function POST(req: Request) {
         mediaType,
         fileName,
         mimeType,
+        replyToMessageId,
+        mentioned,
         publicBaseUrl: process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin,
       } satisfies SendConversationPayload,
     );
@@ -57,6 +88,7 @@ export async function DELETE(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const messageId = typeof body.messageId === "string" ? body.messageId : "";
+    const scope = body.scope === "everyone" ? "everyone" : "site";
     if (!messageId) return NextResponse.json({ error: "Mensagem inválida" }, { status: 400 });
 
     const message = await prisma.message.findFirst({
@@ -75,9 +107,21 @@ export async function DELETE(req: Request) {
           ? { leads: { some: { partner_id: session.id } } }
           : {}),
       },
-      select: { id: true },
+      select: { id: true, instance_name: true, contact_number: true },
     });
     if (!conversation) return NextResponse.json({ error: "Sem acesso a esta mensagem" }, { status: 403 });
+
+    if (scope === "everyone") {
+      if (!["outbound", "outgoing"].includes(message.direction)) {
+        return NextResponse.json({ error: "Somente mensagens enviadas podem ser excluídas para todos" }, { status: 400 });
+      }
+      const key = providerKeyFor(message, conversation.contact_number);
+      if (!key) return NextResponse.json({ error: "Esta mensagem antiga não possui a identificação necessária do WhatsApp" }, { status: 409 });
+      const instance = await resolveOwnedInstance(session, conversation.instance_name);
+      if (!instance) return NextResponse.json({ error: "Instância do WhatsApp não encontrada" }, { status: 409 });
+      const deleted = await deleteWhatsAppMessage(instance.name, key);
+      if (!deleted) return NextResponse.json({ error: "O WhatsApp recusou a exclusão. O prazo para excluir pode ter expirado" }, { status: 502 });
+    }
 
     const parseMediaMetadata = (metadata: string | null) => {
       try {
@@ -166,9 +210,52 @@ export async function DELETE(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, deletedIds: uniqueMessages.map((item) => item.id) });
+    return NextResponse.json({ success: true, scope, deletedIds: uniqueMessages.map((item) => item.id) });
   } catch (error) {
     console.error("DELETE /api/conversations/message:", error);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const body = await req.json().catch(() => ({}));
+    const messageId = typeof body.messageId === "string" ? body.messageId : "";
+    const content = typeof body.content === "string" ? body.content.trim() : "";
+    if (!messageId || !content) return NextResponse.json({ error: "Mensagem e conteúdo são obrigatórios" }, { status: 400 });
+
+    const message = await prisma.message.findFirst({ where: { id: messageId, tenant_id: session.tenant_id } });
+    if (!message) return NextResponse.json({ error: "Mensagem não encontrada" }, { status: 404 });
+    if (!["outbound", "outgoing"].includes(message.direction)) {
+      return NextResponse.json({ error: "Somente mensagens enviadas podem ser editadas" }, { status: 400 });
+    }
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: message.conversation_id,
+        tenant_id: session.tenant_id,
+        ...(session.role === "agent" ? { OR: [{ assigned_to: session.id }, { assigned_to: null }] } : {}),
+        ...(session.role === "partner" ? { leads: { some: { partner_id: session.id } } } : {}),
+      },
+      select: { id: true, instance_name: true, contact_number: true },
+    });
+    if (!conversation) return NextResponse.json({ error: "Sem acesso a esta mensagem" }, { status: 403 });
+    const key = providerKeyFor(message, conversation.contact_number);
+    if (!key) return NextResponse.json({ error: "Esta mensagem antiga não possui a identificação necessária do WhatsApp" }, { status: 409 });
+    const instance = await resolveOwnedInstance(session, conversation.instance_name);
+    if (!instance) return NextResponse.json({ error: "Instância do WhatsApp não encontrada" }, { status: 409 });
+    const updated = await updateWhatsAppMessage(instance.name, conversation.contact_number, key, content);
+    if (!updated) return NextResponse.json({ error: "O WhatsApp recusou a edição desta mensagem" }, { status: 502 });
+
+    const metadata = { ...parseMessageMetadata(message.metadata), editedAt: new Date().toISOString() };
+    const saved = await prisma.message.update({
+      where: { id: message.id },
+      data: { content, metadata: JSON.stringify(metadata) },
+    });
+    return NextResponse.json({ success: true, message: saved });
+  } catch (error) {
+    console.error("PATCH /api/conversations/message:", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }

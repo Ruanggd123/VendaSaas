@@ -73,6 +73,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  let receiptKeyForRetry = "";
   try {
     const ts = Date.now();
     console.log(`[Webhook] Recebido em ${new Date().toISOString()}`);
@@ -193,6 +194,21 @@ export async function POST(req: Request) {
         ) {
           console.log(`[Webhook] Ignorando criação de enquete enviada pelo bot para ${contactNumber}`);
           return NextResponse.json({ success: true, ignored: "Criação de enquete do bot" });
+        }
+
+        if (providerMessageId) {
+          const receiptKey = `evolution_message_${instanceName}_${providerMessageId}`;
+          try {
+            await prisma.systemConfig.create({ data: { key: receiptKey, value: new Date().toISOString() } });
+          } catch (error) {
+            const existingReceipt = await prisma.systemConfig.findUnique({ where: { key: receiptKey }, select: { key: true } });
+            if (existingReceipt) {
+              console.log(`[Webhook] Evento duplicado ignorado atomicamente: ${providerMessageId}`);
+              return NextResponse.json({ success: true, ignored: "Evento duplicado" });
+            }
+            throw error;
+          }
+          receiptKeyForRetry = receiptKey;
         }
 
         // 0. Verifica Lista Negra (ignored_numbers) por Telefone E por Nome
@@ -567,8 +583,35 @@ export async function POST(req: Request) {
           schemaVersion: 1,
           kind: mediaType || (incomingPoll ? "poll" : pollSelectionLabel ? "poll_vote" : location ? "location" : sharedContact ? "contact" : reaction ? "reaction" : "text"),
           rawType: rawMessageType,
+          providerRemoteJid: effectiveJid,
+          providerFromMe: fromMe,
         };
         if (providerMessageId) messageMetadata.providerMessageId = providerMessageId;
+        const providerParticipant = messageData.key.participant || messageData.key.participantAlt;
+        if (providerParticipant) messageMetadata.providerParticipant = String(providerParticipant);
+        const contentNode = messageData.message?.extendedTextMessage
+          || messageData.message?.imageMessage
+          || messageData.message?.videoMessage
+          || messageData.message?.documentMessage
+          || messageData.message?.audioMessage;
+        const contextInfo = contentNode?.contextInfo;
+        if (contextInfo?.stanzaId) {
+          const quotedMessage = contextInfo.quotedMessage || {};
+          const quotedContent = quotedMessage.conversation
+            || quotedMessage.extendedTextMessage?.text
+            || quotedMessage.imageMessage?.caption
+            || quotedMessage.videoMessage?.caption
+            || quotedMessage.documentMessage?.caption
+            || "[Mídia]";
+          messageMetadata.quoted = {
+            providerMessageId: String(contextInfo.stanzaId),
+            content: String(quotedContent),
+            participant: contextInfo.participant ? String(contextInfo.participant) : undefined,
+          };
+        }
+        if (Array.isArray(contextInfo?.mentionedJid) && contextInfo.mentionedJid.length > 0) {
+          messageMetadata.mentioned = contextInfo.mentionedJid.map((jid: unknown) => String(jid).replace(/@.+$/, ""));
+        }
         if (incomingPoll) {
           const rawOptions = Array.isArray(incomingPoll.options) ? incomingPoll.options : [];
           messageMetadata.poll = {
@@ -904,9 +947,7 @@ export async function POST(req: Request) {
                   sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, deliveryText);
                   if (sent) {
                     const { sendWhatsAppPoll } = await import('@/lib/evolution');
-                    const pollOptions = pollItems.map(item =>
-                      item.text === item.id ? item.text : `${item.text} [${item.id}]`
-                    );
+                    const pollOptions = pollItems.map(item => item.text);
                     const pollSent = await sendWhatsAppPoll(
                       instanceName,
                       contactNumber,
@@ -914,7 +955,9 @@ export async function POST(req: Request) {
                       pollOptions,
                     );
                     if (!pollSent) {
-                      console.log(`[Webhook] Enquete falhou para ${contactNumber}; o menu em texto foi mantido`);
+                      const fallbackMenu = formatWhatsAppOptionText(mainText, pollItems, false);
+                      sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, fallbackMenu);
+                      console.log(`[Webhook] Enquete falhou para ${contactNumber}; menu textual completo enviado=${sent}`);
                     } else {
                       outboundMetadata = JSON.stringify({
                         schemaVersion: 1,
@@ -1058,6 +1101,9 @@ export async function POST(req: Request) {
     console.log(`[Webhook] Processado em ${Date.now() - ts}ms`);
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    if (receiptKeyForRetry) {
+      await prisma.systemConfig.deleteMany({ where: { key: receiptKeyForRetry } }).catch(() => undefined);
+    }
     console.error("❌ [Webhook Evolution] ERRO:", err?.message || err);
     console.error("❌ [Webhook Evolution] STACK:", err?.stack || "");
     return NextResponse.json({ success: false, error: String(err?.message || err) }, { status: 200 });

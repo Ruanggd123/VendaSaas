@@ -9,6 +9,7 @@ import {
   Check,
   Clock3,
   CircleAlert,
+  Copy,
   FileText,
   Download,
   Image as ImageIcon,
@@ -18,13 +19,16 @@ import {
   Mic,
   Music,
   Paperclip,
+  Pencil,
   Phone,
   RefreshCw,
+  Reply,
   Search,
   Send,
   Sparkles,
   Square,
   Trash2,
+  AtSign,
   UserCheck,
   Video,
   Wifi,
@@ -107,6 +111,8 @@ interface SendPayload {
   mediaType?: MediaType;
   fileName?: string;
   mimeType?: string;
+  replyToMessageId?: string;
+  mentioned?: string[];
 }
 
 interface SeenValue {
@@ -129,6 +135,12 @@ interface ParsedMetadata {
   };
   pollVote?: { id?: string; label?: string };
   location?: { latitude?: number; longitude?: number; name?: string; address?: string };
+  providerMessageId?: string;
+  providerRemoteJid?: string;
+  providerFromMe?: boolean;
+  editedAt?: string;
+  mentioned?: string[];
+  quoted?: { messageId?: string; providerMessageId?: string; content?: string; direction?: string; participant?: string };
 }
 
 const QUICK_REPLIES = [
@@ -306,6 +318,12 @@ function parseMetadata(message: Message): ParsedMetadata {
       poll: typeof record.poll === "object" && record.poll !== null ? record.poll as ParsedMetadata["poll"] : undefined,
       pollVote: typeof record.pollVote === "object" && record.pollVote !== null ? record.pollVote as ParsedMetadata["pollVote"] : undefined,
       location: typeof record.location === "object" && record.location !== null ? record.location as ParsedMetadata["location"] : undefined,
+      providerMessageId: typeof record.providerMessageId === "string" ? record.providerMessageId : undefined,
+      providerRemoteJid: typeof record.providerRemoteJid === "string" ? record.providerRemoteJid : undefined,
+      providerFromMe: record.providerFromMe === true,
+      editedAt: typeof record.editedAt === "string" ? record.editedAt : undefined,
+      mentioned: Array.isArray(record.mentioned) ? record.mentioned.map(String) : undefined,
+      quoted: typeof record.quoted === "object" && record.quoted !== null ? record.quoted as ParsedMetadata["quoted"] : undefined,
     };
   } catch {
     return {};
@@ -447,6 +465,8 @@ export default function ConversasPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const [bulkFeedback, setBulkFeedback] = useState("");
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
   const listRequestRef = useRef(false);
   const messageRequestRef = useRef<{ conversationId: string; version: number } | null>(null);
@@ -819,6 +839,7 @@ export default function ConversasPage() {
   useEffect(() => {
     setManagementOpen(false);
     setControlError("");
+    setReplyingTo(null);
   }, [selectedId]);
 
   useEffect(() => {
@@ -999,14 +1020,23 @@ export default function ConversasPage() {
       return;
     }
 
-    if (!window.confirm("Excluir esta mensagem do histórico do site? Ela continuará visível no WhatsApp.")) return;
+    const metadata = parseMetadata(message);
+    const outgoing = message.direction === "outbound" || message.direction === "outgoing";
+    let scope: "site" | "everyone" = "site";
+    if (outgoing && metadata.providerMessageId) {
+      if (window.confirm("Excluir esta mensagem também do WhatsApp para todos?\n\nOK: excluir para todos\nCancelar: escolher apenas o site")) {
+        scope = "everyone";
+      } else if (!window.confirm("Excluir somente do histórico deste site? Ela continuará no WhatsApp.")) {
+        return;
+      }
+    } else if (!window.confirm("Excluir esta mensagem do histórico do site? Ela continuará visível no WhatsApp.")) return;
     setDeletingMessageIds((current) => new Set(current).add(message.id));
     setMessagesError("");
     try {
       const response = await fetch("/api/conversations/message", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: message.id }),
+        body: JSON.stringify({ messageId: message.id, scope }),
       });
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível excluir a mensagem."));
@@ -1032,6 +1062,32 @@ export default function ConversasPage() {
     }
   };
 
+  const editMessage = async (message: Message) => {
+    const content = window.prompt("Edite a mensagem enviada:", message.content)?.trim();
+    if (!content || content === message.content) return;
+    setEditingMessageId(message.id);
+    setMessagesError("");
+    try {
+      const response = await fetch("/api/conversations/message", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: message.id, content }),
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(errorFrom(data, "Não foi possível editar a mensagem."));
+      const updated = data.message as Message;
+      setMessages((current) => {
+        const next = current.map((item) => item.id === message.id ? updated : item);
+        messagesRef.current = next;
+        return next;
+      });
+    } catch (error) {
+      setMessagesError(error instanceof Error ? error.message : "Não foi possível editar a mensagem.");
+    } finally {
+      setEditingMessageId(null);
+    }
+  };
+
   const submitMessage = async (
     payload: SendPayload,
     retryId?: string,
@@ -1039,6 +1095,13 @@ export default function ConversasPage() {
     clearDraft = true,
   ) => {
     if (!targetConversation || (!payload.content.trim() && !payload.mediaUrl)) return false;
+    if (!payload.mediaUrl && replyingTo && !payload.replyToMessageId) {
+      payload = { ...payload, replyToMessageId: replyingTo.id };
+    }
+    if (!payload.mentioned?.length) {
+      const mentioned = Array.from(payload.content.matchAll(/@(\d{8,})/g), (match) => match[1]);
+      if (mentioned.length > 0) payload = { ...payload, mentioned };
+    }
     const conversationId = targetConversation.id;
     const isCurrentConversation = () => selectedIdRef.current === conversationId;
     const tempId = retryId ?? `client-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1050,7 +1113,9 @@ export default function ConversasPage() {
       created_at: new Date().toISOString(),
       metadata: payload.mediaUrl
         ? JSON.stringify({ schemaVersion: 1, kind: payload.mediaType ?? "document", type: payload.mediaType ?? "document", url: payload.mediaUrl, fileName: payload.fileName, mimeType: payload.mimeType })
-        : null,
+        : payload.replyToMessageId
+          ? JSON.stringify({ schemaVersion: 1, kind: "text", quoted: { messageId: payload.replyToMessageId, content: replyingTo?.content, direction: replyingTo?.direction } })
+          : null,
       clientStatus: "sending",
       clientPayload: payload,
     };
@@ -1078,6 +1143,8 @@ export default function ConversasPage() {
           mediaType: payload.mediaType,
           fileName: payload.fileName,
           mimeType: payload.mimeType,
+          replyToMessageId: payload.replyToMessageId,
+          mentioned: payload.mentioned,
         }),
       });
       const data = await readJson(response);
@@ -1105,6 +1172,7 @@ export default function ConversasPage() {
         );
       }
       void fetchConversations();
+      if (payload.replyToMessageId && isCurrentConversation()) setReplyingTo(null);
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível enviar a mensagem.";
@@ -2228,7 +2296,7 @@ export default function ConversasPage() {
                           const showDateDivider = !previous || !isSameDay(message.created_at, previous.created_at);
                           const media = parseMetadata(message);
                           return (
-                            <div key={message.id}>
+                            <div key={message.id} id={`message-${message.id}`}>
                               {showDateDivider && (
                                 <div className="my-4 flex items-center gap-3">
                                   <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-white/10" />
@@ -2244,22 +2312,22 @@ export default function ConversasPage() {
                                     ? "rounded-br-md bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-indigo-500/20"
                                     : "rounded-bl-md border border-slate-200/80 bg-white text-slate-900 shadow-slate-200/50 dark:border-white/10 dark:bg-slate-800 dark:text-white dark:shadow-slate-900/50"
                                  }`}>
-                                   <button
-                                     type="button"
-                                     onClick={() => void deleteMessage(message)}
-                                     disabled={deletingMessageIds.has(message.id)}
-                                     title="Excluir do histórico do site"
-                                     aria-label="Excluir mensagem do histórico"
-                                     className={`absolute top-1.5 z-10 rounded-full p-1.5 opacity-60 shadow-sm transition hover:opacity-100 disabled:cursor-wait sm:opacity-0 sm:group-hover/message:opacity-100 ${
-                                       outgoing
-                                         ? "-left-9 bg-white text-slate-500 hover:text-rose-600 dark:bg-slate-800"
-                                         : "-right-9 bg-white text-slate-500 hover:text-rose-600 dark:bg-slate-800"
-                                     }`}
-                                   >
-                                     {deletingMessageIds.has(message.id)
-                                       ? <Loader2 className="size-3.5 animate-spin" />
-                                       : <Trash2 className="size-3.5" />}
-                                   </button>
+                                    <div className={`absolute top-1 z-10 flex items-center overflow-hidden rounded-full border border-slate-200 bg-white text-slate-500 opacity-70 shadow-md transition sm:opacity-0 sm:group-hover/message:opacity-100 dark:border-white/10 dark:bg-slate-800 ${outgoing ? "-left-28" : "-right-24"}`}>
+                                      {media.providerMessageId && (
+                                        <button type="button" onClick={() => setReplyingTo(message)} title="Responder citando" className="p-1.5 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10"><Reply className="size-3.5" /></button>
+                                      )}
+                                      <button type="button" onClick={() => void navigator.clipboard.writeText(message.content)} title="Copiar mensagem" className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/5"><Copy className="size-3.5" /></button>
+                                      {outgoing && media.providerMessageId && !media.url && (
+                                        <button type="button" onClick={() => void editMessage(message)} disabled={editingMessageId === message.id} title="Editar no WhatsApp" className="p-1.5 hover:bg-amber-50 hover:text-amber-600 disabled:cursor-wait dark:hover:bg-amber-500/10">{editingMessageId === message.id ? <Loader2 className="size-3.5 animate-spin" /> : <Pencil className="size-3.5" />}</button>
+                                      )}
+                                      <button type="button" onClick={() => void deleteMessage(message)} disabled={deletingMessageIds.has(message.id)} title="Excluir mensagem" className="p-1.5 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-wait dark:hover:bg-rose-500/10">{deletingMessageIds.has(message.id) ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}</button>
+                                    </div>
+                                   {media.quoted?.content && (
+                                     <button type="button" onClick={() => media.quoted?.messageId && document.getElementById(`message-${media.quoted.messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} className={`mb-2 block w-full rounded-xl border-l-4 px-3 py-2 text-left text-[11px] ${outgoing ? "border-white/60 bg-white/10 text-white/85" : "border-indigo-500 bg-slate-100 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300"}`}>
+                                       <span className="mb-0.5 block text-[9px] font-black uppercase tracking-wide opacity-70">Mensagem respondida</span>
+                                       <span className="line-clamp-2">{media.quoted.content}</span>
+                                     </button>
+                                   )}
                                   {media.url && media.type === "image" && <a href={media.url} target="_blank" rel="noreferrer"><Image unoptimized src={media.url} alt="Imagem anexada" width={560} height={420} className="mb-2 max-h-80 w-auto rounded-2xl object-contain" /></a>}
                                    {media.url && media.type === "audio" && <audio controls preload="metadata" src={media.url} className="mb-2 h-10 max-w-full" />}
                                    {media.url && media.type === "video" && <video controls preload="metadata" src={media.url} className="mb-2 max-h-80 max-w-full rounded-2xl" />}
@@ -2304,7 +2372,8 @@ export default function ConversasPage() {
                                      </a>
                                    )}
                                    {message.content && media.kind !== "poll_vote" && media.kind !== "location" && !message.content.startsWith("[Mídia") && message.content !== "[Arquivo Enviado]" && <p className="whitespace-pre-wrap break-words">{message.content}</p>}
-                                  <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
+                                   <div className={`mt-1.5 flex items-center justify-end gap-1 text-[10px] ${outgoing ? "text-white/75" : "text-slate-400"}`}>
+                                     {media.editedAt && <span>editada •</span>}
                                     <span>{formatTime(message.created_at)}</span>
                                     {outgoing && message.clientStatus === "sending" && <><Loader2 className="size-3 animate-spin" /><span>enviando</span></>}
                                     {outgoing && message.clientStatus === "sent" && <><Check className="size-3" /><span>enviada</span></>}
@@ -2330,7 +2399,14 @@ export default function ConversasPage() {
                   <button type="button" onClick={() => scrollToBottom()} className="absolute bottom-40 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl dark:bg-white dark:text-slate-900"><ArrowDown className="size-4" />Novas mensagens</button>
                 )}
 
-                <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-slate-900 sm:px-4">
+                 <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-slate-900 sm:px-4">
+                   {replyingTo && (
+                     <div className="mb-2 flex items-center gap-3 rounded-xl border-l-4 border-indigo-500 bg-indigo-50 px-3 py-2 text-xs dark:bg-indigo-500/10">
+                       <Reply className="size-4 shrink-0 text-indigo-600" />
+                       <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-wide text-indigo-600">Respondendo à mensagem</p><p className="truncate text-slate-600 dark:text-slate-300">{replyingTo.content}</p></div>
+                       <button type="button" onClick={() => setReplyingTo(null)} className="rounded-full p-1 hover:bg-indigo-100 dark:hover:bg-indigo-500/20" aria-label="Cancelar resposta"><X className="size-4" /></button>
+                     </div>
+                   )}
                   <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5">
                     {QUICK_REPLIES.map((reply) => <button type="button" key={reply} onClick={() => setDraft(reply)} className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Sparkles className="mr-1 inline size-3" />{reply}</button>)}
                   </div>
@@ -2338,14 +2414,17 @@ export default function ConversasPage() {
                   {composerError && <div className="mb-2 flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400"><CircleAlert className="size-3.5 shrink-0" />{composerError}</div>}
                   <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                   <div className="flex items-end gap-2">
-                    <div className="relative" ref={attachRef}>
+                     <div className="relative" ref={attachRef}>
                        <button type="button" disabled={uploading || recording} onClick={() => setShowAttachMenu((value) => !value)} aria-expanded={showAttachMenu} aria-label="Anexar arquivo" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-indigo-500/10">{uploading ? <Loader2 className="size-5 animate-spin" /> : <Paperclip className="size-5" />}<span className="hidden text-[10px] font-black sm:inline">Anexar</span></button>
                       {showAttachMenu && (
                         <div className="absolute bottom-full left-0 z-30 mb-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
-                          {([{ type: "image", label: "Imagem", icon: ImageIcon }, { type: "video", label: "Vídeo", icon: Video }, { type: "audio", label: "Áudio", icon: Music }, { type: "document", label: "Documento", icon: FileText }] as const).map(({ type, label, icon: Icon }) => <button type="button" key={type} onClick={() => triggerFilePicker(type)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5"><Icon className="size-4 text-indigo-500" />{label}</button>)}
-                        </div>
-                      )}
-                    </div>
+                           {([{ type: "image", label: "Imagem", icon: ImageIcon }, { type: "video", label: "Vídeo", icon: Video }, { type: "audio", label: "Áudio", icon: Music }, { type: "document", label: "Documento", icon: FileText }] as const).map(({ type, label, icon: Icon }) => <button type="button" key={type} onClick={() => triggerFilePicker(type)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5"><Icon className="size-4 text-indigo-500" />{label}</button>)}
+                         </div>
+                       )}
+                     </div>
+                     {!recording && selected && (
+                       <button type="button" onClick={() => setDraft((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}@${selected.contact_number.replace(/\D/g, "")} `)} title="Mencionar contato" className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:hover:bg-indigo-500/10"><AtSign className="size-5" /></button>
+                     )}
                      {recording ? (
                        <div className="flex min-h-11 flex-1 items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"><span className="size-2.5 animate-pulse rounded-full bg-rose-500" /><span className="font-mono text-xs font-bold">{formatRecordingTime(recordingTime)}</span><span className="flex-1 text-xs font-bold">Gravando áudio</span><button type="button" onClick={cancelRecording} className="rounded-lg p-2 hover:bg-rose-100 dark:hover:bg-rose-500/10" aria-label="Cancelar gravação"><X className="size-4" /></button><button type="button" onClick={stopRecording} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-black text-white" aria-label="Parar e enviar gravação"><Square className="size-3.5" />Enviar</button></div>
                     ) : (

@@ -4,6 +4,20 @@ if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
   console.warn("⚠️  EVOLUTION_URL ou EVOLUTION_API_KEY não configurados. Mensagens WhatsApp não funcionarão.");
 }
 
+export type WhatsAppMessageKey = {
+  id: string;
+  remoteJid: string;
+  fromMe: boolean;
+  participant?: string;
+};
+
+export type WhatsAppQuotedMessage = {
+  key: WhatsAppMessageKey;
+  message: Record<string, unknown>;
+};
+
+export type WhatsAppSendResult = { ok: boolean; key?: WhatsAppMessageKey };
+
 /**
  * Envia uma mensagem de texto via WhatsApp (Evolution API)
  * @param instanceName Nome da instância do tenant
@@ -62,7 +76,12 @@ export async function sendWhatsAppList(
   }
 }
 
-export async function sendWhatsAppMessage(instanceName: string, number: string, text: string) {
+export async function sendWhatsAppMessageDetailed(
+  instanceName: string,
+  number: string,
+  text: string,
+  options?: { quoted?: WhatsAppQuotedMessage; mentioned?: string[] },
+): Promise<WhatsAppSendResult> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
       console.error("Evolution sendText indisponível: configuração ausente", {
@@ -70,7 +89,7 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
         hasUrl: Boolean(EVOLUTION_API_URL),
         hasKey: Boolean(EVOLUTION_API_KEY),
       });
-      return false;
+      return { ok: false };
     }
 
     const res = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/message/sendText/${encodeURIComponent(instanceName)}`, {
@@ -80,9 +99,11 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
         apikey: EVOLUTION_API_KEY || "",
       },
       body: JSON.stringify({
-        number: number,
-        text: text,
-        delay: 280,
+        number,
+        text,
+        delay: 0,
+        quoted: options?.quoted,
+        mentioned: options?.mentioned,
       }),
     });
 
@@ -92,11 +113,55 @@ export async function sendWhatsAppMessage(instanceName: string, number: string, 
         status: res.status,
         statusText: res.statusText,
       });
-      return false;
+      return { ok: false };
     }
-    return true;
+    const data = await res.json().catch(() => ({}));
+    const rawKey = data?.key || data?.message?.key;
+    const key = rawKey && typeof rawKey.id === "string"
+      ? {
+          id: rawKey.id,
+          remoteJid: String(rawKey.remoteJid || `${number.replace(/\D/g, "")}@s.whatsapp.net`),
+          fromMe: rawKey.fromMe !== false,
+          ...(rawKey.participant ? { participant: String(rawKey.participant) } : {}),
+        }
+      : undefined;
+    return { ok: true, key };
   } catch (error) {
     console.error(`Falha ao conectar na Evolution API:`, error);
+    return { ok: false };
+  }
+}
+
+export async function sendWhatsAppMessage(instanceName: string, number: string, text: string) {
+  return (await sendWhatsAppMessageDetailed(instanceName, number, text)).ok;
+}
+
+export async function updateWhatsAppMessage(instanceName: string, number: string, key: WhatsAppMessageKey, text: string) {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) return false;
+  try {
+    const response = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/chat/updateMessage/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+      body: JSON.stringify({ number, text, key }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Falha ao editar mensagem no WhatsApp:", error);
+    return false;
+  }
+}
+
+export async function deleteWhatsAppMessage(instanceName: string, key: WhatsAppMessageKey) {
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) return false;
+  try {
+    const response = await fetch(`${EVOLUTION_API_URL.replace(/\/$/, "")}/chat/deleteMessageForEveryone/${encodeURIComponent(instanceName)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+      body: JSON.stringify(key),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Falha ao excluir mensagem no WhatsApp:", error);
     return false;
   }
 }

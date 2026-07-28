@@ -53,70 +53,7 @@ export async function GET() {
       settings = JSON.parse(tenant.settings as string);
     } catch {}
 
-    if (!settings.products || settings.products.length === 0) {
-      settings.products = [
-        {
-          name: "Site Institucional",
-          price: "497",
-          description: "Site institucional avulso (pagamento único). Código fonte entregue, 100% responsivo, SEO otimizado. Hospedagem por conta do cliente.",
-          duration_min: 0,
-          requires_payment: true,
-          delivery_type: "virtual_instant",
-          digital_content: "Código fonte do site institucional."
-        },
-        {
-          name: "Plataforma Completa",
-          price: "997",
-          description: "Sistema web com CRM avulso (pagamento único). Painel de vendas, agendador, banco de dados. Instalação no seu servidor.",
-          duration_min: 0,
-          requires_payment: true,
-          delivery_type: "virtual_instant",
-          digital_content: "Código fonte da plataforma completa."
-        },
-        {
-          name: "E-Commerce Avulso",
-          price: "1997",
-          description: "Loja virtual completa avulsa (pagamento único). Catálogo ilimitado, Pix, painel de pedidos. Código 100% seu.",
-          duration_min: 0,
-          requires_payment: true,
-          delivery_type: "virtual_instant",
-          digital_content: "Código fonte do e-commerce avulso."
-        },
-        {
-          name: "Plano Site Grátis",
-          price: "97",
-          description: "Site Institucional grátis incluso + bot IA. 1 WhatsApp, 1.000 atendimentos/mês. Ideal para autônomos e MEI.",
-          duration_min: 0,
-          requires_payment: true,
-          monthly: "97",
-          type: "plan",
-          delivery_type: "virtual_instant",
-          digital_content: "Acesso liberado no painel. Site institucional incluso."
-        },
-        {
-          name: "Plano CRM Grátis",
-          price: "197",
-          description: "Plataforma + CRM grátis incluso + bot IA. CRM = Sistema de Gestão de Clientes (cadastro, histórico, vendas). Atendimentos ILIMITADOS, Multi-Atendente, Pix no chat. Ideal para empresas.",
-          duration_min: 0,
-          requires_payment: true,
-          monthly: "197",
-          type: "plan",
-          delivery_type: "virtual_instant",
-          digital_content: "Acesso liberado no painel. Plataforma completa inclusa."
-        },
-        {
-          name: "Plano Loja Grátis",
-          price: "397",
-          description: "Loja Virtual grátis incluso + bot IA. Até 3 WhatsApp, atendimento ILIMITADO, disparo em massa, base de conhecimento. Ideal para lojas e marcas.",
-          duration_min: 0,
-          requires_payment: true,
-          monthly: "397",
-          type: "plan",
-          delivery_type: "virtual_instant",
-          digital_content: "Acesso liberado no painel. E-commerce incluso."
-        }
-      ];
-    }
+    if (!Array.isArray(settings.products)) settings.products = [];
 
     // Mascarar chaves secretas antes de enviar ao frontend
     const SECRET_KEYS = [
@@ -162,7 +99,7 @@ export async function PUT(req: Request) {
       "ai_personality","ia_model",
       "business_hours_start","business_hours_end","business_days",
       "schedule_per_day","appointment_gap_min","blocked_dates",
-      "off_hours_message","welcome_message","hide_auto_catalog","welcome_menu_auto_append","interactive_poll_enabled",
+      "off_hours_message","enable_off_hours_message","welcome_message","hide_auto_catalog","welcome_menu_auto_append","interactive_poll_enabled","enableScheduling",
       "manager_phone","ignored_numbers","products",
       "enable_groups","whitelisted_groups",
       "custom_rules_nodes",

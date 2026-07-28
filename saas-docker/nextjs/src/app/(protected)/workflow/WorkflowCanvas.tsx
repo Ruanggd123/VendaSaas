@@ -58,10 +58,14 @@ export default function WorkflowCanvas({ settings, updateField, selectedNodeId, 
   const [edges, setEdges] = useState<Edge[]>([]);
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
+  const customNodesRef = useRef<any[]>([]);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
+  useEffect(() => {
+    customNodesRef.current = Array.isArray(settings.custom_rules_nodes) ? settings.custom_rules_nodes : [];
+  }, [settings.custom_rules_nodes]);
 
   useEffect(() => {
     const customNodes = Array.isArray(settings.custom_rules_nodes) ? settings.custom_rules_nodes : [];
@@ -108,9 +112,8 @@ export default function WorkflowCanvas({ settings, updateField, selectedNodeId, 
     const persisted = nextNodes.flatMap((node) => {
       if (node.id === "start") return [];
       const parentEdge = nextEdges.find((edge) => edge.target === node.id);
-      const data = Object.fromEntries(
-        Object.entries(node.data).filter(([key]) => !editorOnlyFields.has(key)),
-      );
+      const latestNode = customNodesRef.current.find((candidate: any) => candidate.id === node.id);
+      const data = latestNode || Object.fromEntries(Object.entries(node.data).filter(([key]) => !editorOnlyFields.has(key)));
       return [{
         ...data,
         id: node.id,

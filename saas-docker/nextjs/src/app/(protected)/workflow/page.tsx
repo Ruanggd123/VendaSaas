@@ -33,54 +33,6 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const DEFAULT_SAAS_PRODUCTS = [
-  {
-    name: "Plano Solo (1 Conexão WhatsApp)",
-    price: "147.00",
-    description: "Atendimento inteligente automatizado para 1 número de WhatsApp com IA Vendedora e Agendamentos.",
-    duration_min: 30,
-    requires_payment: true,
-    delivery_type: "virtual_instant",
-    digital_content: "Acesso liberado no painel Nexus SaaS para 1 instância."
-  },
-  {
-    name: "Plano Pro (3 Conexões WhatsApp)",
-    price: "297.00",
-    description: "Automação completa para até 3 números de WhatsApp, disparo em massa e suporte prioritário.",
-    duration_min: 30,
-    requires_payment: true,
-    delivery_type: "virtual_instant",
-    digital_content: "Acesso liberado para 3 instâncias com suporte VIP."
-  },
-  {
-    name: "Plano Enterprise (Conexões Ilimitadas)",
-    price: "497.00",
-    description: "Solução completa para grandes empresas com instâncias ilimitadas, API dedicada e gerente de conta.",
-    duration_min: 60,
-    requires_payment: true,
-    delivery_type: "virtual_instant",
-    digital_content: "Acesso Enterprise com onboarding individualizado."
-  },
-  {
-    name: "Módulo IA Vendedora Avançada",
-    price: "97.00",
-    description: "IA conversacional persuasiva com catálogo dinâmico e integração direta com fechamento de vendas.",
-    duration_min: 15,
-    requires_payment: true,
-    delivery_type: "virtual_instant",
-    digital_content: "Módulo ativado nas configurações da sua empresa."
-  },
-  {
-    name: "Instância Adicional WhatsApp",
-    price: "49.90",
-    description: "Adicione mais 1 número de WhatsApp à sua automação conversacional.",
-    duration_min: 15,
-    requires_payment: true,
-    delivery_type: "virtual_instant",
-    digital_content: "Nova instância liberada na aba Conexões WhatsApp."
-  }
-];
-
 interface AISettings {
   bot_type?: string;
   ai_name: string;
@@ -120,7 +72,7 @@ const DEFAULT_SCHEDULE_PER_DAY = {
 
 const DEFAULT_AI: AISettings = {
   bot_type: "ia",
-  ai_name: "Atendente Nexus",
+  ai_name: "Bot da loja",
   ai_personality: "profissional",
   ai_prompt: "Você é um Atendente de excelência...",
   business_hours_start: "08:00",
@@ -129,7 +81,7 @@ const DEFAULT_AI: AISettings = {
   schedule_per_day: DEFAULT_SCHEDULE_PER_DAY,
   appointment_gap_min: 15,
   off_hours_message: "Olá! Estamos fora do horário de expediente. Deixe sua mensagem que responderemos assim que retornarmos!",
-  products: DEFAULT_SAAS_PRODUCTS,
+  products: [],
   manager_phone: "",
   blocked_dates: [],
   welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
@@ -208,9 +160,15 @@ export default function WorkflowPage() {
   const [nodeSearchQuery, setNodeSearchQuery] = useState("");
   const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsRef = useRef<AISettings>(DEFAULT_AI);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     fetchConfig();
+    if (window.matchMedia("(max-width: 767px)").matches) setIsRightPanelOpen(false);
   }, []);
 
   const fetchConfig = async () => {
@@ -220,9 +178,8 @@ export default function WorkflowPage() {
       if (data.settings) {
         const merged = { ...DEFAULT_AI, ...data.settings };
         merged.welcome_message = sanitizeWelcomeText(merged.welcome_message);
-        if (!merged.products || merged.products.length === 0) {
-          merged.products = DEFAULT_SAAS_PRODUCTS;
-        }
+        if (!Array.isArray(merged.products)) merged.products = [];
+        settingsRef.current = merged;
         setSettings(merged);
         setJsonText(JSON.stringify(merged, null, 2));
         if (data.tenantId) setTenantId(data.tenantId);
@@ -257,14 +214,23 @@ export default function WorkflowPage() {
   };
 
   const updateField = (key: keyof AISettings, val: any) => {
-    const updated = { ...settings, [key]: val };
+    const updated = { ...settingsRef.current, [key]: val };
+    settingsRef.current = updated;
     setSettings(updated);
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => void saveConfig(updated, true), 650);
   };
 
   useEffect(() => () => {
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    if (!autoSaveTimerRef.current) return;
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = null;
+    void fetch("/api/settings/whatsapp", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settingsRef.current),
+      keepalive: true,
+    });
   }, []);
 
   const handleImportJson = () => {
@@ -272,9 +238,8 @@ export default function WorkflowPage() {
       const parsed = JSON.parse(jsonText);
       const merged = { ...DEFAULT_AI, ...parsed };
       merged.welcome_message = sanitizeWelcomeText(merged.welcome_message);
-      if (!merged.products || merged.products.length === 0) {
-        merged.products = DEFAULT_SAAS_PRODUCTS;
-      }
+      if (!Array.isArray(merged.products)) merged.products = [];
+      settingsRef.current = merged;
       setSettings(merged);
       saveConfig(merged);
       setShowJsonModal(false);
@@ -286,10 +251,11 @@ export default function WorkflowPage() {
 
   const handleLoadTemplate = (tpl: typeof TEMPLATES[0]) => {
     const updated = {
-      ...settings,
+      ...settingsRef.current,
       welcome_message: tpl.welcome_message,
       enableScheduling: tpl.enableScheduling,
     };
+    settingsRef.current = updated;
     setSettings(updated);
     saveConfig(updated);
     setShowTemplatesModal(false);
@@ -461,44 +427,176 @@ export default function WorkflowPage() {
     const nodes = [...(settings.custom_rules_nodes || [])].filter((node: any) =>
       !(node.parentId === selectedNode.id && node.actionType === "checkout")
     );
-    const existingProductIds = new Set(nodes
-      .filter((node: any) => node.parentId === selectedNode.id && node.actionType === "product")
-      .map((node: any) => String(node.productId || node.productName || "")));
-    (settings.products || []).forEach((product: any, index: number) => {
-      const reference = String(product.id ?? product.name ?? "");
-      if (existingProductIds.has(reference)) return;
-      const productNodeId = `product_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 5)}`;
-      nodes.push({
-        id: productNodeId,
-        parentId: selectedNode.id,
-        keyword: String(index + 1),
-        title: product.name,
-        actionType: "product",
-        textContent: "",
-        productId: product.id != null ? String(product.id) : "",
-        productName: product.name || "",
-        productPrice: product.price != null ? String(product.price) : "",
-        productDescription: product.description || "",
-        showInPoll: true,
+    const catalogProductNodes = nodes.filter((node: any) => node.parentId === selectedNode.id && node.actionType === "product");
+    const validProductNode = (node: any) => (settings.products || []).some((product: any) => product.id != null && node.productId
+      ? String(node.productId) === String(product.id)
+      : String(node.productName || "") === String(product.name || ""));
+    const staleIds = new Set(catalogProductNodes.filter((node: any) => !validProductNode(node)).map((node: any) => node.id));
+    let foundStaleDescendant = true;
+    while (foundStaleDescendant) {
+      foundStaleDescendant = false;
+      nodes.forEach((node: any) => {
+        if (staleIds.has(node.parentId) && !staleIds.has(node.id)) {
+          staleIds.add(node.id);
+          foundStaleDescendant = true;
+        }
       });
-      nodes.push({
-        id: `checkout_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 5)}`,
-        parentId: productNodeId,
-        keyword: "1",
-        title: "Comprar agora",
-        actionType: "checkout",
-        textContent: "Vamos finalizar seu pedido.",
-        paymentMode: "both",
+    }
+    if (staleIds.size > 0) {
+      for (let index = nodes.length - 1; index >= 0; index -= 1) {
+        if (staleIds.has(nodes[index].id)) nodes.splice(index, 1);
+      }
+      for (let index = catalogProductNodes.length - 1; index >= 0; index -= 1) {
+        if (staleIds.has(catalogProductNodes[index].id)) catalogProductNodes.splice(index, 1);
+      }
+    }
+    const claimedProductNodeIds = new Set<string>();
+    const now = Date.now();
+    (settings.products || []).forEach((product: any, index: number) => {
+      let productNode = catalogProductNodes.find((node: any) => !claimedProductNodeIds.has(node.id) && (product.id != null
+        ? String(node.productId || "") === String(product.id) || (!node.productId && String(node.productName || "") === String(product.name || ""))
+        : String(node.productName || "") === String(product.name || "")));
+      if (!productNode) {
+        productNode = {
+          id: `product_${now}_${index}_${Math.random().toString(36).slice(2, 5)}`,
+          parentId: selectedNode.id,
+          actionType: "product",
+          textContent: "",
+          showInPoll: true,
+          generatedFromCatalog: true,
+        };
+        nodes.push(productNode);
+        catalogProductNodes.push(productNode);
+      }
+      claimedProductNodeIds.add(productNode.id);
+
+      Object.assign(productNode, {
+        keyword: String(index + 1),
+        title: product.name || `Produto ${index + 1}`,
         productId: product.id != null ? String(product.id) : "",
         productName: product.name || "",
         productPrice: product.price != null ? String(product.price) : "",
         productDescription: product.description || "",
-        showInPoll: true,
+      });
+
+      let checkoutNode = nodes.find((node: any) => node.parentId === productNode.id && node.actionType === "checkout");
+      if (!checkoutNode) {
+        checkoutNode = {
+          id: `checkout_${now}_${index}_${Math.random().toString(36).slice(2, 5)}`,
+          parentId: productNode.id,
+          keyword: "1",
+          title: "Comprar agora",
+          actionType: "checkout",
+          textContent: "Vamos finalizar seu pedido.",
+          paymentMode: "both",
+          showInPoll: true,
+          generatedFromCatalog: true,
+        };
+        nodes.push(checkoutNode);
+      }
+      Object.assign(checkoutNode, {
+        productId: product.id != null ? String(product.id) : "",
+        productName: product.name || "",
+        productPrice: product.price != null ? String(product.price) : "",
+        productDescription: product.description || "",
       });
     });
     updateField("custom_rules_nodes", nodes);
-    setAlert({ type: "success", msg: "Catálogo conectado ao fluxo real." });
+    setAlert({ type: "success", msg: `${(settings.products || []).length} produto(s) sincronizado(s) com o fluxo.` });
   };
+
+  const updateProductField = (productIndex: number, field: string, value: any) => {
+    const products = [...(settingsRef.current.products || [])];
+    const previous = products[productIndex];
+    if (!previous) return;
+    const updatedProduct = {
+      ...previous,
+      id: previous.id || `product_${Date.now()}_${productIndex}_${Math.random().toString(36).slice(2, 7)}`,
+      [field]: value,
+    };
+    products[productIndex] = updatedProduct;
+    updateField("products", products);
+
+    const currentNodes = settingsRef.current.custom_rules_nodes || [];
+    const catalogIds = new Set(currentNodes.filter((node: any) => node.actionType === "catalog").map((node: any) => node.id));
+    const branchRoots = previous.id == null
+      ? currentNodes.filter((node: any) => node.actionType === "product" && catalogIds.has(node.parentId) && String(node.keyword || "") === String(productIndex + 1) && String(node.productName || "") === String(previous.name || ""))
+      : [];
+    const branchIds = new Set<string>(branchRoots.map((node: any) => node.id));
+    let foundBranchDescendant = true;
+    while (foundBranchDescendant) {
+      foundBranchDescendant = false;
+      currentNodes.forEach((node: any) => {
+        if (branchIds.has(node.parentId) && !branchIds.has(node.id)) {
+          branchIds.add(node.id);
+          foundBranchDescendant = true;
+        }
+      });
+    }
+    const nodes = currentNodes.map((node: any) => {
+      const sameProduct = previous.id != null
+        ? String(node.productId || "") === String(previous.id)
+        : branchIds.has(node.id) || (branchRoots.length === 0 && String(node.productName || "") === String(previous.name || ""));
+      if (!sameProduct) return node;
+      return {
+        ...node,
+        productId: updatedProduct.id != null ? String(updatedProduct.id) : node.productId,
+        productName: updatedProduct.name || "",
+        productPrice: updatedProduct.price != null ? String(updatedProduct.price) : "",
+        productDescription: updatedProduct.description || "",
+        ...(node.actionType === "product" && node.generatedFromCatalog ? { title: updatedProduct.name || node.title } : {}),
+      };
+    });
+    updateField("custom_rules_nodes", nodes);
+  };
+
+  const addProduct = () => {
+    const product = {
+      id: `product_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: "Novo produto",
+      price: "0.00",
+      description: "",
+      requires_payment: true,
+      delivery_type: "virtual_instant",
+    };
+    updateField("products", [...(settingsRef.current.products || []), product]);
+  };
+
+  const deleteProduct = (productIndex: number) => {
+    const product = (settings.products || [])[productIndex];
+    if (!product || !window.confirm(`Excluir "${product.name}" do catálogo?`)) return;
+    const nodes = settingsRef.current.custom_rules_nodes || [];
+    const catalogIds = new Set(nodes.filter((node: any) => node.actionType === "catalog").map((node: any) => node.id));
+    const productBranches = nodes
+      .filter((node: any) => node.actionType === "product" && catalogIds.has(node.parentId))
+      .filter((node: any) => product.id != null
+        ? String(node.productId || "") === String(product.id)
+        : String(node.productName || "") === String(product.name || ""));
+    const selectedBranches = product.id == null
+      ? productBranches.filter((node: any) => String(node.keyword || "") === String(productIndex + 1))
+      : productBranches;
+    const deletedIds = new Set<string>((selectedBranches.length > 0 ? selectedBranches : productBranches.slice(0, 1)).map((node: any) => node.id));
+    let foundDescendant = true;
+    while (foundDescendant) {
+      foundDescendant = false;
+      nodes.forEach((node: any) => {
+        if (deletedIds.has(node.parentId) && !deletedIds.has(node.id)) {
+          deletedIds.add(node.id);
+          foundDescendant = true;
+        }
+      });
+    }
+    if (deletedIds.size > 0) updateField("custom_rules_nodes", nodes.filter((node: any) => !deletedIds.has(node.id)));
+    updateField("products", (settingsRef.current.products || []).filter((_: any, index: number) => index !== productIndex));
+  };
+
+  const availableVariables = (settings.custom_rules_nodes || [])
+    .filter((node: any) => node.actionType === "collect_data" && String(node.variableName || "").trim())
+    .map((node: any) => String(node.variableName).trim())
+    .filter((value: string, index: number, values: string[]) => values.indexOf(value) === index);
+  const selectedNodeChildren = selectedNode
+    ? (settings.custom_rules_nodes || []).filter((node: any) => node.parentId === selectedNode.id)
+    : [];
 
   const applyProductToNode = (nodeIdx: number, productIdx: number) => {
     const newNodes = [...(settings.custom_rules_nodes || [])];
@@ -541,12 +639,12 @@ export default function WorkflowPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white -m-8 overflow-hidden font-sans">
+    <div className="flex h-[calc(100vh-3.5rem)] w-auto flex-col overflow-hidden bg-slate-100 -m-4 font-sans text-slate-900 dark:bg-slate-950 dark:text-white md:h-screen md:-m-8">
       {/* HEADER SUPERIOR ESPAÇOSO E SEM SOBREPOSIÇÕES */}
-      <header className="h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-5 flex items-center justify-between z-20 shadow-sm gap-4">
+      <header className="min-h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 md:px-5 flex flex-col items-stretch sm:flex-row sm:items-center justify-between z-20 shadow-sm gap-2 sm:gap-4">
         {/* ESQUERDA: TÍTULO E NAVEGAÇÃO DE ABAS */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start sm:gap-4 sm:flex-shrink-0">
+          <div className="hidden items-center gap-2.5 md:flex">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
               <Layers className="w-4 h-4" />
             </div>
@@ -583,14 +681,14 @@ export default function WorkflowPage() {
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Simulador</span>
+              <span>Testar e editar</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
             </button>
           </div>
         </div>
 
         {/* DIREITA: BOTÕES DE AÇÃO ORGANIZADOS */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
           {alert && (
             <div
               onClick={() => setAlert(null)}
@@ -728,8 +826,8 @@ export default function WorkflowPage() {
         {/* DIREITA: PROPRIEDADES DO NÓ SELECIONADO (PAINEL DESLIZANTE QUE PODE SER ENCOLHIDO) */}
         {(activeTab === "canvas" || activeTab === "simulator") && (
           <aside
-            className={`order-2 border-l border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
-              isRightPanelOpen ? "w-[380px] p-5 space-y-6 overflow-y-auto" : "w-12 p-2 items-center"
+            className={`${activeTab === "simulator" ? "order-1 border-r" : "order-2 border-l"} border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
+              isRightPanelOpen ? (activeTab === "simulator" ? "w-full max-w-[420px] p-5 space-y-6 overflow-y-auto" : "w-full max-w-[380px] p-5 space-y-6 overflow-y-auto") : "w-12 p-2 items-center"
             }`}
           >
             {/* BOTÃO RETRÁTIL DO PAINEL LATERAL */}
@@ -738,7 +836,9 @@ export default function WorkflowPage() {
               className="absolute top-4 left-3 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 transition-all"
               title={isRightPanelOpen ? "Recolher Painel" : "Expandir Painel"}
             >
-              {isRightPanelOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {isRightPanelOpen
+                ? (activeTab === "simulator" ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)
+                : (activeTab === "simulator" ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />)}
             </button>
 
             {isRightPanelOpen && (
@@ -746,9 +846,18 @@ export default function WorkflowPage() {
                 <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-white/10 pl-8">
                   <Settings className="w-5 h-5 text-indigo-600" />
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    Propriedades do Nó
+                    {activeTab === "simulator" ? "Editar e visualizar ao vivo" : "Propriedades da etapa"}
                   </h3>
                 </div>
+
+                {activeTab === "simulator" && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />Prévia automática
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-emerald-800/80 dark:text-emerald-200/80">Altere qualquer campo abaixo. O telefone reinicia e mostra imediatamente a versão nova do fluxo.</p>
+                  </div>
+                )}
 
                 {selectedNodeId === "start" && (
                   <div className="space-y-4">
@@ -884,24 +993,34 @@ export default function WorkflowPage() {
                     </div>
 
                     {selectedNode.actionType === "collect_data" && (
-                      <div className="space-y-3 rounded-2xl border border-pink-200 bg-pink-50 p-3 dark:border-pink-500/20 dark:bg-pink-500/10">
+                      <div className="space-y-4 rounded-2xl border border-pink-200 bg-pink-50 p-4 dark:border-pink-500/20 dark:bg-pink-500/10">
                         <div>
-                          <p className="text-xs font-black text-pink-900 dark:text-pink-200">Como funciona esta pergunta?</p>
-                          <div className="mt-2 space-y-2 text-[10px] font-medium leading-relaxed text-pink-800 dark:text-pink-300">
-                            <p><strong>1.</strong> O bot envia a pergunta escrita no campo abaixo.</p>
-                            <p><strong>2.</strong> A próxima mensagem digitada pelo cliente é salva automaticamente.</p>
-                            <p><strong>3.</strong> Depois, o bot segue para a subetapa conectada. Se não houver subetapa, volta ao menu.</p>
-                          </div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-pink-500">1. Pergunta ao cliente</p>
+                          <textarea
+                            rows={4}
+                            value={selectedNode.textContent || ""}
+                            onChange={(e) => setSelectedNodeField("textContent", e.target.value)}
+                            placeholder="Ex: Qual tamanho você deseja?"
+                            className="mt-2 w-full resize-none rounded-xl border border-pink-200 bg-white p-3 text-xs font-medium leading-relaxed outline-none focus:border-pink-500 dark:border-pink-500/20 dark:bg-slate-950"
+                          />
                         </div>
-                        <label className="block text-xs font-bold text-pink-800 dark:text-pink-300">Identificador interno da resposta</label>
-                        <input
-                          value={selectedNode.variableName || ""}
-                          onChange={(e) => setSelectedNodeField("variableName", e.target.value.replace(/[^a-zA-Z0-9_]/g, "_"))}
-                          placeholder="Ex: nome, email, cidade"
-                          className="w-full rounded-xl border border-pink-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-pink-500 dark:border-pink-500/20 dark:bg-slate-950"
-                        />
-                        <div className="rounded-xl border border-pink-200/80 bg-white/70 p-2.5 text-[10px] text-pink-800 dark:border-pink-500/20 dark:bg-slate-950/50 dark:text-pink-300">
-                          Exemplo: pergunta <strong>“Qual tamanho você deseja?”</strong>, identificador <code className="rounded bg-pink-100 px-1 dark:bg-pink-500/20">tamanho</code>, resposta do cliente <strong>“M”</strong>. O pedido será salvo com <strong>tamanho = M</strong>.
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-[0.18em] text-pink-500">2. Salvar a resposta como</label>
+                          <div className="mt-2 flex items-center overflow-hidden rounded-xl border border-pink-200 bg-white dark:border-pink-500/20 dark:bg-slate-950">
+                            <span className="border-r border-pink-100 px-3 py-2 font-mono text-xs font-black text-pink-500 dark:border-pink-500/20">&#123;</span>
+                            <input
+                              value={selectedNode.variableName || ""}
+                              onChange={(e) => setSelectedNodeField("variableName", e.target.value.replace(/[^a-zA-Z0-9_]/g, "_"))}
+                              placeholder="tamanho"
+                              className="min-w-0 flex-1 bg-transparent px-2 py-2 font-mono text-xs font-bold outline-none"
+                            />
+                            <span className="border-l border-pink-100 px-3 py-2 font-mono text-xs font-black text-pink-500 dark:border-pink-500/20">&#125;</span>
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-relaxed text-pink-700/80 dark:text-pink-300/80">A resposta fica no pedido e pode ser usada depois escrevendo <code className="rounded bg-pink-100 px-1 dark:bg-pink-500/20">&#123;{selectedNode.variableName || "tamanho"}&#125;</code> em outra mensagem.</p>
+                        </div>
+                        <div className="rounded-xl border border-pink-200/80 bg-white/70 p-3 text-[10px] text-pink-800 dark:border-pink-500/20 dark:bg-slate-950/50 dark:text-pink-300">
+                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-pink-500">3. Depois da resposta</p>
+                          <p className="mt-1.5 font-bold">{selectedNodeChildren.length > 0 ? `Continuar para: ${selectedNodeChildren.map((node: any) => node.title).join(", ")}` : "Voltar ao menu principal"}</p>
                         </div>
                       </div>
                     )}
@@ -962,7 +1081,7 @@ export default function WorkflowPage() {
                       </div>
                     )}
 
-                    {(
+                    {selectedNode.actionType !== "collect_data" && (
                       <div className="space-y-2">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                           {selectedNode.actionType === "collect_data"
@@ -982,6 +1101,18 @@ export default function WorkflowPage() {
                           placeholder="Digite a resposta personalizada enviada ao cliente..."
                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl p-3 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
                         />
+                        {availableVariables.length > 0 && (
+                          <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-2.5 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-indigo-500">Inserir resposta coletada</p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {availableVariables.map((variable) => (
+                                <button key={variable} type="button" onClick={() => setSelectedNodeField("textContent", `${selectedNode.textContent || ""}${selectedNode.textContent ? " " : ""}{${variable}}`)} className="rounded-lg border border-indigo-200 bg-white px-2 py-1 font-mono text-[9px] font-black text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-slate-950 dark:text-indigo-300">
+                                  {`{${variable}}`}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1017,7 +1148,7 @@ export default function WorkflowPage() {
 
         {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO COM PAINEL DE REGRAS COMPLETO */}
         {activeTab === "simulator" && (
-          <div className="flex-1 h-full bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_46%)] bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-6 overflow-y-auto">
+          <div className="order-2 flex-1 h-full bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_46%)] bg-slate-100 dark:bg-slate-950 flex items-center justify-center gap-5 p-6 overflow-y-auto">
             {/* PAINEL LATERAL COMPLETO DE GERENCIAMENTO DE NÓS E TESTES */}
             {false && (<div className="hidden">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
@@ -1347,12 +1478,61 @@ export default function WorkflowPage() {
               </div>
             </div>)}
 
+            <div className="hidden xl:flex h-[660px] w-[240px] shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
+              <div className="border-b border-slate-100 p-4 dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-600">Mapa do atendimento</p>
+                    <p className="mt-1 text-xs font-black text-slate-900 dark:text-white">Todas as etapas</p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black text-slate-500 dark:bg-white/10">{(settings.custom_rules_nodes || []).length}</span>
+                </div>
+                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Clique em uma etapa para editar. O telefone mostra o caminho escolhido durante o teste.</p>
+              </div>
+              <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedNodeId("start")}
+                  className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[10px] font-black transition ${selectedNodeId === "start" ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300" : "border-slate-100 bg-slate-50 text-slate-600 hover:border-indigo-200 dark:border-white/5 dark:bg-white/5 dark:text-slate-300"}`}
+                >
+                  <Bot className="size-3.5" />Início e boas-vindas
+                </button>
+                {(settings.custom_rules_nodes || []).map((node: any) => {
+                  let depth = 0;
+                  let parentId = node.parentId;
+                  const visited = new Set<string>();
+                  while (parentId && depth < 5 && !visited.has(parentId)) {
+                    visited.add(parentId);
+                    depth += 1;
+                    parentId = (settings.custom_rules_nodes || []).find((candidate: any) => candidate.id === parentId)?.parentId;
+                  }
+                  return (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => setSelectedNodeId(node.id)}
+                      style={{ marginLeft: `${Math.min(depth, 4) * 10}px`, width: `calc(100% - ${Math.min(depth, 4) * 10}px)` }}
+                      className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition ${selectedNodeId === node.id ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200" : "border-slate-100 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/5 dark:bg-white/[0.03] dark:text-slate-300"}`}
+                    >
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[9px] font-black dark:bg-white/10">{node.keyword}</span>
+                      <span className="min-w-0 flex-1 truncate text-[10px] font-bold">{node.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="border-t border-slate-100 p-3 dark:border-white/10">
+                <button type="button" onClick={() => addWorkflowNode("text")} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black text-white hover:bg-indigo-500">
+                  <Plus className="size-3.5" />Adicionar após {selectedNode?.title || "Início"}
+                </button>
+              </div>
+            </div>
+
             {/* CELULAR SMARTPHONE SIMULATOR */}
             <SmartphoneSimulator
               settings={settings}
               tenantId={tenantId}
               onActiveNodeChange={(nodeId) => {
-                if (nodeId) setSelectedNodeId(nodeId);
+                setSelectedNodeId(nodeId || "start");
               }}
               onUpdateText={(nodeId, newText, isWelcome) => {
                 if (isWelcome) {
@@ -1469,11 +1649,14 @@ export default function WorkflowPage() {
       {/* MODAL GERENCIAR CATÁLOGO DE PRODUTOS */}
       {showProductsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-black text-slate-900 dark:text-white">Catálogo de Produtos &amp; Serviços</h3>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">Editar catálogo</h3>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">As alterações aparecem automaticamente no simulador e nos nós já vinculados.</p>
               </div>
               <button onClick={() => setShowProductsModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -1482,24 +1665,48 @@ export default function WorkflowPage() {
 
             <div className="space-y-3">
               {(settings.products || []).map((prod: any, idx: number) => (
-                <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="font-extrabold text-xs text-slate-900 dark:text-white">{prod.name}</p>
-                    <p className="text-[11px] text-slate-500">{prod.description}</p>
+                <div key={prod.id || idx} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950">
+                  <div className="grid gap-3 md:grid-cols-[1fr_130px_170px_36px]">
+                    <label className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Nome</span>
+                      <input value={prod.name || ""} onChange={(event) => updateProductField(idx, "name", event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900" />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Preço</span>
+                      <input value={prod.price ?? ""} onChange={(event) => updateProductField(idx, "price", event.target.value)} inputMode="decimal" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-900 dark:text-emerald-300" />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo de entrega</span>
+                      <select value={prod.delivery_type || "virtual_instant"} onChange={(event) => updateProductField(idx, "delivery_type", event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900">
+                        <option value="virtual_instant">Digital imediata</option>
+                        <option value="virtual_deadline">Digital com prazo</option>
+                        <option value="delivery">Entrega ou retirada</option>
+                        <option value="both">Digital ou física</option>
+                        <option value="service">Serviço agendável</option>
+                      </select>
+                    </label>
+                    <button type="button" onClick={() => deleteProduct(idx)} title="Excluir produto" className="mt-5 flex size-9 items-center justify-center rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-500/20 dark:text-rose-300 dark:hover:bg-rose-500/10"><X className="size-4" /></button>
                   </div>
-                  <span className="text-xs font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-xl">
-                    R$ {prod.price}
-                  </span>
+                  <label className="mt-3 block space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Descrição mostrada ao cliente</span>
+                    <textarea value={prod.description || ""} onChange={(event) => updateProductField(idx, "description", event.target.value)} rows={2} className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900" placeholder="Explique de forma curta o que o cliente está comprando." />
+                  </label>
                 </div>
               ))}
+              {(settings.products || []).length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs font-bold text-slate-500 dark:border-white/15">Seu catálogo está vazio. Adicione o primeiro produto abaixo.</div>
+              )}
             </div>
 
-            <div className="flex justify-end pt-3">
+            <div className="flex items-center justify-between gap-3 pt-3">
+              <button type="button" onClick={addProduct} className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-black text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+                <Plus className="size-4" />Adicionar produto
+              </button>
               <button
                 onClick={() => setShowProductsModal(false)}
                 className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all"
               >
-                Concluído
+                Concluir e testar
               </button>
             </div>
           </div>

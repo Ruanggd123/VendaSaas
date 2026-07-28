@@ -48,6 +48,7 @@ interface AISettings {
 }
 
 interface Product {
+  id?: string;
   name: string;
   price: string;
   description: string;
@@ -256,6 +257,7 @@ function AITab() {
 
   const addProduct = () => {
     const newProd: Product = {
+      id: `product_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name: "",
       price: "",
       description: "",

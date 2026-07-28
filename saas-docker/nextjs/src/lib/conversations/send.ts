@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { sendWhatsAppAudio, sendWhatsAppMessage, sendWhatsAppMedia } from "@/lib/evolution";
+import { sendWhatsAppAudio, sendWhatsAppMessage, sendWhatsAppMessageDetailed, sendWhatsAppMedia, type WhatsAppQuotedMessage } from "@/lib/evolution";
 
 const SERVICE_ROLE_TYPES = ["agent", "partner", "manager", "admin", "superadmin"] as const;
 
@@ -19,6 +19,8 @@ export type SendConversationPayload = {
   fileName?: string;
   mimeType?: string;
   publicBaseUrl?: string;
+  replyToMessageId?: string;
+  mentioned?: string[];
 };
 
 type EvolutionInstancePayload = {
@@ -79,7 +81,7 @@ export async function sendConversationMessage(
   session: SendConversationSession,
   payload: SendConversationPayload,
 ): Promise<SendConversationResult> {
-  const { conversationId, content, mediaUrl, mediaType, fileName, mimeType, publicBaseUrl } = payload;
+  const { conversationId, content, mediaUrl, mediaType, fileName, mimeType, publicBaseUrl, replyToMessageId, mentioned } = payload;
   if (!conversationId || (!content && !mediaUrl)) {
     return { ok: false, status: 400, error: "Parâmetros inválidos" };
   }
@@ -215,6 +217,37 @@ export async function sendConversationMessage(
 
   const sendStartedAt = new Date();
   let success = false;
+  let providerKey: { id: string; remoteJid: string; fromMe: boolean; participant?: string } | undefined;
+  let quoted: WhatsAppQuotedMessage | undefined;
+  let quotedSnapshot: Record<string, unknown> | undefined;
+  if (replyToMessageId) {
+    const repliedMessage = await prisma.message.findFirst({
+      where: { id: replyToMessageId, conversation_id: conversation.id, tenant_id: session.tenant_id },
+    });
+    if (repliedMessage) {
+      let repliedMetadata: Record<string, any> = {};
+      try { repliedMetadata = JSON.parse(repliedMessage.metadata || "{}"); } catch {}
+      const providerMessageId = String(repliedMetadata.providerMessageId || "").trim();
+      if (providerMessageId) {
+        const remoteJid = String(repliedMetadata.providerRemoteJid || `${conversation.contact_number.replace(/\D/g, "")}@s.whatsapp.net`);
+        quoted = {
+          key: {
+            id: providerMessageId,
+            remoteJid,
+            fromMe: repliedMetadata.providerFromMe === true || ["outbound", "outgoing"].includes(repliedMessage.direction),
+            ...(repliedMetadata.providerParticipant ? { participant: String(repliedMetadata.providerParticipant) } : {}),
+          },
+          message: { conversation: repliedMessage.content },
+        };
+        quotedSnapshot = {
+          messageId: repliedMessage.id,
+          providerMessageId,
+          content: repliedMessage.content,
+          direction: repliedMessage.direction,
+        };
+      }
+    }
+  }
   if (absoluteMediaUrl) {
     success = explicitMediaType === "audio"
       ? await sendWhatsAppAudio(resolvedInstanceName, conversation.contact_number, absoluteMediaUrl)
@@ -234,7 +267,12 @@ export async function sendConversationMessage(
       }
     }
   } else {
-    success = await sendWhatsAppMessage(resolvedInstanceName, conversation.contact_number, finalContent);
+    const sent = await sendWhatsAppMessageDetailed(resolvedInstanceName, conversation.contact_number, finalContent, {
+      quoted,
+      mentioned: Array.isArray(mentioned) ? mentioned.map((value) => value.replace(/\D/g, "")).filter(Boolean) : undefined,
+    });
+    success = sent.ok;
+    providerKey = sent.key;
   }
 
   if (!success) {
@@ -245,7 +283,7 @@ export async function sendConversationMessage(
     };
   }
 
-  let metadata = null;
+  let metadata: string | null = null;
   if (absoluteMediaUrl) {
     let type = explicitMediaType || "document";
     const lowerUrl = absoluteMediaUrl.toLowerCase();
@@ -256,8 +294,62 @@ export async function sendConversationMessage(
     }
     metadata = JSON.stringify({ schemaVersion: 1, kind: type, type, url: absoluteMediaUrl, fileName, mimeType });
   }
+  if (!absoluteMediaUrl && (providerKey || quotedSnapshot || mentioned?.length)) {
+    metadata = JSON.stringify({
+      schemaVersion: 1,
+      kind: "text",
+      ...(providerKey ? {
+        providerMessageId: providerKey.id,
+        providerRemoteJid: providerKey.remoteJid,
+        providerFromMe: providerKey.fromMe,
+        providerParticipant: providerKey.participant,
+      } : {}),
+      ...(quotedSnapshot ? { quoted: quotedSnapshot } : {}),
+      ...(mentioned?.length ? { mentioned: mentioned.map((value) => value.replace(/\D/g, "")).filter(Boolean) } : {}),
+    });
+  }
 
   const sentAt = new Date();
+
+  if (providerKey) {
+    const webhookEcho = await prisma.message.findFirst({
+      where: {
+        tenant_id: session.tenant_id,
+        conversation_id: conversation.id,
+        metadata: { contains: `"providerMessageId":${JSON.stringify(providerKey.id)}` },
+        created_at: { gte: sendStartedAt },
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    if (webhookEcho) {
+      let webhookMetadata: Record<string, unknown> = {};
+      let sentMetadata: Record<string, unknown> = {};
+      try { webhookMetadata = JSON.parse(webhookEcho.metadata || "{}"); } catch {}
+      try { sentMetadata = JSON.parse(metadata || "{}"); } catch {}
+      const [message, updatedConversation] = await prisma.$transaction([
+        prisma.message.update({
+          where: { id: webhookEcho.id },
+          data: {
+            content: finalContent,
+            ai_generated: false,
+            metadata: JSON.stringify({ ...webhookMetadata, ...sentMetadata }),
+          },
+        }),
+        prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            instance_name: resolvedInstanceName,
+            ai_paused: true,
+            last_message_at: sentAt,
+            ...(!conversation.assigned_to && session.role !== "partner" ? { assigned_to: session.id } : {}),
+          },
+          include: { assignee: { select: { id: true, name: true, email: true } } },
+        }),
+      ]);
+      return { ok: true, message, conversation: updatedConversation, resolvedInstanceName };
+    }
+  }
 
   if (absoluteMediaUrl && explicitMediaType) {
     const webhookEcho = await prisma.message.findFirst({

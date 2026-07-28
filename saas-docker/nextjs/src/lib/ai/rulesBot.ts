@@ -174,6 +174,22 @@ function getSchedulableProducts(products: any[]): ProductLike[] {
   return products.filter((p) => String(p?.name || "").trim().length > 0) as ProductLike[];
 }
 
+function renderCollectedVariables(value: unknown, collected: Record<string, unknown> | null | undefined): string {
+  return String(value || "").replace(
+    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}|\{\s*([a-zA-Z0-9_]+)\s*\}/g,
+    (match, doubleKey, singleKey) => {
+      const replacement = collected?.[doubleKey || singleKey];
+      return replacement === undefined || replacement === null ? match : String(replacement);
+    },
+  );
+}
+
+function resolveChoiceIndex(value: string, labels: string[]): number {
+  if (/^\d+$/.test(value.trim())) return Number(value.trim()) - 1;
+  const normalized = normalizeTextForLookup(value);
+  return labels.findIndex((label) => normalizeTextForLookup(label) === normalized);
+}
+
 export async function processMessageWithRules(
   tenantId: string,
   contactNumber: string,
@@ -619,15 +635,23 @@ export async function processMessageWithRules(
   // Handle Catalog Purchase selection
   if (state.step === "catalog_select_product") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
-      state = { step: "main_menu", data: {} };
+      const collected = state.data.collected;
+      state = { step: "main_menu", data: collected ? { collected } : {} };
       await saveState(state);
       return getMainMenuMessage(settings);
     }
-    const optionIdx = parseInt(cleanText, 10) - 1;
+    let optionIdx = /^\d+$/.test(cleanText) ? Number(cleanText) - 1 : -1;
 
     // Check if catalog used product nodes from workflow
     const productNodeIds = state.data._productNodes as string[] | undefined;
     if (productNodeIds && productNodeIds.length > 0) {
+      if (optionIdx < 0) {
+        optionIdx = resolveChoiceIndex(cleanText, productNodeIds.map((id) => {
+          const node = customNodes.find((candidate: any) => candidate.id === id);
+          const product = resolveProductFromNode(settings.products || [], node);
+          return String(product?.name || node?.title || "");
+        }));
+      }
       // Redirect to the selected product node
       if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= productNodeIds.length) {
         return "❌ Opção inválida. Digite o número correspondente ao produto desejado, ou *0* para voltar ao menu.";
@@ -640,7 +664,7 @@ export async function processMessageWithRules(
       // Transition to product node's submenu
       const hasChildren = customNodes.some((n: any) => n.parentId === selectedProductNode.id);
       state.step = hasChildren ? `submenu:${selectedProductNode.id}` : "main_menu";
-      state.data = {};
+      state.data = { ...state.data };
       await saveState(state);
 
       // Show product info
@@ -825,8 +849,8 @@ export async function processMessageWithRules(
 
   // Handle Scheduling steps
   if (state.step === "scheduling_select_service") {
-    const optionIdx = parseInt(cleanText, 10) - 1;
     const servicesList = getSchedulableProducts(settings.products || []);
+    const optionIdx = resolveChoiceIndex(cleanText, servicesList.map((service) => String(service.name || "")));
     if (servicesList.length === 0) {
       return "📋 Não há serviços configurados para agendamento no momento. Digite *0* para cancelar ou *menu* para voltar.";
     }
@@ -866,8 +890,13 @@ export async function processMessageWithRules(
       return getMainMenuMessage(settings);
     }
     
-    const optionIdx = parseInt(cleanText, 10) - 1;
     const availableDates = state.data.availableDates || [];
+    const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    const optionIdx = resolveChoiceIndex(cleanText, availableDates.map((value: string) => {
+      const date = new Date(value);
+      const dateStr = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+      return `${WEEKDAY_NAMES_PT[date.getDay()]} (${dateStr})`;
+    }));
     if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= availableDates.length) {
       return `❌ Opção inválida. Digite o número correspondente à data desejada (1-${availableDates.length}) ou *0* para voltar:`;
     }
@@ -904,14 +933,15 @@ export async function processMessageWithRules(
   }
 
   if (state.step === "scheduling_select_period") {
-    if (cleanText !== "1" && cleanText !== "2") {
+    const periodChoice = cleanText === "manha" || cleanText === "manhã" ? "1" : cleanText === "tarde" ? "2" : cleanText;
+    if (periodChoice !== "1" && periodChoice !== "2") {
       return "❌ Opção inválida. Digite *1* para Manhã ou *2* para Tarde:";
     }
 
     const parsedDate = new Date(state.data.parsedDate);
     const slots = await getAvailableSlots(tenantId, parsedDate, state.data.duration || 60, settings);
     
-    const isMorning = cleanText === "1";
+    const isMorning = periodChoice === "1";
     const filteredSlots = slots.filter(s => {
       const hour = parseInt(s.split(":")[0], 10);
       return isMorning ? hour < 12 : hour >= 12;
@@ -952,8 +982,8 @@ export async function processMessageWithRules(
   }
 
   if (state.step === "scheduling_select_time") {
-    const optionIdx = parseInt(cleanText, 10) - 1;
     const availableSlots = state.data.availableSlots || [];
+    const optionIdx = resolveChoiceIndex(cleanText, availableSlots.map(String));
     if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= availableSlots.length) {
       return "❌ Opção inválida. Digite o número correspondente ao horário desejado:";
     }
@@ -1081,7 +1111,8 @@ export async function processMessageWithRules(
   if (activeLevelNodes.length > 0) {
     const exactMatchedNode = activeLevelNodes.find((node: any) => {
       const cleanKeyword = node.keyword.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return cleanText === cleanKeyword;
+      const cleanTitle = String(node.title || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return cleanText === cleanKeyword || cleanText === cleanTitle;
     });
     const matchedNode = exactMatchedNode || [...activeLevelNodes]
       .sort((left: any, right: any) => String(right.keyword || "").length - String(left.keyword || "").length)
@@ -1092,6 +1123,7 @@ export async function processMessageWithRules(
 
     if (matchedNode) {
       const hasChildren = customNodes.some((n: any) => n.parentId === matchedNode.id);
+      const nodeText = renderCollectedVariables(matchedNode.textContent, state.data.collected);
       let response = "";
 
       if (matchedNode.actionType === "catalog") {
@@ -1099,8 +1131,8 @@ export async function processMessageWithRules(
         const productNodes = customNodes.filter((n: any) => n.parentId === matchedNode.id && n.actionType === 'product');
         
         if (productNodes.length > 0) {
-          response = matchedNode.textContent?.trim()
-            ? `${matchedNode.textContent.trim()}\n\n`
+          response = nodeText.trim()
+            ? `${nodeText.trim()}\n\n`
             : "📋 *Nossos Serviços e Preços:*\n\n";
           productNodes.forEach((pn: any, idx: number) => {
             const prod = resolveProductFromNode(settings.products || [], pn);
@@ -1132,8 +1164,8 @@ export async function processMessageWithRules(
           if (productsList.length === 0) {
             response = "📋 No momento não temos serviços cadastrados no catálogo.";
           } else {
-            response = matchedNode.textContent?.trim()
-              ? `${matchedNode.textContent.trim()}\n\n`
+            response = nodeText.trim()
+              ? `${nodeText.trim()}\n\n`
               : "📋 *Nossos Serviços e Preços:*\n\n";
             productsList.forEach((p: any, idx: number) => {
               const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
@@ -1158,8 +1190,8 @@ export async function processMessageWithRules(
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
-        let response = matchedNode.textContent?.trim()
-          ? `${matchedNode.textContent.trim()}\n\n`
+        let response = nodeText.trim()
+          ? `${nodeText.trim()}\n\n`
           : `📅 *Iniciar Agendamento*\nSelecione o serviço que deseja agendar:\n\n`;
         servicesList.forEach((p: any, idx: number) => {
           const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
@@ -1188,17 +1220,17 @@ export async function processMessageWithRules(
             console.log(`Alertando gerente no número ${settings.manager_phone} sobre intervenção humana para ${contactNumber}`);
           }
         }
-        return matchedNode.textContent || "";
+        return nodeText || "";
       }
       else if (matchedNode.actionType === "collect_data") {
         state.step = `collect_data:${matchedNode.id}`;
         state.data.collect_variable = matchedNode.variableName || "dado_coletado";
         await saveState(state);
-        return matchedNode.textContent || "Por favor, digite a informação solicitada:";
+        return nodeText || "Por favor, digite a informação solicitada:";
       }
       else if (matchedNode.actionType === "product") {
         const prod = resolveProductFromNode(settings.products || [], matchedNode);
-        const customProductText = String(matchedNode.textContent || "").trim();
+        const customProductText = nodeText.trim();
         if (!prod) {
           response = customProductText || `📦 *${matchedNode.title}*`;
         } else {
@@ -1261,7 +1293,7 @@ export async function processMessageWithRules(
         state.data = {
           chosenService: chosen,
           collected: collectedData,
-          chosenNodeText: matchedNode.textContent,
+          chosenNodeText: nodeText,
         };
         
         const deliveryType = chosen.delivery_type || "virtual_instant";
@@ -1279,7 +1311,7 @@ export async function processMessageWithRules(
             settings,
             stateKey,
             collectedData,
-            matchedNode.textContent,
+            nodeText,
             contactName
           );
         } else if (deliveryType === "virtual_deadline") {
@@ -1294,7 +1326,7 @@ export async function processMessageWithRules(
             settings,
             stateKey,
             collectedData,
-            matchedNode.textContent,
+            nodeText,
             contactName
           );
         } else if (deliveryType === "both") {
@@ -1314,7 +1346,7 @@ export async function processMessageWithRules(
         }
       } else {
         // default text / submenu Presentation text
-        response = matchedNode.textContent || "";
+        response = nodeText || "";
       }
 
       // If this option matched has further derivations (children submenus), transition to submenu step and list them
