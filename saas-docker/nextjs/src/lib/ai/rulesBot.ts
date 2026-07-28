@@ -518,7 +518,7 @@ export async function processMessageWithRules(
         },
       });
 
-      const response = `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\`\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código acima.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+      const response = `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código enviado.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3\n\n---PIX-COPY---\n${pixCopy}`;
       return encodedImage
         ? `${response}\n\n---IMAGE---\n${encodedImage.replace(/^data:image\/[^;]+;base64,/, "")}`
         : response;
@@ -1270,7 +1270,7 @@ export async function processMessageWithRules(
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
-        let response = "📅 *Agende seu horário*\n\nEscolha o serviço desejado:";
+        const response = "📅 *Agende seu horário*\n\nEscolha o serviço desejado:";
         
         state.step = "scheduling_select_service";
         await saveState(state);
@@ -2076,7 +2076,7 @@ async function processarFinalizacaoPedidoRulesBot(
 
           let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n💳 *Pagamento via PIX*`;
 
-          if (pixCopy) msg += `\n\n🔑 *Pix Copia e Cola:*\n\`${pixCopy}\``;
+          if (pixCopy) msg += `\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\n---PIX-COPY---\n${pixCopy}`;
           // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback
           if (!pixCopy && !pixQr && pay.invoiceUrl) {
             msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;

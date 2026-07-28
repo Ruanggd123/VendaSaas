@@ -1045,6 +1045,15 @@ export async function POST(req: Request) {
                   cleanedText = cleanedText.slice(0, imageIdx).trim();
                 }
 
+                // Envia o payload Pix sozinho para o WhatsApp tratá-lo como texto copiável.
+                const pixCopyMarker = '\n---PIX-COPY---\n';
+                const pixCopyIdx = cleanedText.indexOf(pixCopyMarker);
+                let pixCopyPayload = "";
+                if (pixCopyIdx !== -1) {
+                  pixCopyPayload = cleanedText.slice(pixCopyIdx + pixCopyMarker.length).trim();
+                  cleanedText = cleanedText.slice(0, pixCopyIdx).trim();
+                }
+
                 // Detecta lista interativa no formato:
                 // Texto da mensagem
                 // ---LIST---
@@ -1155,6 +1164,13 @@ export async function POST(req: Request) {
                 }
                 if (!sent) {
                   throw new Error("Evolution recusou o envio da resposta (até texto puro falhou)");
+                }
+
+                if (pixCopyPayload) {
+                  const pixSent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, pixCopyPayload);
+                  if (!pixSent) {
+                    throw new Error("Evolution recusou o envio do código Pix Copia e Cola");
+                  }
                 }
 
                 if (imagePayload) {
