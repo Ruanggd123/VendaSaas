@@ -169,18 +169,26 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
 
     const providers: ProviderConfig[] = [];
     const selectedModel = settings.ia_model || "";
+
+    // Sanitizacao do modelo: rejeita nomes com espacos ou caracteres especiais suspeitos
+    const modelValid = /^[a-zA-Z][a-zA-Z0-9_.\/\-]+$/.test(selectedModel);
     const isLocal = selectedModel === "llama3.1";
+
+    // Helper para validar se o modelo selecionado pode ser usado com este provedor
+    const isModelForGroq = modelValid && (selectedModel.includes("llama") || selectedModel.includes("mixtral") || selectedModel.includes("gemma"));
+    const isModelForOpenRouter = modelValid && (selectedModel.includes("deepseek") || selectedModel.includes("openrouter") || selectedModel.includes("claude") || selectedModel.includes("mistral"));
+    const isModelForGemini = modelValid && (selectedModel.includes("gemini"));
+    const isModelForOpenAI = modelValid && (selectedModel.includes("gpt") || selectedModel.includes("o1") || selectedModel.includes("o3") || selectedModel.includes("dall-e"));
 
     // 1. Groq
     const groqKey = settings.groq_api_key || process.env.GROQ_API_KEY;
     if (groqKey && groqKey.trim() !== "") {
-      const isSelected = selectedModel.includes("llama-3") || selectedModel === "llama-3.3-70b-versatile" || (selectedModel.includes("-") && !selectedModel.includes("gemini") && !selectedModel.includes("gpt") && !selectedModel.includes("deepseek"));
       providers.push({
         name: "Groq",
         apiKey: groqKey,
         baseURL: "https://api.groq.com/openai/v1",
-        model: selectedModel.includes("-") && !selectedModel.includes("gemini") && !selectedModel.includes("gpt") && !selectedModel.includes("deepseek") ? selectedModel : "llama-3.3-70b-versatile",
-        priority: isSelected ? 10 : 5
+        model: isModelForGroq ? selectedModel : "llama-3.3-70b-versatile",
+        priority: isModelForGroq ? 10 : 5
       });
     }
 
@@ -189,26 +197,24 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       ? settings.openai_api_key
       : (process.env.OPENROUTER_API_KEY || (process.env.OPENAI_API_KEY?.startsWith("sk-or-v1") ? process.env.OPENAI_API_KEY : ""));
     if (openRouterKey && openRouterKey.trim() !== "") {
-      const isSelected = selectedModel.includes("deepseek") || selectedModel.includes("openrouter");
       providers.push({
         name: "OpenRouter",
         apiKey: openRouterKey,
         baseURL: "https://openrouter.ai/api/v1",
-        model: isSelected ? selectedModel : "deepseek/deepseek-chat",
-        priority: isSelected ? 10 : 4
+        model: isModelForOpenRouter ? selectedModel : "deepseek/deepseek-chat",
+        priority: isModelForOpenRouter ? 10 : 4
       });
     }
 
     // 3. Gemini
     const geminiKey = settings.gemini_api_key || process.env.GEMINI_API_KEY;
     if (geminiKey && geminiKey.trim() !== "") {
-      const isSelected = selectedModel.includes("gemini");
       providers.push({
         name: "Gemini",
         apiKey: geminiKey,
         baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-        model: isSelected ? selectedModel : "gemini-1.5-flash",
-        priority: isSelected ? 10 : 3
+        model: isModelForGemini ? selectedModel : "gemini-1.5-flash",
+        priority: isModelForGemini ? 10 : 3
       });
     }
 
@@ -217,12 +223,11 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       ? settings.openai_api_key
       : (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith("sk-or-v1") ? process.env.OPENAI_API_KEY : "");
     if (openaiKey && openaiKey.trim() !== "") {
-      const isSelected = selectedModel.includes("gpt");
       providers.push({
         name: "OpenAI",
         apiKey: openaiKey,
-        model: isSelected ? selectedModel : "gpt-4o-mini",
-        priority: isSelected ? 10 : 2
+        model: isModelForOpenAI ? selectedModel : "gpt-4o-mini",
+        priority: isModelForOpenAI ? 10 : 2
       });
     }
 

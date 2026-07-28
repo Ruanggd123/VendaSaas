@@ -208,19 +208,28 @@ export default function CheckoutPage() {
 
     const cart: CartItem[] = [];
 
-    // Single one-time purchase product (has price, no monthly)
+    // One-time purchase product (has price, no monthly)
     if (hasValue(product.price) && !hasValue(product.monthly)) {
       cart.push({ name: product.name, price: parseFloat(product.price!), monthly: 0, qty: 1, type: 'one_time', isBonus: false });
       return cart;
     }
 
-    // Plan with setup + monthly
-    const setupPrice = hasValue(product.price) ? parseFloat(product.price) : 0;
-    if (setupPrice > 0) {
-      cart.push({ name: product.name, price: setupPrice, monthly: 0, qty: 1, type: 'one_time', isBonus: false });
-    }
+    // Subscription product
     if (hasValue(product.monthly)) {
-      cart.push({ name: product.name, price: 0, monthly: parseFloat(product.monthly!), qty: 1, type: 'subscription', isBonus: false });
+      const monthlyVal = parseFloat(product.monthly!);
+      const priceVal = hasValue(product.price) ? parseFloat(product.price!) : 0;
+
+      // If price is different from monthly, it's a setup fee
+      if (priceVal > 0 && Math.abs(priceVal - monthlyVal) > 0.01) {
+        cart.push({ name: product.name, price: priceVal, monthly: 0, qty: 1, type: 'one_time', isBonus: false });
+      }
+      cart.push({ name: product.name, price: 0, monthly: monthlyVal, qty: 1, type: 'subscription', isBonus: false });
+      return cart;
+    }
+
+    // Price-only fallback
+    if (hasValue(product.price)) {
+      cart.push({ name: product.name, price: parseFloat(product.price!), monthly: 0, qty: 1, type: 'one_time', isBonus: false });
     }
     return cart;
   };

@@ -167,6 +167,31 @@ function getProductDisplayPrice(prod: ProductLike | null): string {
   return (getProductPriceLabel(prod) || "Preço não informado").replace(/^R\$\s?/, "");
 }
 
+function getCatalogIntro(nodeText: string): string {
+  const text = nodeText.trim();
+  const normalized = normalizeTextForLookup(text);
+  if (text && normalized !== "escolha uma opcao") return text;
+  return "🚀 *Escolha a solução ideal para o seu negócio*\n\nAs opções avulsas têm pagamento único. Nos planos mensais, você recebe a estrutura digital grátis, automação com IA, hospedagem e suporte.";
+}
+
+function getProductBenefit(product: ProductLike): string {
+  const benefits: Record<string, string> = {
+    "site institucional": "presença profissional na internet",
+    "plataforma completa": "CRM, vendas e gestão em um só lugar",
+    "e commerce avulso": "loja virtual completa para vender online",
+    "plano site gratis": "site profissional com atendimento por IA",
+    "plano crm gratis": "CRM completo com automação comercial",
+    "plano loja gratis": "loja virtual com IA e automação de vendas",
+  };
+  return benefits[normalizeTextForLookup(product.name || "")] || String(product.description || "").split(".")[0].trim();
+}
+
+function getProductOptionLabel(product: ProductLike): string {
+  const name = String(product.name || "Produto");
+  const benefit = getProductBenefit(product);
+  return `${name}${benefit ? ` • ${benefit}` : ""} • R$ ${getProductDisplayPrice(product)}`;
+}
+
 function isSchedulableProduct(prod: ProductLike | null | undefined): boolean {
   if (!prod) return false;
   const deliveryType = String(prod.delivery_type || "").trim().toLowerCase();
@@ -907,7 +932,7 @@ export async function processMessageWithRules(
       return "❌ Opção inválida. Envie o número do serviço desejado ou *0* para cancelar.";
     }
     const chosenService = servicesList[optionIdx];
-    const availableDates = obterProximosDiasDisponiveis(settings);
+    const availableDates = await obterProximosDiasDisponiveis(tenantId, settings, chosenService.duration_min || 60);
 
     state.step = "scheduling_select_date";
     const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
@@ -1190,9 +1215,7 @@ export async function processMessageWithRules(
         const productNodes = customNodes.filter((n: any) => n.parentId === matchedNode.id && n.actionType === 'product');
         
         if (productNodes.length > 0) {
-          response = nodeText.trim()
-            ? `${nodeText.trim()}\n\n`
-            : "📋 *Nossos Serviços e Preços:*\n\n";
+          response = `${getCatalogIntro(nodeText)}\n\n`;
           productNodes.forEach((pn: any, idx: number) => {
             const prod = resolveProductFromNode(settings.products || [], pn);
             if (prod) {
@@ -1212,7 +1235,7 @@ export async function processMessageWithRules(
             const product = resolveProductFromNode(settings.products || [], node);
             return [{
               label: product
-                ? `${product.name} - R$ ${getProductDisplayPrice(product)}`
+                ? getProductOptionLabel(product)
                 : node.title,
               value: String(idx + 1),
             }];
@@ -1223,9 +1246,7 @@ export async function processMessageWithRules(
           if (productsList.length === 0) {
             response = "📋 No momento não temos serviços cadastrados no catálogo.";
           } else {
-            response = nodeText.trim()
-              ? `${nodeText.trim()}\n\n`
-              : "📋 *Nossos Serviços e Preços:*\n\n";
+            response = `${getCatalogIntro(nodeText)}\n\n`;
             productsList.forEach((p: any, idx: number) => {
               const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
               response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
@@ -1236,7 +1257,7 @@ export async function processMessageWithRules(
             state.step = "catalog_select_product";
             await saveState(state);
             return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
-              label: `${product.name} - R$ ${getProductDisplayPrice(product)}`,
+              label: getProductOptionLabel(product),
               value: String(idx + 1),
             })));
           }
@@ -1249,19 +1270,12 @@ export async function processMessageWithRules(
           return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
         }
         
-        let response = nodeText.trim()
-          ? `${nodeText.trim()}\n\n`
-          : `📅 *Iniciar Agendamento*\nSelecione o serviço que deseja agendar:\n\n`;
-        servicesList.forEach((p: any, idx: number) => {
-          const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-          response += `${idx + 1}️⃣ ${p.name} (R$ ${displayPrice})\n`;
-        });
-        response += "\nDigite o número do serviço ou *voltar* para cancelar.";
+        let response = "📅 *Agende seu horário*\n\nEscolha o serviço desejado:";
         
         state.step = "scheduling_select_service";
         await saveState(state);
         return appendInteractiveOptions(response, servicesList.map((service: any, idx: number) => ({
-          label: `${service.name} - ${getProductPriceLabel(service) || "Preço não informado"}`,
+          label: getProductOptionLabel(service),
           value: String(idx + 1),
         })));
       }
@@ -1327,7 +1341,7 @@ export async function processMessageWithRules(
         if (matchedNode.paymentMode === "link") collectedData.billingType = "CREDIT_CARD";
         
         if (isSchedulableProduct(chosen)) {
-          const availableDates = obterProximosDiasDisponiveis(settings);
+          const availableDates = await obterProximosDiasDisponiveis(tenantId, settings, chosen.duration_min || 60);
           state.step = "scheduling_select_date";
           const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
           state.data = {
@@ -1433,7 +1447,7 @@ export async function processMessageWithRules(
       }
       // Se for serviço com agendamento, vai pra etapa de agendar
       if (isSchedulableProduct(chosen)) {
-        const availableDates = obterProximosDiasDisponiveis(settings);
+        const availableDates = await obterProximosDiasDisponiveis(tenantId, settings, chosen.duration_min || 60);
         state.step = "scheduling_select_date";
         const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
         state.data = {
@@ -1558,23 +1572,19 @@ function getMainMenuMessage(settings: any): string {
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
 
   if (rootNodes.length > 0) {
+    const interactiveNodes = getInteractiveNodes(rootNodes);
+    const hasInteractive = interactiveNodes.length > 0;
+
     let msg = hasExplicitMenuSection(welcome)
       ? welcome
-      : welcome + "\n\n" + "Escolha uma opção abaixo:\n\n";
+      : welcome + (hasInteractive ? "" : "\n\nEscolha uma opção abaixo:");
 
-    const interactiveNodes = getInteractiveNodes(rootNodes);
     if (interactiveNodes.length > 3) {
       const listLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
-      if (!hasExplicitMenuSection(welcome)) {
-        msg += rootNodes.map((n: any) => `*${n.keyword}* - *${n.title}*`).join("\n");
-      }
       msg += "\n\n---LIST---\n" + listLines.join("\n");
-    } else {
+    } else if (interactiveNodes.length > 0) {
       const buttonLines = interactiveNodes.map((n: any) => `${n.title}|${n.keyword}`);
-      if (!hasExplicitMenuSection(welcome)) {
-        msg += rootNodes.map((n: any) => `*${n.keyword}* - *${n.title}*`).join("\n");
-      }
-      if (buttonLines.length > 0) msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
+      msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
     }
 
     return msg;
@@ -1586,30 +1596,16 @@ function getMainMenuMessage(settings: any): string {
     return welcome;
   }
 
+  const hasInteractiveMenu = products.length > 0;
   let msg = hasExplicitMenuSection(welcome)
     ? welcome
-    : welcome + "\n\nConfira nossos produtos e serviços:\n";
-
-  if (!hasExplicitMenuSection(welcome)) {
-    products.forEach((p: any, i: number) => {
-      const idx = i + 1;
-      const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-      if (isSchedulableProduct(p)) {
-        msg += `\n*${idx}* - ${p.name} (agendamento)\n   R$ ${displayPrice} · ${p.duration_min || 60}min`;
-      } else if (p.stock !== undefined && p.stock !== null) {
-        msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice} · ${p.stock > 0 ? p.stock + ' restantes' : 'ESGOTADO'}`;
-      } else {
-        msg += `\n*${idx}* - ${p.name}\n   R$ ${displayPrice}`;
-      }
-    });
-    msg += "\n\nDigite o *número* da opção para mais detalhes.";
-  }
+    : welcome + (hasInteractiveMenu ? "" : "\n\nConfira nossos produtos e serviços:");
 
   if (products.length > 3) {
-    const listLines = products.map((p: any, i: number) => `${p.name}|${i + 1}`);
+    const listLines = products.map((p: any, i: number) => `${getProductOptionLabel(p)}|${i + 1}`);
     msg += "\n\n---LIST---\n" + listLines.join("\n");
   } else if (products.length > 0) {
-    const buttonLines = products.map((p: any, i: number) => `${p.name}|${i + 1}`);
+    const buttonLines = products.map((p: any, i: number) => `${getProductOptionLabel(p)}|${i + 1}`);
     msg += "\n\n---BUTTONS---\n" + buttonLines.join("\n");
   }
 
@@ -2156,7 +2152,7 @@ async function processarFinalizacaoPedidoRulesBot(
   }
 }
 
-function obterProximosDiasDisponiveis(settings: any): Date[] {
+async function obterProximosDiasDisponiveis(tenantId: string, settings: any, durationMin: number = 60): Promise<Date[]> {
   const businessDaysMap: Record<number, string> = {
     0: "sun",
     1: "mon",
@@ -2176,8 +2172,8 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
   const safeYear = Math.max(todayParts.year, 2026);
   const current = new Date(Date.UTC(safeYear, todayParts.month - 1, todayParts.day, 12));
 
-  // Percorre os próximos 14 dias para encontrar 5 dias válidos
-  for (let i = 0; i < 14; i++) {
+  // Percorre os próximos 31 dias para encontrar 5 dias com horarios disponiveis
+  for (let i = 0; i < 31; i++) {
     const dayOfWeek = current.getUTCDay();
     const dayStr = businessDaysMap[dayOfWeek];
     const dateISO = current.toISOString().split("T")[0];
@@ -2204,7 +2200,11 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
     }
 
     if (isDayEnabled && !isBlocked && !isPast) {
-      dates.push(new Date(current.getTime()));
+      // Verifica se o dia tem horarios disponiveis antes de incluir
+      const slots = await getAvailableSlots(tenantId, current, durationMin, settings);
+      if (slots.length > 0) {
+        dates.push(new Date(current.getTime()));
+      }
     }
     
     if (dates.length >= 5) break;
