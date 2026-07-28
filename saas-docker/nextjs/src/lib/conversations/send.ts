@@ -172,17 +172,6 @@ export async function sendConversationMessage(
 
         if (exactEvolutionInstance) {
           resolvedInstanceName = evolutionInstanceName(exactEvolutionInstance);
-        } else if (!exactOwnedInstance) {
-          for (const dbInstance of rankedInstances) {
-            const openEvolutionInstance = evolutionInstances.find((instance) => {
-              const name = evolutionInstanceName(instance);
-              return matchesOwnedInstance(dbInstance, name) && evolutionInstanceIsOpen(instance);
-            });
-            if (openEvolutionInstance) {
-              resolvedInstanceName = evolutionInstanceName(openEvolutionInstance);
-              break;
-            }
-          }
         }
       }
     }
@@ -194,7 +183,7 @@ export async function sendConversationMessage(
     const exactOwnedInstance = rankedInstances.find((instance) => matchesOwnedInstance(instance, roleAwareConversationName));
     resolvedInstanceName = exactOwnedInstance
       ? (exactOwnedInstance.status.toLowerCase() === "open" ? exactOwnedInstance.name : null)
-      : rankedInstances.find((instance) => instance.status.toLowerCase() === "open")?.name || null;
+      : null;
   }
 
   if (!resolvedInstanceName) {

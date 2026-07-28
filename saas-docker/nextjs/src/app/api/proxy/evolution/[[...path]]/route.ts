@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { PrismaClient } from '@prisma/client';
+import { getPlanDetails } from '@/lib/plans';
 
 const prisma = new PrismaClient();
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
@@ -48,7 +49,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
         // --- SECURITY: INSTANCE CREATION ISOLATION & PLAN LIMITS ---
         if (path === 'instance/create') {
           // Checar limites do plano
-          const limit = tenant.plan === 'solo' ? 1 : tenant.plan === 'pro' ? 3 : 999;
+          const limit = getPlanDetails(tenant.plan).maxWhatsappInstances;
           
           // Buscar instâncias atuais na Evolution API para checar o limite
           const fetchRes = await fetch(`${EVOLUTION_URL}/instance/fetchInstances`, { headers, cache: 'no-store' });

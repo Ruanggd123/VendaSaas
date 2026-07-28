@@ -2,6 +2,9 @@ import Redis from "ioredis";
 import { PrismaClient } from "@prisma/client";
 import { botMessageTemplates } from "./botMessageTemplates";
 import { cancelPayment, createCustomer, createPayment, getPixQrCode, updatePayment } from "@/lib/asaas";
+import { getBusinessDayRange, getZonedDateTimeParts, zonedDateTimeToUtc } from "@/lib/dateTime";
+import { createHash } from "crypto";
+import { formatBRL, getProductPriceLabel } from "@/lib/currency";
 
 const prisma = new PrismaClient();
 
@@ -86,8 +89,10 @@ function normalizeTextForLookup(value: any): string {
 const WEEKDAY_NAMES_PT = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 function formatSchedulingDateLabel(date: Date) {
-  const dateStr = `${date.getDate().toString().padStart(2, "0")}/${(date.getMonth() + 1).toString().padStart(2, "0")}`;
-  return `${WEEKDAY_NAMES_PT[date.getDay()]} (${dateStr})`;
+  const parts = getZonedDateTimeParts(date);
+  const dayOfWeek = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  const dateStr = `${String(parts.day).padStart(2, "0")}/${String(parts.month).padStart(2, "0")}`;
+  return `${WEEKDAY_NAMES_PT[dayOfWeek]} (${dateStr})`;
 }
 
 function getProductIdentifier(product: ProductLike | undefined): string {
@@ -159,7 +164,7 @@ function resolveProductFromNode(products: any[], node: any): ProductLike | null 
 
 function getProductDisplayPrice(prod: ProductLike | null): string {
   if (!prod) return "";
-  return prod.type === 'plan' || prod.monthly ? `${prod.monthly || prod.price}/mês` : `${prod.price}`;
+  return (getProductPriceLabel(prod) || "Preço não informado").replace(/^R\$\s?/, "");
 }
 
 function isSchedulableProduct(prod: ProductLike | null | undefined): boolean {
@@ -235,6 +240,7 @@ export async function processMessageWithRules(
   }
 
   const instanceScope = String(settings._instanceName || "default").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const conversationId = typeof settings._conversationId === "string" ? settings._conversationId : null;
   const stateKey = `rulesbot_state_${tenantId}_${instanceScope}_${contactNumber}`;
   
   // 1. Get current state from Database (SystemConfig)
@@ -282,7 +288,9 @@ export async function processMessageWithRules(
   let contactName = '';
   try {
     const conv = await prisma.conversation.findFirst({
-      where: { tenant_id: tenantId, contact_number: contactNumber },
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
       select: { contact_name: true }
     });
     if (conv?.contact_name) contactName = conv.contact_name;
@@ -605,7 +613,9 @@ export async function processMessageWithRules(
   if (["atendente", "falar com atendente", "humano", "suporte", "chamar atendente"].includes(cleanText)
     || (cleanText === "4" && state.step === "main_menu" && !hasConfiguredOptionFour)) {
     await prisma.conversation.updateMany({
-      where: { tenant_id: tenantId, contact_number: contactNumber },
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
       data: { ai_paused: true }
     });
     return "Aguarde um momento, estou transferindo você para um de nossos especialistas. Logo você será atendido! 🧑‍💻";
@@ -904,13 +914,15 @@ export async function processMessageWithRules(
     state.data = {
       serviceName: chosenService.name,
       servicePrice: chosenService.price,
+      servicePriceLabel: getProductPriceLabel(chosenService),
       duration: chosenService.duration_min || 60,
       availableDates: availableDates.map(d => d.toISOString()),
       availableDateLabels,
     };
     await saveState(state);
 
-    let response = `Você selecionou *${chosenService.name}*.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
+    const selectedServicePrice = getProductPriceLabel(chosenService) || "Preço não informado";
+    let response = `Você selecionou *${chosenService.name}* (${selectedServicePrice}).\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
     const dateOptions: Array<{ label: string; value: string }> = [];
     availableDates.forEach((d, idx) => {
       const label = availableDateLabels[idx];
@@ -939,7 +951,8 @@ export async function processMessageWithRules(
     }
 
     const chosenDate = new Date(availableDates[optionIdx]);
-    const dateFormatted = `${chosenDate.getDate().toString().padStart(2, '0')}/${(chosenDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    const chosenDateParts = getZonedDateTimeParts(chosenDate);
+    const dateFormatted = `${String(chosenDateParts.day).padStart(2, "0")}/${String(chosenDateParts.month).padStart(2, "0")}`;
     
     // Check available periods
     const allSlots = await getAvailableSlots(tenantId, chosenDate, state.data.duration || 60, settings);
@@ -1028,7 +1041,8 @@ export async function processMessageWithRules(
     await saveState(state);
     
     let confirmMsg = `✍️ *Por favor, confirme seus dados:*\n\n`;
-    confirmMsg += `🛠 *Serviço:* ${state.data.serviceName} (R$ ${state.data.servicePrice})\n`;
+    confirmMsg += `🛠 *Serviço:* ${state.data.serviceName}\n`;
+    confirmMsg += `💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice) || "Preço não informado"}\n`;
     confirmMsg += `📅 *Data:* ${state.data.date}\n`;
     confirmMsg += `🕒 *Horário:* ${state.data.time}\n\n`;
     confirmMsg += `---BUTTONS---\nConfirmar|1\nCancelar|2`;
@@ -1123,6 +1137,7 @@ export async function processMessageWithRules(
             tenant_id: tenantId,
             lead_id: lead.id,
             service_name: state.data.serviceName,
+            service_price: Number(state.data.servicePrice) || null,
             duration_min: durationMin,
             scheduled_at: startDateTime,
             status: "scheduled",
@@ -1130,7 +1145,7 @@ export async function processMessageWithRules(
           }
         });
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-      return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n\nObrigado!`;
+      return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice) || "Preço não informado"}\n\nObrigado!`;
     }
     state = { step: "main_menu", data: {} };
     await saveState(state);
@@ -1246,13 +1261,15 @@ export async function processMessageWithRules(
         state.step = "scheduling_select_service";
         await saveState(state);
         return appendInteractiveOptions(response, servicesList.map((service: any, idx: number) => ({
-          label: service.name,
+          label: `${service.name} - ${getProductPriceLabel(service) || "Preço não informado"}`,
           value: String(idx + 1),
         })));
       }
       else if (matchedNode.actionType === "human") {
         await prisma.conversation.updateMany({
-          where: { tenant_id: tenantId, contact_number: contactNumber },
+          where: conversationId
+            ? { id: conversationId, tenant_id: tenantId }
+            : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
           data: { ai_paused: true }
         });
         
@@ -1314,7 +1331,7 @@ export async function processMessageWithRules(
           state.step = "scheduling_select_date";
           const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
           state.data = {
-            serviceName: chosen.name, servicePrice: chosen.price,
+            serviceName: chosen.name, servicePrice: chosen.price, servicePriceLabel: getProductPriceLabel(chosen),
             duration: chosen.duration_min || 60,
             availableDates: availableDates.map((d: Date) => d.toISOString()),
             availableDateLabels,
@@ -1420,7 +1437,7 @@ export async function processMessageWithRules(
         state.step = "scheduling_select_date";
         const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
         state.data = {
-          serviceName: chosen.name, servicePrice: chosen.price,
+          serviceName: chosen.name, servicePrice: chosen.price, servicePriceLabel: getProductPriceLabel(chosen),
           duration: chosen.duration_min || 60,
           availableDates: availableDates.map((d: Date) => d.toISOString()),
           availableDateLabels,
@@ -1500,7 +1517,9 @@ export async function processMessageWithRules(
   if (errorCount >= 3) {
     // Falhou 3 vezes consecutivas. Pausa a IA e transfere para humano.
     await prisma.conversation.updateMany({
-      where: { tenant_id: tenantId, contact_number: contactNumber },
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
       data: { ai_paused: true }
     });
     await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
@@ -1651,18 +1670,19 @@ function getSubmenuMessage(parentNode: any, allNodes: any[]): string {
 function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
   try {
     const today = new Date();
-    let year = today.getFullYear();
+    const todayParts = getZonedDateTimeParts(today);
+    let year = todayParts.year;
     if (year < 2026) year = 2026;
-    let month = today.getMonth();
-    let day = today.getDate();
+    let month = todayParts.month - 1;
+    let day = todayParts.day;
 
     const cleanDate = dateStr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
     if (cleanDate.includes("amanha")) {
-      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-      day = tomorrow.getDate();
-      month = tomorrow.getMonth();
-      year = tomorrow.getFullYear();
+      const tomorrow = new Date(Date.UTC(year, month, day + 1, 12));
+      day = tomorrow.getUTCDate();
+      month = tomorrow.getUTCMonth();
+      year = tomorrow.getUTCFullYear();
       if (year < 2026) year = 2026;
     } else if (cleanDate.includes("hoje")) {
       // keep today
@@ -1679,12 +1699,13 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
         const weekdays = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
         const targetDay = weekdays.findIndex(d => cleanDate.includes(d));
         if (targetDay !== -1) {
-          let diff = targetDay - today.getDay();
+          const todayDayOfWeek = new Date(Date.UTC(year, month, day)).getUTCDay();
+          let diff = targetDay - todayDayOfWeek;
           if (diff <= 0) diff += 7;
-          const targetDate = new Date(today.getTime() + diff * 24 * 60 * 60 * 1000);
-          day = targetDate.getDate();
-          month = targetDate.getMonth();
-          year = targetDate.getFullYear();
+          const targetDate = new Date(Date.UTC(year, month, day + diff, 12));
+          day = targetDate.getUTCDate();
+          month = targetDate.getUTCMonth();
+          year = targetDate.getUTCFullYear();
           if (year < 2026) year = 2026;
         }
       }
@@ -1701,7 +1722,7 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
       }
     }
 
-    const result = new Date(year, month, day, hours, minutes, 0);
+    const result = zonedDateTimeToUtc({ year, month: month + 1, day, hour: hours, minute: minutes });
     if (isNaN(result.getTime())) return null;
     return result;
   } catch {
@@ -1712,18 +1733,19 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
 function parseDateOnly(dateStr: string): Date | null {
   try {
     const today = new Date();
-    let year = today.getFullYear();
+    const todayParts = getZonedDateTimeParts(today);
+    let year = todayParts.year;
     if (year < 2026) year = 2026;
-    let month = today.getMonth();
-    let day = today.getDate();
+    let month = todayParts.month - 1;
+    let day = todayParts.day;
 
     const cleanDate = dateStr.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
     if (cleanDate.includes("amanha")) {
-      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-      day = tomorrow.getDate();
-      month = tomorrow.getMonth();
-      year = tomorrow.getFullYear();
+      const tomorrow = new Date(Date.UTC(year, month, day + 1, 12));
+      day = tomorrow.getUTCDate();
+      month = tomorrow.getUTCMonth();
+      year = tomorrow.getUTCFullYear();
       if (year < 2026) year = 2026;
     } else if (cleanDate.includes("hoje")) {
       // keep today
@@ -1740,12 +1762,13 @@ function parseDateOnly(dateStr: string): Date | null {
         const weekdays = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
         const targetDay = weekdays.findIndex(d => cleanDate.includes(d));
         if (targetDay !== -1) {
-          let diff = targetDay - today.getDay();
+          const todayDayOfWeek = new Date(Date.UTC(year, month, day)).getUTCDay();
+          let diff = targetDay - todayDayOfWeek;
           if (diff <= 0) diff += 7;
-          const targetDate = new Date(today.getTime() + diff * 24 * 60 * 60 * 1000);
-          day = targetDate.getDate();
-          month = targetDate.getMonth();
-          year = targetDate.getFullYear();
+          const targetDate = new Date(Date.UTC(year, month, day + diff, 12));
+          day = targetDate.getUTCDate();
+          month = targetDate.getUTCMonth();
+          year = targetDate.getUTCFullYear();
           if (year < 2026) year = 2026;
         } else {
           return null;
@@ -1753,7 +1776,7 @@ function parseDateOnly(dateStr: string): Date | null {
       }
     }
     if (year < 2026) year = 2026;
-    const result = new Date(year, month, day, 0, 0, 0, 0);
+    const result = zonedDateTimeToUtc({ year, month: month + 1, day, hour: 0, minute: 0 });
     if (isNaN(result.getTime())) return null;
     return result;
   } catch {
@@ -1771,8 +1794,7 @@ async function isSlotAvailable(
   const duration = Number(durationMin || 60);
   const end = start.getTime() + duration * 60 * 1000;
 
-  const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0);
-  const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999);
+  const { start: dayStart, end: dayEnd } = getBusinessDayRange(start);
 
   const appointments = await prisma.appointment.findMany({
     where: {
@@ -1795,8 +1817,8 @@ async function isSlotAvailable(
 }
 
 async function getAvailableSlots(tenantId: string, date: Date, durationMin: number, settings: any): Promise<string[]> {
-  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-  const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const dateParts = getZonedDateTimeParts(date);
+  const { start: dayStart, end: dayEnd } = getBusinessDayRange(date);
 
   const appointments = await prisma.appointment.findMany({
     where: {
@@ -1817,8 +1839,8 @@ async function getAvailableSlots(tenantId: string, date: Date, durationMin: numb
   const [startH, startM] = startHourStr.split(":").map(Number);
   const [endH, endM] = endHourStr.split(":").map(Number);
 
-  const startLimit = new Date(date.getFullYear(), date.getMonth(), date.getDate(), startH, startM, 0, 0);
-  const endLimit = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endH, endM, 0, 0);
+  const startLimit = zonedDateTimeToUtc({ ...dateParts, hour: startH, minute: startM, second: 0 });
+  const endLimit = zonedDateTimeToUtc({ ...dateParts, hour: endH, minute: endM, second: 0 });
 
   const slots: string[] = [];
   const current = new Date(startLimit.getTime());
@@ -1837,8 +1859,9 @@ async function getAvailableSlots(tenantId: string, date: Date, durationMin: numb
     const isPast = slotStart < Date.now();
 
     if (!isOverlapping && !isPast) {
-      const h = String(current.getHours()).padStart(2, "0");
-      const m = String(current.getMinutes()).padStart(2, "0");
+      const currentParts = getZonedDateTimeParts(current);
+      const h = String(currentParts.hour).padStart(2, "0");
+      const m = String(currentParts.minute).padStart(2, "0");
       slots.push(`${h}:${m}`);
     }
 
@@ -1864,24 +1887,6 @@ async function processarFinalizacaoPedidoRulesBot(
     if (collectedData && Object.keys(collectedData).length > 0) {
       extraNotes = " | Dados Coletados: " + Object.entries(collectedData).map(([k, v]) => `${k}=${v}`).join(", ");
     }
-
-    const order = await prisma.retailOrder.create({
-      data: {
-        tenant_id: tenantId,
-        total_amount: parseFloat(chosenService.price),
-        shipping_address: address,
-        status: "cart",
-        items: {
-          create: [
-            {
-              product_name: chosenService.name,
-              unit_price: parseFloat(chosenService.price),
-              quantity: 1
-            }
-          ]
-        }
-      }
-    });
 
     const requiresPayment = chosenService.requires_payment !== false && chosenService.requires_payment !== "false";
 
@@ -1912,6 +1917,18 @@ async function processarFinalizacaoPedidoRulesBot(
       const customerName = collectedData?.name || contactName || '';
       const customerEmail = collectedData?.email || '';
       const cleanDigits = contactNumber.replace(/\D/g, "");
+
+      const order = await prisma.retailOrder.create({
+        data: {
+          tenant_id: tenantId,
+          total_amount: parseFloat(chosenService.price),
+          shipping_address: address,
+          status: "cart",
+          items: {
+            create: [{ product_name: chosenService.name, unit_price: parseFloat(chosenService.price), quantity: 1 }]
+          }
+        }
+      });
 
       // Get Asaas key from settings
       const asaasKey = settings.asaas_api_key
@@ -1979,14 +1996,41 @@ async function processarFinalizacaoPedidoRulesBot(
             throw new Error(errMsg);
           }
 
+          const idempotencyKey = `rules_pix_${createHash("sha256").update(`${stateKey}:${chosenService.id || chosenService.name}:${customerEmail}`).digest("hex")}`;
+          let operation = await prisma.paymentOperation.findUnique({ where: { idempotency_key: idempotencyKey } });
+          if (operation?.status === "completed" && operation.result) return operation.result;
+          if (!operation) {
+            operation = await prisma.paymentOperation.create({
+              data: { tenant_id: tenantId, idempotency_key: idempotencyKey, kind: "rules_pix" },
+            });
+          }
+
+          const sale = operation.sale_id
+            ? await prisma.sale.findUnique({ where: { id: operation.sale_id } })
+            : await prisma.sale.create({
+                data: {
+                  tenant_id: tenantId,
+                  product_name: chosenService.name,
+                  amount: parseFloat(chosenService.price),
+                  status: "pending",
+                  notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp${extraNotes}`,
+                  due_date: new Date(Date.now() + 7 * 86400000),
+                  retail_order_id: order.id,
+                },
+              });
+          if (!sale) throw new Error("Venda idempotente não encontrada");
+          if (!operation.sale_id) {
+            await prisma.paymentOperation.update({ where: { id: operation.id }, data: { sale_id: sale.id } });
+          }
+
           const pay = await createPayment({
             customer: customer.id,
             billingType: 'PIX',
             value: parseFloat(chosenService.price),
             dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
             description: cleanDescription(chosenService.name),
-            externalReference: `${tenantId}_${order.id}`,
-          }, asaasKey, asaasUrl);
+            externalReference: `${tenantId}_${sale.id}`,
+          }, asaasKey, asaasUrl, idempotencyKey);
 
           if (!pay.id) {
             const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar pagamento PIX';
@@ -2017,21 +2061,15 @@ async function processarFinalizacaoPedidoRulesBot(
             }
           }
 
-          // Create sale record (after PIX fallback so we have the right data)
           const pixQrUrl = /^https?:\/\//i.test(pixQr) ? pixQr : "";
           const finalPaymentLink = pay.invoiceUrl || pixQrUrl;
-          await prisma.sale.create({
+          await prisma.sale.update({
+            where: { id: sale.id },
             data: {
-              tenant_id: tenantId,
-              product_name: chosenService.name,
-              amount: parseFloat(chosenService.price),
-              status: "pending",
               payment_link: finalPaymentLink,
               payment_id: pay.id,
               notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQrUrl} | pix_key:${pixCopy || ''}${extraNotes}`,
-              due_date: new Date(Date.now() + 7 * 86400000),
-              retail_order_id: order.id,
-            }
+            },
           });
 
           await prisma.systemConfig.upsert({
@@ -2056,7 +2094,12 @@ async function processarFinalizacaoPedidoRulesBot(
             msg += `\n\n---IMAGE---\n${pixQr.replace(/^data:image\/[^;]+;base64,/, "")}`;
           }
 
-          return appendNodeCheckoutText(originNodeText, msg);
+          const finalMessage = appendNodeCheckoutText(originNodeText, msg);
+          await prisma.paymentOperation.update({
+            where: { id: operation.id },
+            data: { status: "completed", provider_id: pay.id, result: finalMessage },
+          });
+          return finalMessage;
 
         } catch (e: any) {
           console.error("Erro ao criar pagamento PIX direto:", e);
@@ -2128,19 +2171,16 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
   const blockedDates = settings.blocked_dates || [];
   
   const dates: Date[] = [];
-  const today = new Date();
-  const current = new Date(today.getTime());
-
-  // Garante que o ano está corrigido se houver clock drift
-  if (current.getFullYear() < 2026) {
-    current.setFullYear(2026);
-  }
+  const now = new Date();
+  const todayParts = getZonedDateTimeParts(now);
+  const safeYear = Math.max(todayParts.year, 2026);
+  const current = new Date(Date.UTC(safeYear, todayParts.month - 1, todayParts.day, 12));
 
   // Percorre os próximos 14 dias para encontrar 5 dias válidos
   for (let i = 0; i < 14; i++) {
-    const dayOfWeek = current.getDay();
+    const dayOfWeek = current.getUTCDay();
     const dayStr = businessDaysMap[dayOfWeek];
-    const dateISO = current.toISOString().split("T")[0]; // YYYY-MM-DD
+    const dateISO = current.toISOString().split("T")[0];
     
     const isDayEnabled = enabledDays.includes(dayStr);
     const isBlocked = blockedDates.includes(dateISO);
@@ -2151,8 +2191,14 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
     if (isToday) {
       const endHourStr = settings.business_hours_end || "18:00";
       const [endH, endM] = endHourStr.split(":").map(Number);
-      const limit = new Date(current.getFullYear(), current.getMonth(), current.getDate(), endH, endM, 0);
-      if (new Date().getTime() > limit.getTime()) {
+      const limit = zonedDateTimeToUtc({
+        year: current.getUTCFullYear(),
+        month: current.getUTCMonth() + 1,
+        day: current.getUTCDate(),
+        hour: endH,
+        minute: endM,
+      });
+      if (now.getTime() > limit.getTime()) {
         isPast = true;
       }
     }
@@ -2162,7 +2208,7 @@ function obterProximosDiasDisponiveis(settings: any): Date[] {
     }
     
     if (dates.length >= 5) break;
-    current.setDate(current.getDate() + 1);
+    current.setUTCDate(current.getUTCDate() + 1);
   }
   
   return dates;

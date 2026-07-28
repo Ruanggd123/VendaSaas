@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { getBusinessDayRange, zonedDateTimeToUtc } from "@/lib/dateTime";
+import { getProductPriceLabel } from "@/lib/currency";
 
 const prisma = new PrismaClient();
 
@@ -289,7 +291,13 @@ export const adminTools = [
   },
 ] as any;
 
-export async function handleToolCall(toolCall: any, tenantId: string, contactNumber: string) {
+export async function handleToolCall(
+  toolCall: any,
+  tenantId: string,
+  contactNumber: string,
+  conversationId?: string,
+  instanceName?: string,
+) {
   let args: any = {};
   try { args = JSON.parse(toolCall.function.arguments || '{}'); } catch {}
 
@@ -345,7 +353,9 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
     try {
       const normalizedContact = normalizePhone(contactNumber);
       // Salva no DB local
-      const startDateTime = new Date(`${args.data}T${args.hora}:00`);
+      const [year, month, day] = String(args.data).split("-").map(Number);
+      const [hour, minute] = String(args.hora).split(":").map(Number);
+      const startDateTime = zonedDateTimeToUtc({ year, month, day, hour, minute });
       if (isNaN(startDateTime.getTime())) {
         return `Erro ao agendar compromisso: data ou horário inválido.\nEx: 2026-07-30 às 14:00.`;
       }
@@ -369,8 +379,7 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
       const productInfo = products.find((p: any) => p.name?.toLowerCase() === args.titulo.toLowerCase());
       const durationMin = Number(productInfo?.duration_min || 60);
 
-      const dayStart = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate(), 0, 0, 0, 0);
-      const dayEnd = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate(), 23, 59, 59, 999);
+      const { start: dayStart, end: dayEnd } = getBusinessDayRange(startDateTime);
       const startTs = startDateTime.getTime();
       const endTs = startTs + durationMin * 60 * 1000;
 
@@ -400,6 +409,7 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
             tenant_id: tenantId,
             lead_id: lead.id,
             service_name: args.titulo,
+            service_price: Number(productInfo?.monthly ?? productInfo?.price) || null,
             scheduled_at: startDateTime,
             status: status,
             notes: `customer_phone:${normalizedContact || contactNumber} | criado via IA`
@@ -409,11 +419,11 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
       if (requiresPayment) {
         const { getAppBaseUrl } = await import("@/lib/auth");
         const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${encodeURIComponent(args.titulo)}&phone=${encodeURIComponent(contactNumber)}`;
-        return `✅ Encontrei disponibilidade para ${args.data} às ${args.hora}! \n\n⚠️ Este serviço requer **pagamento antecipado**.\n\nPara confirmar o agendamento, por favor, realize o pagamento no link abaixo:\n\n🔗 ${checkoutUrl}\n\nSeu horário está pré-reservado e será confirmado automaticamente assim que o pagamento for aprovado!`;
+        return `✅ Encontrei disponibilidade para ${args.data} às ${args.hora}!\n💰 Valor: *${getProductPriceLabel(productInfo) || "Preço não informado"}*\n\n⚠️ Este serviço requer **pagamento antecipado**.\n\nPara confirmar o agendamento, por favor, realize o pagamento no link abaixo:\n\n🔗 ${checkoutUrl}\n\nSeu horário está pré-reservado e será confirmado automaticamente assim que o pagamento for aprovado!`;
       }
 
       const { templates } = await import('./guardian/templates');
-      return templates.appointment_scheduled(args.data, args.hora, args.titulo, "Nossa Equipe", "");
+      return templates.appointment_scheduled(args.data, args.hora, args.titulo, "Nossa Equipe", getProductPriceLabel(productInfo) || "Preço não informado");
     } catch (e: any) {
       return `Erro ao agendar compromisso: ${e.message}`;
     }
@@ -422,7 +432,9 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
   if (toolCall.function.name === "pausar_ia") {
     try {
       await prisma.conversation.updateMany({
-        where: { tenant_id: tenantId, contact_number: contactNumber },
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: instanceName || "__missing_instance__", contact_number: contactNumber },
         data: { ai_paused: true }
       });
       return null;
@@ -434,7 +446,9 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
   if (toolCall.function.name === "ligar_ia") {
     try {
       await prisma.conversation.updateMany({
-        where: { tenant_id: tenantId, contact_number: contactNumber },
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: instanceName || "__missing_instance__", contact_number: contactNumber },
         data: { ai_paused: false }
       });
       return "IA ligada com sucesso.";
@@ -446,7 +460,7 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
   if (toolCall.function.name === "list_paused_chats") {
     try {
       const paused = await prisma.conversation.findMany({
-        where: { tenant_id: tenantId, ai_paused: true },
+        where: { tenant_id: tenantId, instance_name: instanceName || "__missing_instance__", ai_paused: true },
         select: { contact_number: true, contact_name: true }
       });
       if (paused.length === 0) return "Não há nenhuma conversa pausada no momento.";
@@ -462,7 +476,7 @@ export async function handleToolCall(toolCall: any, tenantId: string, contactNum
       const numClean = numero_cliente.replace(/\D/g, '');
       
       await prisma.conversation.updateMany({
-        where: { tenant_id: tenantId, contact_number: numClean },
+        where: { tenant_id: tenantId, instance_name: instanceName || "__missing_instance__", contact_number: numClean },
         data: { ai_paused: ai_paused === true || ai_paused === "true" }
       });
       return "Status da IA alterado com sucesso!";

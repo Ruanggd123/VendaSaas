@@ -29,7 +29,7 @@ services:
       - CACHE_REDIS_PREFIX_KEY=evolution
       
       - AUTHENTICATION_TYPE=apikey
-      - AUTHENTICATION_API_KEY=vendas_saas_global_key_2026
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:?EVOLUTION_API_KEY is required}
       
       # Webhooks e configurações de Chat
       - SET_MESSAGES_AS_READ=false

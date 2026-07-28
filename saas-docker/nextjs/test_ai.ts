@@ -13,7 +13,7 @@ async function runTest(scenario: string, message: string) {
   
   // Salva no BD a mensagem fictícia do cliente para haver histórico
   const conv = await prisma.conversation.upsert({
-    where: { tenant_id_contact_number: { tenant_id: tenantId, contact_number: contactNumber } },
+    where: { tenant_id_instance_name_contact_number: { tenant_id: tenantId, instance_name: "teste", contact_number: contactNumber } },
     update: { last_message_at: new Date() },
     create: { tenant_id: tenantId, contact_number: contactNumber, contact_name: "Cliente Teste", instance_name: "teste" }
   });
@@ -22,7 +22,7 @@ async function runTest(scenario: string, message: string) {
     data: { tenant_id: tenantId, conversation_id: conv.id, direction: "inbound", content: message }
   });
 
-  const response = await processMessageWithAI(tenantId, contactNumber, message);
+  const response = await processMessageWithAI(tenantId, contactNumber, message, false, { _instanceName: "teste" }, conv.id);
   console.log(`\n[🤖 IA RESPOSTA]\n${response}`);
 
   // Salva a resposta da IA no histórico

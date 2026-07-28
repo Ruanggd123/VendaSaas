@@ -68,6 +68,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ tenantId
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ tenantId: string }> }) {
+  let operationId: string | null = null;
   try {
     const { tenantId } = await params;
     const { name, phone, email, referralCode, productName, amount, isSubscription, billingType, cart, scheduled_at, retailOrderId } = await req.json();
@@ -92,6 +93,50 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     let settings: any = {};
     try { settings = JSON.parse(tenant.settings as string); } catch {}
 
+    const configuredProducts: any[] = Array.isArray(settings.products) ? settings.products : [];
+    const authoritativeAmount = Array.isArray(cart) && cart.length > 0
+      ? cart.reduce((sum: number, item: any) => {
+          const baseName = String(item.name || "").replace(/\s+-\s+(Mensal|Setup)$/i, "");
+          const product = configuredProducts.find((candidate: any) => String(candidate.name || "") === baseName);
+          if (!product) return Number.NaN;
+          const value = item.type === "subscription" ? Number(product.monthly ?? product.price) : Number(product.price);
+          return sum + value * Number(item.qty || 1);
+        }, 0)
+      : (() => {
+          const product = configuredProducts.find((candidate: any) => productName.startsWith(String(candidate.name || "")));
+          return product ? Number(isSubscription ? (product.monthly ?? product.price) : product.price) : Number.NaN;
+        })();
+    if (!Number.isFinite(authoritativeAmount) || Math.abs(authoritativeAmount - parsedAmount) > 0.01) {
+      return NextResponse.json({ error: "O valor do produto mudou. Atualize a página e tente novamente." }, { status: 409 });
+    }
+
+    const requestIdempotencyKey = req.headers.get("idempotency-key") || (retailOrderId ? `retail_${retailOrderId}` : "");
+    if (!requestIdempotencyKey) return NextResponse.json({ error: "Chave de idempotência obrigatória" }, { status: 400 });
+    const idempotencyKey = `checkout_${realTenantId}_${requestIdempotencyKey}`;
+    const previousOperation = await prisma.paymentOperation.findUnique({ where: { idempotency_key: idempotencyKey } });
+    if (previousOperation?.status === "completed" && previousOperation.result) return NextResponse.json(JSON.parse(previousOperation.result));
+    if (previousOperation?.status === "processing" && previousOperation.updated_at > new Date(Date.now() - 5 * 60 * 1000)) {
+      return NextResponse.json({ error: "Checkout já está sendo processado" }, { status: 409 });
+    }
+    const operation = previousOperation
+      ? await prisma.paymentOperation.update({ where: { id: previousOperation.id }, data: { status: "processing" } })
+      : await prisma.paymentOperation.create({ data: { tenant_id: realTenantId, idempotency_key: idempotencyKey, kind: "public_checkout" } });
+    operationId = operation.id;
+    const completeCheckout = async (payload: Record<string, unknown>) => {
+      await prisma.paymentOperation.update({
+        where: { id: operation.id },
+        data: { status: "completed", result: JSON.stringify(payload), provider_id: String(payload.paymentId || "") || null },
+      });
+      return NextResponse.json(payload);
+    };
+    const failCheckout = async (error: string, status = 400) => {
+      await prisma.paymentOperation.update({
+        where: { id: operation.id },
+        data: { status: "failed", result: JSON.stringify({ error }) },
+      });
+      return NextResponse.json({ error }, { status });
+    };
+
     let partnerId: string | undefined;
     if (referralCode) {
       const partner = await prisma.partner.findFirst({
@@ -100,7 +145,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
       if (partner) partnerId = partner.id;
     }
 
-    const lead = await prisma.lead.create({
+    const existingSale = operation.sale_id
+      ? await prisma.sale.findUnique({ where: { id: operation.sale_id } })
+      : null;
+    const existingLead = existingSale?.lead_id
+      ? await prisma.lead.findUnique({ where: { id: existingSale.lead_id } })
+      : null;
+    const lead = existingLead || await prisma.lead.create({
       data: {
         tenant_id: realTenantId,
         name,
@@ -135,7 +186,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     if (scheduled_at) notesData.scheduled_at = scheduled_at;
     if (shippingAddress) notesData.shipping_address = shippingAddress;
 
-    const sale = await prisma.sale.create({
+    const sale = existingSale || await prisma.sale.create({
       data: {
         tenant_id: realTenantId,
         lead_id: lead.id,
@@ -147,6 +198,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
         due_date: new Date(Date.now() + (isSubscription ? 30 : 7) * 86400000),
       }
     });
+    if (!operation.sale_id) {
+      await prisma.paymentOperation.update({ where: { id: operation.id }, data: { sale_id: sale.id } });
+    }
 
     // Calculate monthly-only amount from cart
     const monthlyAmount = Array.isArray(cart)
@@ -186,7 +240,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
         data: { payment_link: paymentLink, payment_id: pref.id },
       });
 
-      return NextResponse.json({
+      return completeCheckout({
         success: true,
         saleId: sale.id,
         leadId: lead.id,
@@ -232,7 +286,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
 
     if (!customer.id) {
       const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway de pagamento';
-      return NextResponse.json({ error: errMsg }, { status: 400 });
+      return failCheckout(errMsg);
     }
 
     let paymentLink = '';
@@ -259,7 +313,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
           dueDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
           description: cleanDescription(`Primeira mensalidade taxa - ${productName}`),
           externalReference: `${realTenantId}_${sale.id}`,
-        }, asaasKey, asaasUrl);
+        }, asaasKey, asaasUrl, `${idempotencyKey}_first`);
         if (firstPay.id) {
           paymentLink = firstPay.invoiceUrl || firstPay.bankSlipUrl || firstPay.pixQrCodeUrl || '';
           paymentId = firstPay.id;
@@ -290,7 +344,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
           });
         } else {
           const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura no gateway';
-          return NextResponse.json({ error: errMsg }, { status: 400 });
+          return failCheckout(errMsg);
         }
       } else {
         // No setup fee — just create subscription and get first payment link
@@ -325,7 +379,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
           });
         } else {
           const errMsg = sub.errors ? sub.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar assinatura no gateway';
-          return NextResponse.json({ error: errMsg }, { status: 400 });
+          return failCheckout(errMsg);
         }
       }
     } else {
@@ -336,7 +390,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
         dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
         description: safeDescription,
         externalReference: `${realTenantId}_${sale.id}`,
-      }, asaasKey, asaasUrl);
+      }, asaasKey, asaasUrl, `${idempotencyKey}_payment`);
 
       if (pay.id) {
         paymentLink = pay.invoiceUrl || pay.bankSlipUrl || pay.pixQrCodeUrl || '';
@@ -347,7 +401,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
         invoiceUrl = pay.invoiceUrl || '';
       } else {
         const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao gerar pagamento no gateway';
-        return NextResponse.json({ error: errMsg }, { status: 400 });
+        return failCheckout(errMsg);
       }
     }
 
@@ -356,7 +410,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
       data: { payment_link: paymentLink, payment_id: paymentId },
     });
 
-    return NextResponse.json({
+    return completeCheckout({
       success: true,
       saleId: sale.id,
       leadId: lead.id,
@@ -370,6 +424,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     });
   } catch (error: any) {
     console.error('[Checkout API Error]', error);
+    if (operationId) {
+      await prisma.paymentOperation.update({
+        where: { id: operationId },
+        data: { status: "failed", result: JSON.stringify({ error: error?.message || "Erro ao processar checkout" }) },
+      }).catch((updateError) => console.error('[Checkout operation update error]', updateError));
+    }
     return NextResponse.json({ error: 'Erro ao processar checkout' }, { status: 400 });
   }
 }

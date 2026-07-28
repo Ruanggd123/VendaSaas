@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { sendWhatsAppMessage } from "@/lib/evolution";
+import { cleanupOperationalData } from "@/lib/diagnostics";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -68,8 +69,9 @@ export async function GET(req: Request) {
       autoCompletedCount = result.count;
     }
 
+    const cleaned = await cleanupOperationalData();
     console.log(`✅ [CRON HOURLY] Finalizado. ${upcomingAppointments.length} lembretes enviados, ${autoCompletedCount} agendamentos auto-concluídos.`);
-    return NextResponse.json({ success: true, processed: upcomingAppointments.length, autoCompleted: autoCompletedCount });
+    return NextResponse.json({ success: true, processed: upcomingAppointments.length, autoCompleted: autoCompletedCount, cleaned });
   } catch (error: any) {
     console.error("❌ [CRON HOURLY] Erro fatal:", error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });

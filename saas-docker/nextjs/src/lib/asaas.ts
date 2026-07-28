@@ -25,10 +25,11 @@ export interface PaymentData {
   externalReference?: string;
 }
 
-function getHeaders(apiKey?: string) {
+function getHeaders(apiKey?: string, extra?: Record<string, string>) {
   return {
     'Content-Type': 'application/json',
     'access_token': (apiKey || ASAAS_API_KEY).trim(),
+    ...extra,
   };
 }
 
@@ -40,7 +41,7 @@ async function asaasFetch(endpoint: string, options: any = {}, apiKey?: string, 
   const primaryUrl = getApiUrl(apiUrl);
   const response = await fetch(`${primaryUrl}${endpoint}`, {
     ...options,
-    headers: getHeaders(apiKey),
+    headers: getHeaders(apiKey, options.headers),
   });
 
   let resJson: any = {};
@@ -67,7 +68,7 @@ async function asaasFetch(endpoint: string, options: any = {}, apiKey?: string, 
 
       const fallbackResponse = await fetch(`${fallbackUrl}${endpoint}`, {
         ...options,
-        headers: getHeaders(apiKey),
+        headers: getHeaders(apiKey, options.headers),
       });
 
       try {
@@ -103,9 +104,10 @@ export const createCustomer = async (customer: Customer, apiKey?: string, apiUrl
   return resJson;
 };
 
-export const createPayment = async (data: PaymentData, apiKey?: string, apiUrl?: string) => {
+export const createPayment = async (data: PaymentData, apiKey?: string, apiUrl?: string, idempotencyKey?: string) => {
   return await asaasFetch('/payments', {
     method: 'POST',
+    headers: idempotencyKey ? { 'asaas-idempotency-key': idempotencyKey } : undefined,
     body: JSON.stringify(data)
   }, apiKey, apiUrl);
 };

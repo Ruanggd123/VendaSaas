@@ -78,6 +78,7 @@ function hasValue(value: string | undefined): boolean {
 export default function CheckoutPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const formRef = useRef<HTMLDivElement>(null);
+  const checkoutIdempotencyKey = useRef(crypto.randomUUID());
   const [ref, setRef] = useState('');
   const [tenantName, setTenantName] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -247,7 +248,7 @@ export default function CheckoutPage() {
     try {
       const res = await fetch(`/api/public/checkout/${tenantId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': checkoutIdempotencyKey.current },
         body: JSON.stringify({
           name: form.name,
           phone: form.phone,

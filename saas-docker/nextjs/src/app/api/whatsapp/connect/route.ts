@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getPlanDetails } from "@/lib/plans";
 import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
         ...(isPartner ? { partner_id: session.id } : {}),
       };
 
-      const planLimit = tenant.plan === "solo" ? 1 : tenant.plan === "pro" ? 3 : 999;
+      const planLimit = getPlanDetails(tenant.plan).maxWhatsappInstances;
       const partnerLimit = 1;
       const limit = isPartner ? partnerLimit : planLimit;
       const currentInstancesCount = await prisma.whatsappInstance.count({

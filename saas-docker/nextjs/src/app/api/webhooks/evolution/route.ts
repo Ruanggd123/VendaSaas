@@ -6,6 +6,9 @@ import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { createHash, timingSafeEqual } from "crypto";
 import { ensureMinimumWhatsAppPollOptions, formatWhatsAppOptionText } from "@/lib/whatsappOptions";
+import { reserveMonthlyAttendance } from "@/lib/usage";
+import { formatBusinessDateKey } from "@/lib/dateTime";
+import { recordDiagnostic } from "@/lib/diagnostics";
 
 const prisma = new PrismaClient();
 const webhookTokenCache = new Map<string, { token: string; expiresAt: number }>();
@@ -334,6 +337,7 @@ export async function POST(req: Request) {
             const existingReceipt = await prisma.systemConfig.findUnique({ where: { key: receiptKey }, select: { key: true } });
             if (existingReceipt) {
               console.log(`[Webhook] Evento duplicado ignorado atomicamente: ${providerMessageId}`);
+              await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "ignored", reasonCode: "duplicate" });
               return NextResponse.json({ success: true, ignored: "Evento duplicado" });
             }
             throw error;
@@ -519,18 +523,19 @@ export async function POST(req: Request) {
         // 1. Busca ou cria a conversa atomicamente (sem race condition)
         const conversation = await prisma.conversation.upsert({
           where: {
-            tenant_id_contact_number: {
+            tenant_id_instance_name_contact_number: {
               tenant_id: tenantId,
+              instance_name: instance.name,
               contact_number: contactNumber
             }
           },
           update: {
-            instance_name: instanceName,
+            instance_name: instance.name,
             ...(fromMe ? {} : { contact_name: contactName, status: "active" }) // Só atualiza o nome se não for eu enviando (para não sobreescrever os clientes com o meu nome)
           },
           create: {
             tenant_id: tenantId,
-            instance_name: instanceName,
+            instance_name: instance.name,
             contact_number: contactNumber,
             contact_name: contactName,
             last_message_at: new Date()
@@ -835,10 +840,7 @@ export async function POST(req: Request) {
           // Pausamos a IA para não interromper você.
           if (!lastMsg?.ai_generated) {
             await prisma.conversation.updateMany({
-              where: { 
-                tenant_id: tenantId,
-                contact_number: contactNumber
-              },
+              where: { id: conversation.id, tenant_id: tenantId },
               data: { ai_paused: true }
             });
             console.log(`⏸️ IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
@@ -897,6 +899,7 @@ export async function POST(req: Request) {
           );
           if (!isLatestInbound) {
             console.log(`[Webhook] Mensagem ${processingToken} agrupada; uma entrada mais recente será processada para ${contactNumber}`);
+            await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "grouped", reasonCode: "debounced" });
             return NextResponse.json({ success: true, ignored: "Mensagem agrupada" });
           }
 
@@ -911,6 +914,7 @@ export async function POST(req: Request) {
           });
           if (responseAfterInbound) {
             console.log(`[Webhook] Mensagem ${processingToken} já coberta por uma resposta concorrente para ${contactNumber}`);
+            await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "ignored", reasonCode: "concurrent_response" });
             return NextResponse.json({ success: true, ignored: "Resposta concorrente já enviada" });
           }
 
@@ -922,11 +926,42 @@ export async function POST(req: Request) {
           );
           if (!processingLockKey) {
             console.log(`[Webhook] Processamento já em andamento para ${contactNumber}; mensagem ${processingToken} não avançará o fluxo`);
+            await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "ignored", reasonCode: "processing_locked" });
             return NextResponse.json({ success: true, ignored: "Processamento em andamento" });
+          }
+
+          const usage = await reserveMonthlyAttendance({
+            tenantId,
+            tenantPlan: webhookTenant?.plan || "site_gratis",
+            instanceName: instance.name,
+            contactNumber,
+            configuredLimit: accountSettings.max_attendances_per_month ?? accountSettings.max_conversations_per_month,
+          });
+          if (!usage.allowed) {
+            await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "blocked", reasonCode: "monthly_limit" });
+            const period = formatBusinessDateKey(new Date()).slice(0, 7);
+            const noticeKey = `usage_limit_notice_${tenantId}_${period}`;
+            let shouldNotify = false;
+            try {
+              await prisma.systemConfig.create({ data: { key: noticeKey, value: new Date().toISOString() } });
+              shouldNotify = true;
+            } catch {}
+            if (shouldNotify) {
+              const limitReply = "O atendimento automático está temporariamente indisponível. Sua mensagem foi recebida e será atendida pela equipe.";
+              const sent = await sendTrackedWhatsAppMessage(instanceName, contactNumber, limitReply);
+              if (sent) {
+                await prisma.message.create({
+                  data: { tenant_id: tenantId, conversation_id: conversation.id, direction: "outbound", content: limitReply, ai_generated: true },
+                });
+              }
+            }
+            await releaseConversationProcessingLock(processingLockKey, processingToken);
+            return NextResponse.json({ success: true, ignored: "Limite mensal de atendimentos atingido" });
           }
 
           // Processamento da IA em try/catch proprio para nao derrubar o webhook inteiro
           try {
+              const aiStartedAt = Date.now();
               console.log(`[Webhook] Processando mensagem IA sincronicamente para ${contactNumber} (fromMe=${fromMe}, isMessageToMyself=${isMessageToMyself}, ai_paused=${conversation.ai_paused})`);
 
             // Se for mídia sem texto legível (imagem/vídeo/documento sem legenda), responde direto sem chamar IA
@@ -984,8 +1019,10 @@ export async function POST(req: Request) {
                 contactNumber,
                 msgContent,
                 isMessageToMyself,
-                { ...(instanceSettings || {}), _instanceName: instanceName },
+                { ...(instanceSettings || {}), _instanceName: instance.name, _conversationId: conversation.id },
+                conversation.id,
               );
+              await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "latency", reasonCode: "automation_response", durationMs: Date.now() - aiStartedAt });
               console.log(`[Webhook] processMessageWithAI retornou: ${iaResponse ? iaResponse.substring(0, 100) + "..." : "null (pausado/erro)"}`);
             
               const normalizeText = (text: string) => {
@@ -1161,6 +1198,7 @@ export async function POST(req: Request) {
                 });
               } else {
                 if (conversation.ai_paused) {
+                  await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "no_response", reasonCode: "ai_paused" });
                   console.log(`[Webhook] IA pausada para ${contactNumber}, não enviando fallback automático.`);
                 } else {
                   const fallbackResponse = "Desculpe, no momento não consegui responder. Pode enviar novamente em alguns instantes?";
@@ -1172,6 +1210,7 @@ export async function POST(req: Request) {
             }
           } catch (aiErr) {
             const aiErrMessage = aiErr instanceof Error ? aiErr.message : String(aiErr);
+            await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "failure", reasonCode: "automation_error" });
             console.error(`[Webhook] ERRO ao processar IA para ${contactNumber}:`, aiErrMessage);
             // Tenta enviar um aviso genérico via texto puro como fallback emergencial
             try {

@@ -37,6 +37,8 @@ model Tenant {
   accounting_tasks   AccountingTask[]
   custom_modules     CustomModule[]
   partners           Partner[]
+  diagnostic_events  DiagnosticEvent[]
+  payment_operations PaymentOperation[]
 
   @@map("tenants")
 }
@@ -79,7 +81,7 @@ model User {
 model Conversation {
   id              String    @id @default(uuid())
   tenant_id       String
-  instance_name   String?
+  instance_name   String    @default("legacy")
   contact_number  String
   contact_name    String?
   profile_picture String?
@@ -94,8 +96,8 @@ model Conversation {
   messages Message[]
   leads    Lead[]
 
-  @@unique([tenant_id, contact_number])
-  @@index([tenant_id])
+  @@unique([tenant_id, instance_name, contact_number])
+  @@index([tenant_id, instance_name])
   @@map("conversations")
 }
 
@@ -283,7 +285,43 @@ model SystemConfig {
   value      String            // o valor (pode ser JSON stringificado)
   updated_at DateTime @updatedAt
 
+  @@index([updated_at])
   @@map("system_configs")
+}
+
+model DiagnosticEvent {
+  id                String   @id @default(uuid())
+  tenant_id         String
+  instance_name     String?
+  provider_event_id String?
+  category          String
+  reason_code       String
+  duration_ms       Int?
+  created_at        DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, category, reason_code, created_at])
+  @@map("diagnostic_events")
+}
+
+model PaymentOperation {
+  id              String   @id @default(uuid())
+  tenant_id       String
+  idempotency_key String   @unique
+  kind            String
+  status          String   @default("processing")
+  sale_id         String?
+  provider_id     String?
+  result          String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, created_at])
+  @@map("payment_operations")
 }
 
 // Agendamentos (criados via IA ou manualmente)
@@ -293,6 +331,7 @@ model Appointment {
   lead_id      String?
   service_name String
   duration_min Int       @default(60)   // duração em minutos
+  service_price Float?
   scheduled_at DateTime
   status       String    @default("scheduled") // scheduled, confirmed, completed, cancelled, no_show
   notes        String?

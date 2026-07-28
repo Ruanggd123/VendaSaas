@@ -5,7 +5,7 @@ export type Plan = {
   price: number;
   maxUsers: number;
   maxWhatsappInstances: number;
-  maxConversations: number;
+  maxConversations: number | null;
   bonus: string;
   bonusValue: string;
   idealFor: string;
@@ -49,7 +49,7 @@ export const PLANS: Record<string, Plan> = {
     price: 197,
     maxUsers: 5,
     maxWhatsappInstances: 1,
-    maxConversations: 99999,
+    maxConversations: null,
     bonus: 'Plataforma + CRM Grátis',
     bonusValue: 'R$ 997',
     idealFor: 'Pequenas empresas e equipes de vendas',
@@ -78,7 +78,7 @@ export const PLANS: Record<string, Plan> = {
     price: 397,
     maxUsers: 999,
     maxWhatsappInstances: 3,
-    maxConversations: 99999,
+    maxConversations: null,
     bonus: 'Loja Virtual Grátis',
     bonusValue: 'R$ 1.997',
     idealFor: 'Marcas, e-commerces e operações em crescimento',
@@ -105,5 +105,13 @@ export const PLANS: Record<string, Plan> = {
 };
 
 export const getPlanDetails = (planId: string): Plan => {
-  return PLANS[planId] || PLANS['site_gratis'];
+  const aliases: Record<string, string> = {
+    solo: "site_gratis",
+    pro: "crm_gratis",
+    equipe: "crm_gratis",
+    business: "loja_gratis",
+    enterprise: "loja_gratis",
+    corporativo: "loja_gratis",
+  };
+  return PLANS[planId] || PLANS[aliases[planId]] || PLANS['site_gratis'];
 };

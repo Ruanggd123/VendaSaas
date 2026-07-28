@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { zonedDateTimeToUtc } from "@/lib/dateTime";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -94,8 +95,16 @@ export async function GET(req: Request) {
 
     if (month) {
       const [year, m] = month.split("-").map(Number);
-      const start = new Date(year, m - 1, 1);
-      const end = new Date(year, m, 0, 23, 59, 59);
+      const start = zonedDateTimeToUtc({ year, month: m, day: 1, hour: 0, minute: 0 });
+      const nextMonthYear = m === 12 ? year + 1 : year;
+      const nextMonth = m === 12 ? 1 : m + 1;
+      const end = new Date(zonedDateTimeToUtc({
+        year: nextMonthYear,
+        month: nextMonth,
+        day: 1,
+        hour: 0,
+        minute: 0,
+      }).getTime() - 1);
       where.scheduled_at = { gte: start, lte: end };
     }
 
@@ -119,7 +128,7 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json();
-    const { service_name, duration_min, scheduled_at, lead_id, notes } = body;
+    const { service_name, service_price, duration_min, scheduled_at, lead_id, notes } = body;
 
     if (!service_name || !scheduled_at) {
       return NextResponse.json({ error: "service_name e scheduled_at são obrigatórios" }, { status: 400 });
@@ -160,6 +169,7 @@ export async function POST(req: Request) {
         tenant_id: session.tenant_id,
         lead_id: lead_id || null,
         service_name,
+        service_price: service_price == null ? null : Number(service_price),
         duration_min: duration_min || 60,
         scheduled_at: scheduledDate,
         notes: notes || null,

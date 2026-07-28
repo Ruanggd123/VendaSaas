@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs"; 
+import { getPlanDetails } from "@/lib/plans";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -43,6 +44,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 400 });
     }
 
+    const tenant = await prisma.tenant.findUnique({ where: { id: session.tenant_id }, select: { plan: true } });
+    const currentUsers = await prisma.user.count({ where: { tenant_id: session.tenant_id } });
+    const maxUsers = getPlanDetails(tenant?.plan || "site_gratis").maxUsers;
+    if (currentUsers >= maxUsers) {
+      return NextResponse.json({ error: `Seu plano permite no máximo ${maxUsers} usuário(s) na equipe.` }, { status: 403 });
+    }
+
     const password_hash = await hash(password, 10);
 
     const newUser = await prisma.user.create({
@@ -80,10 +88,6 @@ export async function DELETE(req: Request) {
     });
 
     if (!user) return NextResponse.json({ error: "Funcionário não encontrado" }, { status: 404 });
-
-    // Desconecta instâncias do WhatsApp vinculadas ao tenant/usuário
-    const { disconnectWhatsappInstances } = await import("@/lib/whatsapp");
-    await disconnectWhatsappInstances({ tenant_id: user.tenant_id });
 
     await prisma.user.delete({ where: { id } });
 

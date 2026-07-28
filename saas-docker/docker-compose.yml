@@ -4,9 +4,9 @@ services:
     container_name: saas_postgres
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: MudeEstaSenhaAgora@2026
-      POSTGRES_DB: saas
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-saas}
     volumes:
       - ./postgres:/var/lib/postgresql/data
     ports:
@@ -31,8 +31,8 @@ services:
     restart: always
     environment:
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://admin:MudeEstaSenhaAgora%402026@postgres:5432/evolution?connection_limit=20&pool_timeout=30
-      - DATABASE_URL=postgresql://admin:MudeEstaSenhaAgora%402026@postgres:5432/evolution?connection_limit=20&pool_timeout=30
+       - DATABASE_CONNECTION_URI=${EVOLUTION_DATABASE_URL:?EVOLUTION_DATABASE_URL is required}
+       - DATABASE_URL=${EVOLUTION_DATABASE_URL:?EVOLUTION_DATABASE_URL is required}
       # Avoid one concurrent Prisma query per contact during WhatsApp history sync.
       - DATABASE_SAVE_IS_ON_WHATSAPP=false
       - DATABASE_SAVE_DATA_CONTACTS=false
@@ -46,7 +46,7 @@ services:
       - CACHE_REDIS_PREFIX_KEY=evolution
       - INSTANCE_NAME=evolution
       - AUTHENTICATION_TYPE=apikey
-      - AUTHENTICATION_API_KEY=ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df
+       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:?EVOLUTION_API_KEY is required}
       - REJECT_CALL=true
       - MSG_CALL_REJECTED=Desculpe, este número não recebe chamadas. Por favor, envie uma mensagem de texto.
       - SET_MESSAGES_AS_READ=false
@@ -68,21 +68,17 @@ services:
     container_name: saas_nextjs
     restart: always
     environment:
-      - DATABASE_URL=postgresql://admin:MudeEstaSenhaAgora@2026@postgres:5432/saas
-      - NEXTAUTH_SECRET=MudeEstaChaveSecreta@2026
-      - NEXTAUTH_URL=http://localhost:3000
+      - DATABASE_URL=${SAAS_DATABASE_URL:?SAAS_DATABASE_URL is required}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - EVOLUTION_URL=http://evolution:8080
-      - EVOLUTION_API_KEY=ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:?EVOLUTION_API_KEY is required}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - CRON_SECRET=minhasenha
-      - ASAAS_API_KEY=
-      - ASAAS_API_URL=https://sandbox.asaas.com/api/v3
-      # Chave de API do Asaas (sandbox ou produção). Necessário para assinaturas.
-      - ASAAS_API_KEY=
-      # URL da API do Asaas (sandbox: https://sandbox.asaas.com/api/v3, produção: https://asaas.com/api/v3)
-      - ASAAS_API_URL=https://sandbox.asaas.com/api/v3
+      - CRON_SECRET=${CRON_SECRET:?CRON_SECRET is required}
+      - ASAAS_API_KEY=${ASAAS_API_KEY:-}
+      - ASAAS_API_URL=${ASAAS_API_URL:-https://sandbox.asaas.com/api/v3}
       # SMTP para envio de emails (recuperação de senha, notificações)
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -105,9 +101,9 @@ services:
     command: npx tsx src/worker.ts
     environment:
       - IS_WORKER=true
-      - DATABASE_URL=postgresql://admin:MudeEstaSenhaAgora@2026@postgres:5432/saas
+      - DATABASE_URL=${SAAS_DATABASE_URL:?SAAS_DATABASE_URL is required}
       - EVOLUTION_URL=http://evolution:8080
-      - EVOLUTION_API_KEY=ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:?EVOLUTION_API_KEY is required}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
@@ -128,12 +124,10 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_EVOLUTION_API_URL=http://localhost:3000/api/proxy/evolution
-        - VITE_EVOLUTION_API_KEY=vendas_saas_proxy_key
     container_name: saas_manager
     restart: always
     environment:
       - VITE_EVOLUTION_API_URL=http://localhost:3000/api/proxy/evolution
-      - VITE_EVOLUTION_API_KEY=vendas_saas_proxy_key
     volumes:
       - ./manager-nginx.conf:/etc/nginx/conf.d/nginx.conf
     ports:

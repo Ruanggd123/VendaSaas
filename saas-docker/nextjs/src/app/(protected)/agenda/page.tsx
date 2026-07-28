@@ -21,10 +21,13 @@ import {
   FileText,
   Clock3,
 } from "lucide-react";
+import { formatBusinessDateKey, formatBusinessTime, zonedDateTimeToUtc } from "@/lib/dateTime";
+import { formatBRL, getProductPriceLabel } from "@/lib/currency";
 
 interface Appointment {
   id: string;
   service_name: string;
+  service_price?: number | null;
   duration_min: number;
   scheduled_at: string;
   status: string;
@@ -33,7 +36,7 @@ interface Appointment {
 }
 
 interface AISettings {
-  products?: { name: string; price: string; description: string; duration_min?: number }[];
+  products?: { name: string; price: string; monthly?: string; type?: string; description: string; duration_min?: number }[];
   business_hours_start?: string;
   business_hours_end?: string;
   business_days?: string[];
@@ -103,8 +106,7 @@ function padZero(n: number) {
 }
 
 function formatTime(iso: string) {
-  const d = new Date(iso);
-  return `${padZero(d.getHours())}:${padZero(d.getMinutes())}`;
+  return formatBusinessTime(iso);
 }
 
 // ─── MODAL DE NOVO AGENDAMENTO ─────────────────────────────────────────────
@@ -125,6 +127,7 @@ function NewAppointmentModal({
 }) {
   const [form, setForm] = useState({
     service_name: "",
+    service_price: null as number | null,
     duration_min: 60,
     date: "",
     time: "",
@@ -148,6 +151,7 @@ function NewAppointmentModal({
     setForm((f) => ({
       ...f,
       service_name: name,
+      service_price: Number(svc?.monthly ?? svc?.price) || null,
       duration_min: svc?.duration_min || 60,
     }));
   };
@@ -160,7 +164,9 @@ function NewAppointmentModal({
     setSaving(true);
     setError("");
     try {
-      const scheduled_at = new Date(`${form.date}T${form.time}:00`).toISOString();
+      const [year, month, day] = form.date.split("-").map(Number);
+      const [hour, minute] = form.time.split(":").map(Number);
+      const scheduled_at = zonedDateTimeToUtc({ year, month, day, hour, minute }).toISOString();
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,7 +230,7 @@ function NewAppointmentModal({
                 <option value="" className="bg-white dark:bg-slate-900">Selecione um serviço cadastrado...</option>
                 {services.map((s) => (
                   <option key={s.name} value={s.name} className="bg-white dark:bg-slate-900">
-                    {s.name} {s.price ? `— ${s.price}` : ""}
+                    {s.name} — {getProductPriceLabel(s) || "Preço não informado"}
                   </option>
                 ))}
                 <option value="__custom__" className="bg-white dark:bg-slate-900">+ Outro Serviço (Digitar Manualmente)</option>
@@ -293,7 +299,15 @@ function NewAppointmentModal({
 
                   let isAvailable = true;
                   if (form.date && appointments) {
-                    const startSlot = new Date(`${form.date}T${timeStr}:00`).getTime();
+                    const [slotYear, slotMonth, slotDay] = form.date.split("-").map(Number);
+                    const [slotHour, slotMinute] = timeStr.split(":").map(Number);
+                    const startSlot = zonedDateTimeToUtc({
+                      year: slotYear,
+                      month: slotMonth,
+                      day: slotDay,
+                      hour: slotHour,
+                      minute: slotMinute,
+                    }).getTime();
                     const endSlot = startSlot + form.duration_min * 60000;
 
                     isAvailable = !appointments.some((app) => {
@@ -408,7 +422,7 @@ function AppointmentCard({ appt, onStatusChange }: {
         <div className="flex items-center gap-2 font-mono font-bold text-slate-700 dark:text-slate-300">
           <Clock3 className="w-3.5 h-3.5 text-indigo-500" />
           <span>
-            {formatTime(appt.scheduled_at)} – {padZero(endTime.getHours())}:{padZero(endTime.getMinutes())}
+            {formatTime(appt.scheduled_at)} – {formatBusinessTime(endTime)}
           </span>
           <span className="text-[10px] text-slate-400 font-normal">({appt.duration_min} min)</span>
         </div>
@@ -422,6 +436,11 @@ function AppointmentCard({ appt, onStatusChange }: {
       {appt.notes && (
         <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-950/50 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
           💬 {appt.notes}
+        </p>
+      )}
+      {appt.service_price != null && (
+        <p className="mt-2 text-xs font-black text-emerald-600 dark:text-emerald-400">
+          💰 {formatBRL(appt.service_price)}
         </p>
       )}
     </div>
@@ -468,18 +487,14 @@ export default function AgendaPage() {
 
   const getAppointmentsForDay = (day: number) =>
     appointments.filter((a) => {
-      const d = new Date(a.scheduled_at);
-      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+      const expectedDate = `${year}-${padZero(month + 1)}-${padZero(day)}`;
+      return formatBusinessDateKey(a.scheduled_at) === expectedDate;
     });
 
   const selectedDayAppts = selectedDay
     ? appointments.filter((a) => {
-        const d = new Date(a.scheduled_at);
-        return (
-          d.getFullYear() === selectedDay.getFullYear() &&
-          d.getMonth() === selectedDay.getMonth() &&
-          d.getDate() === selectedDay.getDate()
-        );
+        const expectedDate = `${selectedDay.getFullYear()}-${padZero(selectedDay.getMonth() + 1)}-${padZero(selectedDay.getDate())}`;
+        return formatBusinessDateKey(a.scheduled_at) === expectedDate;
       })
     : [];
 

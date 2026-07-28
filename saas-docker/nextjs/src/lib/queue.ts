@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
+import { reserveMonthlyAttendance } from './usage';
 
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'redis',
@@ -36,7 +37,7 @@ export const messageWorker = process.env.IS_WORKER === 'true' ? new Worker('mess
   const prisma = new PrismaClient();
   
   const conversation = await prisma.conversation.findFirst({
-    where: { tenant_id: tenantId, contact_number: from },
+    where: { tenant_id: tenantId, instance_name: instanceName, contact_number: from },
     include: {
       messages: {
         orderBy: { created_at: 'desc' },
@@ -54,29 +55,19 @@ export const messageWorker = process.env.IS_WORKER === 'true' ? new Worker('mess
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   
   if (tenant) {
-    let limit = 0;
-    const plan = tenant.plan.toLowerCase();
-    
-    if (plan === "site_gratis") limit = 1000;
-    else if (plan === "crm_gratis") limit = 99999; // ilimitado
-    else if (plan === "loja_gratis") limit = 99999; // ilimitado
-    else if (plan === "so_bot") limit = 5000;
-    else limit = 1000; // default safe fallback
-
-    if (tenant.ai_conversations_count >= limit) {
-      console.log(`[Queue] Limite de IA atingido (${limit}) para o tenant ${tenantId}.`);
-      return;
-    }
-
-    // Incrementar o uso
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { ai_conversations_count: { increment: 1 } }
-    });
+    const usage = await reserveMonthlyAttendance({ tenantId, tenantPlan: tenant.plan, instanceName, contactNumber: from });
+    if (!usage.allowed) return;
   }
 
   const { processMessageWithAI } = await import('./ai/engine');
-  const iaResponse = await processMessageWithAI(tenantId, from, message, isMessageToMyself);
+  const iaResponse = await processMessageWithAI(
+    tenantId,
+    from,
+    message,
+    isMessageToMyself,
+    { _instanceName: instanceName, _conversationId: conversation?.id },
+    conversation?.id,
+  );
 
   if (iaResponse) {
     // Depois de processar, coloca na fila de envio
@@ -112,7 +103,7 @@ export const sendWorker = process.env.IS_WORKER === 'true' ? new Worker('send-qu
   const { PrismaClient } = await import('@prisma/client');
   const prisma = new PrismaClient();
   const conversation = await prisma.conversation.findFirst({
-    where: { tenant_id: tenantId, contact_number: to }
+    where: { tenant_id: tenantId, instance_name: instanceName, contact_number: to }
   });
   
   if (conversation) {

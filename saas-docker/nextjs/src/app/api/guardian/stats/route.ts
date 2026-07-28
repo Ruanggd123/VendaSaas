@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { getDiagnosticSummary } from "@/lib/diagnostics";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,38 +11,18 @@ export async function GET() {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    // Mock data — real logging can be wired in later via a GuardianLog table
+    const summary = await getDiagnosticSummary(session.tenant_id, new Date(Date.now() - 24 * 60 * 60 * 1000));
     return NextResponse.json({
-      approved: 47,
-      blocked: 12,
-      jailbreak_attempts: 3,
-      recent_blocks: [
-        {
-          intent: "agendar_compromisso",
-          reason: "Campo obrigatório faltando: hora",
-          timestamp: new Date().toISOString(),
-        },
-        {
-          intent: "criar_ordem_servico",
-          reason: "Campo obrigatório faltando: defeito_relatado",
-          timestamp: new Date(Date.now() - 3_600_000).toISOString(),
-        },
-        {
-          intent: "enviar_mensagem_em_massa",
-          reason: "Intenção não permitida para este plano",
-          timestamp: new Date(Date.now() - 7_200_000).toISOString(),
-        },
-        {
-          intent: "deletar_todos_leads",
-          reason: "Tentativa de acesso a ação destrutiva sem confirmação",
-          timestamp: new Date(Date.now() - 86_400_000).toISOString(),
-        },
-        {
-          intent: "exportar_dados_sensiveis",
-          reason: "Jailbreak detectado: instrução fora de escopo",
-          timestamp: new Date(Date.now() - 172_800_000).toISOString(),
-        },
-      ],
+      approved: summary.totals.latency || 0,
+      blocked: (summary.totals.blocked || 0) + (summary.totals.ignored || 0),
+      jailbreak_attempts: summary.reasons.find((item) => item.reason === "jailbreak")?.count || 0,
+      recent_blocks: summary.recent_failures.map((event) => ({
+        intent: event.category,
+        reason: event.reason_code.replace(/_/g, " "),
+        timestamp: event.created_at.toISOString(),
+      })),
+      latency: summary.latency,
+      reasons: summary.reasons,
     });
   } catch (error) {
     console.error("Erro ao buscar stats do Guardian:", error);

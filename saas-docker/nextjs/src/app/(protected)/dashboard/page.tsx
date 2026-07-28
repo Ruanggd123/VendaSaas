@@ -260,7 +260,7 @@ export default function DashboardPage() {
   const formatDate = (dateStr: string) => {
     if (!mounted) return "";
     try {
-      return new Date(dateStr).toLocaleDateString("pt-BR");
+      return new Date(dateStr).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     } catch {
       return "-";
     }
@@ -269,7 +269,7 @@ export default function DashboardPage() {
   const formatDateTime = (dateStr: string) => {
     if (!mounted) return "";
     try {
-      return new Date(dateStr).toLocaleString("pt-BR");
+      return new Date(dateStr).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     } catch {
       return "-";
     }
@@ -278,7 +278,7 @@ export default function DashboardPage() {
   const formatTime = (dateStr: string) => {
     if (!mounted) return "";
     try {
-      return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
     } catch {
       return "-";
     }

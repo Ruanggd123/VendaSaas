@@ -7,7 +7,7 @@ import { sanitizeInput, validateOutput, checkRateLimit } from "./guardian/securi
 
 const prisma = new PrismaClient();
 
-export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false, instanceSettings?: any) {
+export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false, instanceSettings?: any, conversationId?: string) {
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return "Desculpe, não consegui identificar a empresa dessa conversa. Pode me enviar novamente em alguns instantes?";
@@ -36,7 +36,7 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
       }
     }
 
-    if (!isMessageToMyself && !checkRateLimit(`${tenantId}:${contactNumber}`)) {
+    if (!isMessageToMyself && !checkRateLimit(`${tenantId}:${instanceSettings?._instanceName || "default"}:${contactNumber}`)) {
       console.warn(`[SECURITY] Rate Limit excedido para ${contactNumber} no tenant ${tenantId}`);
       return "Muitas mensagens em pouco tempo. Por favor, aguarde alguns segundos antes de enviar outra mensagem.";
     }
@@ -61,7 +61,9 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
 
     // Buscar histórico de mensagens da conversa (as 30 mais recentes em ordem cronológica)
     const conversation = await prisma.conversation.findFirst({
-      where: { tenant_id: tenantId, contact_number: contactNumber },
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: instanceSettings?._instanceName || "__missing_instance__", contact_number: contactNumber },
       include: {
         messages: {
           orderBy: { created_at: 'desc' },
@@ -647,10 +649,8 @@ REGRAS:
       }
 
       console.log(`[GUARDIAN] Intenção validada. Executando...`);
-      const { handleToolCall } = await import('./tools');
-      
       // O executor agora retorna a resposta final em formato de template
-      const toolResult = await handleToolCall(toolCall, tenantId, contactNumber);
+      const toolResult = await handleToolCall(toolCall, tenantId, contactNumber, conversationId, instanceSettings?._instanceName);
       
       return toolResult;
     }
