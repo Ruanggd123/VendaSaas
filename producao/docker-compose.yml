@@ -4,9 +4,9 @@ services:
     container_name: saas_postgres
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: senha_secreta
-      POSTGRES_DB: saas
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-saas}
     volumes:
       - ./postgres:/var/lib/postgresql/data
     ports:
@@ -31,14 +31,16 @@ services:
     restart: always
     environment:
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://admin:senha_secreta@postgres:5432/saas?connection_limit=20&pool_timeout=30
-      - DATABASE_URL=postgresql://admin:senha_secreta@postgres:5432/saas?connection_limit=20&pool_timeout=30
+      - DATABASE_CONNECTION_URI=${EVOLUTION_DATABASE_URL:?EVOLUTION_DATABASE_URL is required}
+      - DATABASE_URL=${EVOLUTION_DATABASE_URL:?EVOLUTION_DATABASE_URL is required}
       - DATABASE_SAVE_IS_ON_WHATSAPP=false
       - DATABASE_SAVE_DATA_CONTACTS=false
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://redis:6379
       - CACHE_REDIS_PREFIX_KEY=evolution
       - INSTANCE_NAME=evolution
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:?EVOLUTION_API_KEY is required}
     volumes:
       - ./evolution:/app/instances
     ports:
@@ -56,10 +58,10 @@ services:
     environment:
       - N8N_DATABASE_TYPE=postgresdb
       - N8N_DATABASE_POSTGRESDB_HOST=postgres
-      - N8N_DATABASE_POSTGRESDB_DATABASE=saas
-      - N8N_DATABASE_POSTGRESDB_USER=admin
-      - N8N_DATABASE_POSTGRESDB_PASSWORD=senha_secreta
-      - N8N_ENCRYPTION_KEY=chave_de_criptografia_aleatoria
+      - N8N_DATABASE_POSTGRESDB_DATABASE=${POSTGRES_DB:-saas}
+      - N8N_DATABASE_POSTGRESDB_USER=${POSTGRES_USER:?POSTGRES_USER is required}
+      - N8N_DATABASE_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY is required}
       - N8N_SECURE_COOKIE=false
     volumes:
       - ./n8n:/home/node/.n8n
@@ -78,9 +80,9 @@ services:
     container_name: saas_nextjs
     restart: always
     environment:
-      - DATABASE_URL=postgresql://admin:senha_secreta@postgres:5432/saas
-      - NEXTAUTH_SECRET=qualquer_chave_secreta
-      - NEXTAUTH_URL=http://localhost:3000
+      - DATABASE_URL=${SAAS_DATABASE_URL:?SAAS_DATABASE_URL is required}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
     depends_on:

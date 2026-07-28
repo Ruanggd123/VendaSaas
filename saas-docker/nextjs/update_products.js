@@ -1,14 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'postgresql://admin:MudeEstaSenhaAgora@2026@localhost:5432/saas'
-    }
-  }
-});
+const prisma = new PrismaClient();
+
+if (!process.env.DATABASE_URL || !process.env.TARGET_TENANT_ID) {
+  throw new Error('DATABASE_URL e TARGET_TENANT_ID são obrigatórios');
+}
 
 async function main() {
-  const tenantId = 'c4c13619-a56f-4ff2-82c7-3c4503a10d13';
+  const tenantId = process.env.TARGET_TENANT_ID;
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   
   if (!tenant) {

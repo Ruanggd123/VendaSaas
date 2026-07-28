@@ -3,22 +3,24 @@ import { cookies } from "next/headers";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-const rawSecret = process.env.NEXTAUTH_SECRET;
-if (!rawSecret) {
-  throw new Error("CRÍTICO: NEXTAUTH_SECRET não configurado. Defina esta variável de ambiente para segurança do sistema.");
+function getAuthKey() {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error("CRÍTICO: NEXTAUTH_SECRET não configurado. Defina esta variável de ambiente para segurança do sistema.");
+  }
+  return new TextEncoder().encode(secret);
 }
-const key = new TextEncoder().encode(rawSecret);
 
 export async function encrypt(payload: any) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("1d")
-    .sign(key);
+    .sign(getAuthKey());
 }
 
 export async function decrypt(input: string): Promise<any> {
-  const { payload } = await jwtVerify(input, key, {
+  const { payload } = await jwtVerify(input, getAuthKey(), {
     algorithms: ["HS256"],
   });
   return payload;

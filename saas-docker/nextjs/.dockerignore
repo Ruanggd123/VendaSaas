@@ -1,0 +1,9 @@
+.env*
+!.env.example
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log*
+test_ai.ts
+*.test.ts

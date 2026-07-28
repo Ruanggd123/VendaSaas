@@ -16,6 +16,7 @@ import {
   Loader2,
   MessageSquare,
   MapPin,
+  Megaphone,
   Mic,
   Music,
   Paperclip,
@@ -1252,6 +1253,7 @@ export default function ConversasPage() {
       };
 
       setBulkFeedback(`Envio concluído. ${result.success || 0} de ${result.total || ids.length} mensagens enviadas.`);
+      setDraft("");
       if (result.failed) {
         const failed = result.failed;
         setBulkFeedback((current) => `${current} Falhas: ${failed}.`);
@@ -2180,12 +2182,12 @@ export default function ConversasPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void patchConversation("metadata", { service_status: "resolved" })}
-                  disabled={controlLoading === "metadata" || selectedServiceStatus === "resolved"}
+                  onClick={() => void patchConversation("metadata", { service_status: "resolved", ai_paused: false })}
+                  disabled={controlLoading === "metadata" || (selectedServiceStatus === "resolved" && !selected.ai_paused)}
                   className="shrink-0 inline-flex items-center gap-1 rounded-full border border-purple-200 bg-white px-2.5 py-1 text-[10px] font-black text-purple-700 transition hover:bg-purple-50 disabled:opacity-50 dark:border-purple-500/30 dark:bg-slate-900 dark:text-purple-300 dark:hover:bg-purple-500/10"
                 >
                   {controlLoading === "metadata" ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
-                  Concluído
+                  Concluído + IA
                 </button>
                 {sessionUser && canAssignToMe && selected?.assigned_to !== sessionUser.id ? (
                   <button
@@ -2412,6 +2414,24 @@ export default function ConversasPage() {
                   </div>
                   {uploading && <div className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400"><Loader2 className="size-3.5 shrink-0 animate-spin" /><span className="truncate">Enviando {uploadName}</span></div>}
                   {composerError && <div className="mb-2 flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400"><CircleAlert className="size-3.5 shrink-0" />{composerError}</div>}
+                  {bulkSelectionMode && (
+                    <div className="mb-2 rounded-2xl border border-indigo-200 bg-indigo-50 p-2.5 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Megaphone className="size-4 text-indigo-600 dark:text-indigo-300" />
+                        <div className="min-w-0 flex-1"><p className="text-[10px] font-black text-indigo-800 dark:text-indigo-200">Disparo em massa</p><p className="truncate text-[9px] text-indigo-600 dark:text-indigo-300">Será enviado o texto digitado abaixo.</p></div>
+                        <button type="button" onClick={() => { setBulkSelectionMode(false); clearBulkSelection(); }} className="rounded-lg p-1 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-500/20" aria-label="Fechar disparo em massa"><X className="size-4" /></button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[9px] font-black text-indigo-700 dark:border-indigo-400/30 dark:bg-slate-900 dark:text-indigo-300">Escolher contatos ({selectedBulkConversationIds.length})</button>
+                        <button type="button" disabled={bulkLoading || selectedBulkConversationIds.length === 0 || !draft.trim()} onClick={() => void sendBulkMessages("selected")} className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[9px] font-black text-white disabled:opacity-40">Enviar selecionados</button>
+                        <button type="button" disabled={bulkLoading || filteredConversationIds.length === 0 || !draft.trim()} onClick={() => void sendBulkMessages("current")} className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[9px] font-black text-white disabled:opacity-40">Lista atual ({filteredConversationIds.length})</button>
+                        <button type="button" disabled={bulkLoading || inboundConversationIds.length === 0 || !draft.trim()} onClick={() => void sendBulkMessages("incoming")} className="rounded-lg bg-sky-600 px-2.5 py-1.5 text-[9px] font-black text-white disabled:opacity-40">Contatos que entraram ({inboundConversationIds.length})</button>
+                        {bulkLoading && <Loader2 className="size-4 animate-spin text-indigo-600" />}
+                      </div>
+                      {bulkError ? <p className="mt-2 text-[9px] font-bold text-rose-600 dark:text-rose-300">{bulkError}</p> : null}
+                      {bulkFeedback ? <p className="mt-2 text-[9px] font-bold text-indigo-700 dark:text-indigo-200">{bulkFeedback}</p> : null}
+                    </div>
+                  )}
                   <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
                   <div className="flex items-end gap-2">
                      <div className="relative" ref={attachRef}>
@@ -2423,8 +2443,11 @@ export default function ConversasPage() {
                        )}
                      </div>
                      {!recording && selected && (
-                       <button type="button" onClick={() => setDraft((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}@${selected.contact_number.replace(/\D/g, "")} `)} title="Mencionar contato" className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:hover:bg-indigo-500/10"><AtSign className="size-5" /></button>
-                     )}
+                        <button type="button" onClick={() => setDraft((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}@${selected.contact_number.replace(/\D/g, "")} `)} title="Mencionar contato" className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:hover:bg-indigo-500/10"><AtSign className="size-5" /></button>
+                      )}
+                      {!recording && (
+                        <button type="button" onClick={() => { setBulkSelectionMode((current) => { if (current) clearBulkSelection(); return !current; }); setBulkError(""); setBulkFeedback(""); }} title="Disparo em massa" aria-pressed={bulkSelectionMode} className={`rounded-xl border p-2.5 transition ${bulkSelectionMode ? "border-indigo-500 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:bg-white/5 dark:hover:bg-indigo-500/10"}`}><Megaphone className="size-5" /></button>
+                      )}
                      {recording ? (
                        <div className="flex min-h-11 flex-1 items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"><span className="size-2.5 animate-pulse rounded-full bg-rose-500" /><span className="font-mono text-xs font-bold">{formatRecordingTime(recordingTime)}</span><span className="flex-1 text-xs font-bold">Gravando áudio</span><button type="button" onClick={cancelRecording} className="rounded-lg p-2 hover:bg-rose-100 dark:hover:bg-rose-500/10" aria-label="Cancelar gravação"><X className="size-4" /></button><button type="button" onClick={stopRecording} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-black text-white" aria-label="Parar e enviar gravação"><Square className="size-3.5" />Enviar</button></div>
                     ) : (

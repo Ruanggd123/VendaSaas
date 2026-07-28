@@ -316,6 +316,7 @@ export async function PATCH(req: Request) {
     if (assigned_to !== undefined) {
       dataToUpdate.assigned_to = assigned_to;
     }
+    if (service_status === "resolved") dataToUpdate.ai_paused = false;
 
     const responseInclude = {
       assignee: { select: { id: true, name: true } },

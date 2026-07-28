@@ -240,8 +240,8 @@ export default function CheckoutPage() {
 
     const sel = products.find(p => p.name === selected);
     if (sel?.delivery_type === 'service') {
-      if (!form.scheduled_at) { setError('Selecione uma data e horário válidos para o agendamento.'); return; }
-      if (new Date(form.scheduled_at).getTime() < Date.now()) { setError('A data e horário do agendamento devem ser futuros.'); return; }
+      if (!form.scheduled_at) { setError('Selecione uma data e horário válidos para o agendamento.'); setSubmitting(false); return; }
+      if (new Date(form.scheduled_at).getTime() < Date.now()) { setError('A data e horário do agendamento devem ser futuros.'); setSubmitting(false); return; }
     }
     const productNames = `${sel?.name}${sel?.included_bot ? ` + ${sel.included_bot}` : ''}`;
 

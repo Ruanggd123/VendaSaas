@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm config set fetch-retry-maxtimeout 600000 -g && npm config set fetch-retries 5 -g && npm install --no-audit --no-fund
+RUN npm config set fetch-retry-maxtimeout 600000 -g && npm config set fetch-retries 5 -g && npm ci --no-audit --no-fund
 COPY . .
 RUN npx prisma generate
 RUN npm run build
