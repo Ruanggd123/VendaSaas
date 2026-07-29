@@ -230,15 +230,25 @@ export function resolveChoiceIndex(value: string, labels: string[]): number {
     if (numericIndex >= 0 && numericIndex < labels.length) return numericIndex;
   }
   const normalized = normalizeTextForLookup(value);
-  const normalizedLabels = labels.map(normalizeTextForLookup);
+  const normalizedLabels = labels.map((l) => normalizeTextForLookup(l || ""));
+
+  // 1. Exact match
   const exactIndex = normalizedLabels.findIndex((label) => label === normalized);
   if (exactIndex >= 0) return exactIndex;
 
-  // Poll labels include the display price, while the workflow stores only the product name.
-  return normalizedLabels.findIndex((label) => {
+  // 2. Prefix match: "label R$ price" format
+  const prefixIndex = normalizedLabels.findIndex((label) => {
     if (!label || !normalized.startsWith(`${label} `)) return false;
     return /^r\s*\d/.test(normalized.slice(label.length).trim());
   });
+  if (prefixIndex >= 0) return prefixIndex;
+
+  // 3. Partial match for inputs >= 3 chars (handles poll vote labels containing product names)
+  if (normalized.length >= 3) {
+    return normalizedLabels.findIndex((label) => label && (label.includes(normalized) || normalized.includes(label)));
+  }
+
+  return -1;
 }
 
 export async function processMessageWithRules(
@@ -720,7 +730,8 @@ export async function processMessageWithRules(
         optionIdx = resolveChoiceIndex(cleanText, productNodeIds.map((id) => {
           const node = customNodes.find((candidate: any) => candidate.id === id);
           const product = resolveProductFromNode(settings.products || [], node);
-          return String(product?.name || node?.title || "");
+          if (product) return getProductOptionLabel(product);
+          return String(node?.title || "");
         }));
       }
       // Redirect to the selected product node
@@ -923,7 +934,7 @@ export async function processMessageWithRules(
   // Handle Scheduling steps
   if (state.step === "scheduling_select_service") {
     const servicesList = getSchedulableProducts(settings.products || []);
-    const optionIdx = resolveChoiceIndex(cleanText, servicesList.map((service) => String(service.name || "")));
+    const optionIdx = resolveChoiceIndex(cleanText, servicesList.map((service) => getProductOptionLabel(service)));
     if (servicesList.length === 0) {
       return "📋 Não há serviços configurados para agendamento no momento. Digite *0* para cancelar ou *menu* para voltar.";
     }
@@ -1187,7 +1198,10 @@ export async function processMessageWithRules(
   }
 
   const productsList = settings.products || [];
-  const optionIdx = resolveChoiceIndex(cleanText, productsList.map((product: any) => String(product?.name || "")));
+  const optionIdx = resolveChoiceIndex(cleanText, productsList.map((product: any) => {
+    if (!product) return "";
+    return getProductOptionLabel(product);
+  }));
 
   // Match keyword in the active level
   if (activeLevelNodes.length > 0) {

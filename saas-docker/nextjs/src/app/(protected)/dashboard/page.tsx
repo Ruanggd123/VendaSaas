@@ -1,5 +1,7 @@
 "use client";
 
+import { MaskedPhone } from "@/components/MaskedPhone";
+import { maskPhone } from "@/lib/phoneUtils";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -761,7 +763,7 @@ export default function DashboardPage() {
                               <div className="text-[11px] text-slate-500 dark:text-zinc-400 space-y-1">
                                 <p className="flex items-center gap-1.5">
                                   <Phone className="w-3 h-3" />
-                                  {lead.phone || "Sem telefone"}
+                                  {lead.phone ? <MaskedPhone phone={lead.phone} /> : "Sem telefone"}
                                 </p>
                                 {lead.interested_product && (
                                   <p className="text-[10px] bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/5 p-1.5 rounded-lg truncate text-slate-600 dark:text-zinc-300">
@@ -913,10 +915,10 @@ export default function DashboardPage() {
                       className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.02] border border-transparent hover:border-slate-100 dark:hover:border-white/5 transition-all"
                     >
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {(conv.contact_name || conv.contact_number || "?").substring(0, 2).toUpperCase()}
+                        {(conv.contact_name || maskPhone(conv.contact_number) || "?").substring(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{conv.contact_name || conv.contact_number}</p>
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{conv.contact_name || <MaskedPhone phone={conv.contact_number} />}</p>
                         <p className="text-[10px] text-slate-400 dark:text-zinc-500">
                           {conv._count?.messages || 0} mensagens
                         </p>

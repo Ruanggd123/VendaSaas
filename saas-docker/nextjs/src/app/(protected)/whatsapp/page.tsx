@@ -1,5 +1,6 @@
 "use client";
 
+import { MaskedPhone } from "@/components/MaskedPhone";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
@@ -384,7 +385,7 @@ export default function NativeWhatsAppDashboard() {
                       </div>
                       <div>
                         <h3 className="text-base font-medium text-slate-900 dark:text-white">{instance.connectionName}</h3>
-                        <p className="text-sm text-slate-500 dark:text-zinc-400">{instance.phone_number ? `+${instance.phone_number}` : 'Aguardando...'}</p>
+                        <p className="text-sm text-slate-500 dark:text-zinc-400">{instance.phone_number ? <MaskedPhone phone={instance.phone_number} /> : 'Aguardando...'}</p>
                       </div>
                     </div>
                     

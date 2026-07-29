@@ -1,5 +1,6 @@
 "use client";
 
+import { maskPhone } from "@/lib/phoneUtils";
 import { useState, useEffect, useCallback } from "react";
 import { ShieldAlert, Trash2, X, Plus, UserX, Phone, User, RefreshCw } from "lucide-react";
 
@@ -95,7 +96,7 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
   const identifiedCount = items.filter((i) => i.name).length;
   const selectedScope = instances.find((instance) => instance.name === selectedInstance);
   const scopeDescription = selectedScope
-    ? `${selectedScope.connectionName}${selectedScope.phone_number ? ` (${selectedScope.phone_number})` : ""}`
+    ? `${selectedScope.connectionName}${selectedScope.phone_number ? ` (${maskPhone(selectedScope.phone_number)})` : ""}`
     : "Conta inteira (todos os números)";
 
   return (
@@ -136,7 +137,7 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
             <option value="">Conta inteira (todos os números)</option>
             {instances.map((instance) => (
               <option key={instance.name} value={instance.name}>
-                {instance.connectionName}{instance.phone_number ? ` - ${instance.phone_number}` : ""}
+                {instance.connectionName}{instance.phone_number ? ` - ${maskPhone(instance.phone_number)}` : ""}
               </option>
             ))}
           </select>

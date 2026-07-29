@@ -36,6 +36,8 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
+import { MaskedPhone } from "@/components/MaskedPhone";
+import { maskPhone } from "@/lib/phoneUtils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type MediaType = "image" | "audio" | "video" | "document";
@@ -1540,11 +1542,11 @@ export default function ConversasPage() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
             <div className="flex items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">
-                {(selectedLead?.name || selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}
+                {(selectedLead?.name || selected.contact_name || maskPhone(selected.contact_number)).charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-black">{selectedLead?.name || selected.contact_name || "Contato sem nome"}</p>
-                <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-slate-500"><Phone className="size-3" />+{selected.contact_number}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-slate-500"><Phone className="size-3" /><MaskedPhone phone={selected.contact_number} /></p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200 pt-3 text-[10px] dark:border-white/10">
@@ -1964,7 +1966,7 @@ export default function ConversasPage() {
               (!lastSeen?.time || new Date(latest.created_at).getTime() > new Date(lastSeen.time).getTime()),
             );
             const active = selectedId === conversation.id;
-            const name = conversation.contact_name || `+${conversation.contact_number}`;
+            const name = conversation.contact_name || maskPhone(conversation.contact_number);
             const category = parseLeadCategory(conversation.leads?.[0]?.category);
             const serviceStatus = serviceStatusOf(conversation.status);
             const priorityClass = category.priority === "urgent"
@@ -2086,10 +2088,10 @@ export default function ConversasPage() {
               <div className="flex min-h-16 items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <button type="button" onClick={() => setSelectedId(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 md:hidden" aria-label="Voltar para conversas"><ArrowLeft className="size-5" /></button>
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || selected.contact_number).charAt(0).toUpperCase()}</div>
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-sm font-black text-white">{(selected.contact_name || maskPhone(selected.contact_number)).charAt(0).toUpperCase()}</div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="truncate text-sm font-black">{selected.contact_name || `+${selected.contact_number}`}</h2>
+                      <h2 className="truncate text-sm font-black">{selected.contact_name || <MaskedPhone phone={selected.contact_number} />}</h2>
                       {selectedUnread && <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-black text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">Não lida</span>}
                     </div>
                     <p className={`flex items-center gap-1 truncate text-[10px] font-bold ${selectedInstance?.status === "open" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
@@ -2215,7 +2217,7 @@ export default function ConversasPage() {
             </header>
 
             <div className="hidden min-h-10 shrink-0 items-center gap-5 overflow-x-auto border-b border-slate-200 bg-white/80 px-5 text-[10px] dark:border-white/10 dark:bg-slate-900/60 lg:flex 2xl:hidden">
-              <span className="flex shrink-0 items-center gap-1.5 font-bold text-slate-500"><Phone className="size-3" /><strong className="text-slate-800 dark:text-slate-200">+{selected.contact_number}</strong></span>
+              <span className="flex shrink-0 items-center gap-1.5 font-bold text-slate-500"><Phone className="size-3" /><strong className="text-slate-800 dark:text-slate-200"><MaskedPhone phone={selected.contact_number} /></strong></span>
               <span className="shrink-0 font-bold text-slate-500">Fila: <strong className="text-slate-800 dark:text-slate-200">{labelFor(QUEUE_OPTIONS, selectedCategory.queue)}</strong></span>
               <span className="shrink-0 font-bold text-slate-500">Etapa: <strong className="text-slate-800 dark:text-slate-200">{labelFor(SERVICE_STATUS_OPTIONS, selectedServiceStatus)}</strong></span>
               <span className={`shrink-0 rounded-full px-2 py-1 font-black ${selectedCategory.priority === "urgent" ? "bg-rose-600 text-white" : selectedCategory.priority === "high" ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300" : "bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300"}`}>{labelFor(PRIORITY_OPTIONS, selectedCategory.priority)}</span>
