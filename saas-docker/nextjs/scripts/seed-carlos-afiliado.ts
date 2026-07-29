@@ -118,11 +118,17 @@ async function main() {
     });
   }
 
-  // Criar histórico de Saques (Withdrawals) efetuados em 2026
+  // Criar histórico de Saques (Withdrawals) Frequentes via Pix efetuados ao longo de 2026
   const withdrawalsData = [
-    { amount: 1800, status: "paid", date: "2026-02-28" },
-    { amount: 2500, status: "paid", date: "2026-04-30" },
-    { amount: 3200, status: "paid", date: "2026-06-30" },
+    { amount: 599.10, status: "paid", date: "2026-01-30" },
+    { amount: 748.20, status: "paid", date: "2026-02-15" },
+    { amount: 418.20, status: "paid", date: "2026-02-28" },
+    { amount: 1048.20, status: "paid", date: "2026-03-31" },
+    { amount: 568.20, status: "paid", date: "2026-04-30" },
+    { amount: 1199.10, status: "paid", date: "2026-05-31" },
+    { amount: 2698.20, status: "paid", date: "2026-06-30" },
+    { amount: 568.20, status: "paid", date: "2026-07-15" },
+    { amount: 998.90, status: "paid", date: "2026-07-28" },
   ];
 
   for (const w of withdrawalsData) {
