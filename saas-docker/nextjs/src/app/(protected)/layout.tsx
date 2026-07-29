@@ -27,6 +27,10 @@ import {
   Sparkles,
   ShieldCheck,
   ChevronUp,
+  Zap,
+  Clock,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import PartnerAccessTimer from "@/components/PartnerAccessTimer";
@@ -64,7 +68,7 @@ const navItems = [
     section: "Parceiro",
     partnerOnly: true,
     items: [
-      { href: "/painel-parceiro", label: "Meu Painel", icon: UserCircle },
+      { href: "/painel-parceiro", label: "Meu Painel do Afiliado", icon: UserCircle },
     ],
   },
 ];
@@ -87,6 +91,9 @@ export default function DashboardLayout({
     tenantId: "",
     userId: ""
   });
+
+  const [partnerTrial, setPartnerTrial] = useState<{ expired: boolean; remainingMinutes: number; remainingSeconds: number } | null>(null);
+  const [activatingTrial, setActivatingTrial] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -111,6 +118,37 @@ export default function DashboardLayout({
     if (val === "true") setIsCollapsed(true);
   }, []);
 
+  useEffect(() => {
+    if (userAccount.role === "partner") {
+      fetch('/api/partner/trial')
+        .then(r => r.json())
+        .then(d => {
+          if (!d.error) setPartnerTrial(d);
+        })
+        .catch(() => {});
+    }
+  }, [userAccount.role, pathname]);
+
+  const handleActivatePartnerTrial = async () => {
+    setActivatingTrial(true);
+    try {
+      const res = await fetch('/api/partner/activate', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      else {
+        setPartnerTrial({
+          expired: false,
+          remainingMinutes: data.remainingMinutes,
+          remainingSeconds: data.remainingSeconds
+        });
+        alert('🚀 Degustação de 1 Hora Ativada com Sucesso! Toda a plataforma está liberada para você.');
+      }
+    } catch {
+      alert('Erro ao ativar degustação');
+    }
+    setActivatingTrial(false);
+  };
+
   const toggleSidebar = () => {
     const newVal = !isCollapsed;
     setIsCollapsed(newVal);
@@ -122,7 +160,7 @@ export default function DashboardLayout({
   const role = userAccount.role;
   const isManager = role === "superadmin" || role === "manager" || role === "admin";
   const isPartner = role === "partner";
-  const roleLabel = isPartner ? "Parceiro" : isManager ? "Admin" : "Atendente";
+  const roleLabel = isPartner ? "Parceiro Afiliado" : isManager ? "Admin" : "Atendente";
   const showInfraestrutura = isManager || isPartner;
   const initials = (userAccount.name || "RG")
     .split(" ")
@@ -257,7 +295,7 @@ export default function DashboardLayout({
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium truncate">
-                    Plano {userAccount.tenantPlan ? userAccount.tenantPlan.toUpperCase() : "Enterprise"}
+                    {isPartner ? "Afiliado Parceiro" : `Plano ${userAccount.tenantPlan ? userAccount.tenantPlan.toUpperCase() : "ENTERPRISE"}`}
                   </span>
                 </div>
               </div>
@@ -275,7 +313,7 @@ export default function DashboardLayout({
               className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-all mb-1"
             >
               <UserCircle className="w-4 h-4" />
-              <span>Painel do Parceiro</span>
+              <span>Painel do Afiliado</span>
               <ExternalLink className="w-3 h-3 ml-auto opacity-60" />
             </Link>
           )}
@@ -348,7 +386,60 @@ export default function DashboardLayout({
         </div>
 
         <div className="p-4 md:p-8 flex-1">
-          {children}
+          {isPartner && pathname !== "/painel-parceiro" && (!partnerTrial || partnerTrial.expired) ? (
+            <div className="max-w-2xl mx-auto py-12 px-6 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl space-y-6 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-0.5 mx-auto animate-bounce">
+                <div className="w-full h-full rounded-3xl bg-slate-900 flex items-center justify-center">
+                  <Zap className="w-8 h-8 text-amber-400" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5" /> Bônus de Parceiro Oficial
+                </span>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Período de Teste de 1 Hora da Plataforma!
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-zinc-300 max-w-md mx-auto leading-relaxed">
+                  Como nosso parceiro oficial, você pode experimentar todos os recursos da ferramenta por <strong className="text-indigo-600 dark:text-indigo-400">1 hora totalmente grátis</strong> para testar no seu próprio WhatsApp ou apresentar ao vivo para seus clientes!
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left max-w-lg mx-auto bg-slate-50 dark:bg-zinc-950/80 p-4 rounded-2xl border border-slate-200 dark:border-white/5 text-xs">
+                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-zinc-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Robô IA com ChatGPT / Gemini
+                </div>
+                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-zinc-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Disparos em Massa &amp; CRM
+                </div>
+                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-zinc-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Conexão WhatsApp QR Code
+                </div>
+                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-zinc-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Fluxos de Atendimento
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2 max-w-md mx-auto">
+                <button
+                  onClick={handleActivatePartnerTrial}
+                  disabled={activatingTrial}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Zap className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>{activatingTrial ? 'Ativando Degustação...' : 'Ativar Degustação de 1 Hora Agora'}</span>
+                </button>
+                <Link
+                  href="/painel-parceiro"
+                  className="block w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-400 text-xs font-bold rounded-xl transition-all"
+                >
+                  Voltar para Meu Painel do Afiliado
+                </Link>
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </div>
         <PartnerAccessTimer />
       </main>
