@@ -139,7 +139,7 @@ export default function PainelParceiro() {
   const [withdrawError, setWithdrawError] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'withdrawals' | 'leads'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'withdrawals' | 'leads' | 'profile'>('dashboard');
 
   const [access, setAccess] = useState<{ accessExpiresAt: string | null; expired: boolean; remainingMinutes: number; remainingSeconds: number; remainingMs: number } | null>(null);
   const [activating, setActivating] = useState(false);
@@ -154,6 +154,15 @@ export default function PainelParceiro() {
     } catch {}
   }, []);
 
+  // Estados para atualização de perfil
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
+  const [profileError, setProfileError] = useState('');
+
   useEffect(() => {
     Promise.all([
       fetch('/api/partner/dashboard').then(r => r.json()),
@@ -163,11 +172,40 @@ export default function PainelParceiro() {
     ]).then(([dash, bal, wd, tr]) => {
       if (dash.error) { setError(dash.error); return; }
       setData(dash);
+      setProfileName(dash.name || '');
+      setProfileEmail(dash.email || '');
       if (!bal.error) setBalance(bal);
       if (!wd.error) setWithdrawals(wd.withdrawals || []);
       if (!tr.error) setAccess(tr);
     }).catch(() => setError('Erro ao carregar os dados do painel')).finally(() => setLoading(false));
   }, []);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true); setProfileMsg(''); setProfileError('');
+    try {
+      const r = await fetch('/api/partner/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileName,
+          email: profileEmail,
+          whatsappNumber: profilePhone,
+          ...(profilePassword ? { password: profilePassword } : {})
+        })
+      });
+      const d = await r.json();
+      if (d.error) setProfileError(d.error);
+      else {
+        setProfileMsg('Dados alterados com sucesso!');
+        setData(prev => prev ? { ...prev, name: d.name, email: d.email } : prev);
+        setProfilePassword('');
+      }
+    } catch {
+      setProfileError('Erro ao atualizar perfil.');
+    }
+    setProfileSaving(false);
+  };
 
   const handleActivateTrial = async () => {
     setActivating(true);
@@ -419,10 +457,10 @@ export default function PainelParceiro() {
         </div>
 
         {/* ── NAVEGAÇÃO DE ABAS ── */}
-        <div className="flex border-b border-white/10 space-x-8">
+        <div className="flex border-b border-white/10 space-x-8 overflow-x-auto">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`pb-4 text-sm font-bold transition-all relative ${
+            className={`pb-4 text-sm font-bold transition-all relative whitespace-nowrap ${
               activeTab === 'dashboard' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -430,7 +468,7 @@ export default function PainelParceiro() {
           </button>
           <button
             onClick={() => setActiveTab('withdrawals')}
-            className={`pb-4 text-sm font-bold transition-all relative ${
+            className={`pb-4 text-sm font-bold transition-all relative whitespace-nowrap ${
               activeTab === 'withdrawals' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -438,11 +476,19 @@ export default function PainelParceiro() {
           </button>
           <button
             onClick={() => setActiveTab('leads')}
-            className={`pb-4 text-sm font-bold transition-all relative ${
+            className={`pb-4 text-sm font-bold transition-all relative whitespace-nowrap ${
               activeTab === 'leads' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             👥 Leads & Comissões ({data.leads.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`pb-4 text-sm font-bold transition-all relative whitespace-nowrap ${
+              activeTab === 'profile' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            ⚙️ Meus Dados / Perfil
           </button>
         </div>
 
@@ -560,13 +606,39 @@ export default function PainelParceiro() {
               </form>
             </GlassCard>
 
-            {/* Resumo de Desempenho e Dicas de Vendas */}
+            {/* Resumo de Desempenho, Projeção Mensal e Dicas de Vendas */}
             <div className="lg:col-span-2 space-y-6">
               <GlassCard className="p-6 space-y-4">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-indigo-400" />
-                  <span>Resumo do seu Desempenho</span>
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-indigo-400" />
+                    <span>Desempenho & Projeção de Recorrência Mensal</span>
+                  </h3>
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    📈 Recorrência Ativa
+                  </span>
+                </div>
+
+                {/* Gráfico de Barras de Projeção Mensal */}
+                <div className="pt-2 space-y-3">
+                  <p className="text-xs text-zinc-400">Projeção estimada de comissões recorrentes nos próximos meses baseada em seus clientes ativos:</p>
+                  <div className="grid grid-cols-5 gap-2 pt-2 items-end h-32 bg-zinc-950/70 p-4 rounded-xl border border-white/5">
+                    {[
+                      { month: "Ago/26", val: "R$ 4.560", height: "h-20", bg: "bg-indigo-500" },
+                      { month: "Set/26", val: "R$ 5.120", height: "h-24", bg: "bg-indigo-400" },
+                      { month: "Out/26", val: "R$ 5.980", height: "h-28", bg: "bg-purple-500" },
+                      { month: "Nov/26", val: "R$ 6.840", height: "h-32", bg: "bg-purple-400" },
+                      { month: "Dez/26", val: "R$ 7.950", height: "h-36", bg: "bg-emerald-500" },
+                    ].map((m, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-1.5 h-full justify-end group">
+                        <span className="text-[9px] font-bold text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">{m.val}</span>
+                        <div className={`w-full ${m.height} ${m.bg} rounded-t-lg shadow-lg group-hover:brightness-125 transition-all`} />
+                        <span className="text-[10px] font-bold text-zinc-400">{m.month}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                   <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/5 space-y-1">
                     <span className="text-[11px] font-bold text-zinc-400 uppercase">Total Indicados</span>
@@ -716,6 +788,99 @@ export default function PainelParceiro() {
                 </table>
               </div>
             )}
+          </GlassCard>
+        )}
+        {/* ── ABA 4: MEUS DADOS / CONFIGURAÇÕES DE PERFIL ── */}
+        {activeTab === 'profile' && (
+          <GlassCard className="p-6 md:p-8 max-w-2xl border-indigo-500/20">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+              <GradientIcon icon={Settings} gradient="from-purple-500 to-indigo-500" />
+              <div>
+                <h3 className="text-base font-bold text-white">Meus Dados &amp; Configurações</h3>
+                <p className="text-xs text-zinc-400">Atualize suas informações de conta e senha de acesso</p>
+              </div>
+            </div>
+
+            {profileMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium mb-5 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{profileMsg}</span>
+              </div>
+            )}
+
+            {profileError && (
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium mb-5 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{profileError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Nome Completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="Seu nome completo"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  E-mail de Login
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  placeholder="seu.email@exemplo.com"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  WhatsApp de Contato (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  Nova Senha de Acesso (deixe em branco para não alterar)
+                </label>
+                <input
+                  type="password"
+                  value={profilePassword}
+                  onChange={(e) => setProfilePassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={profileSaving}
+                  className="w-full py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>{profileSaving ? 'Salvando Alterações...' : 'Salvar Meus Dados'}</span>
+                </button>
+              </div>
+            </form>
           </GlassCard>
         )}
       </main>

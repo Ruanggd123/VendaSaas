@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { getSession } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { name, email, whatsappNumber } = body;
+    const { name, email, whatsappNumber, password } = body;
 
     const dataToUpdate: any = {};
     if (name !== undefined) dataToUpdate.name = name;
@@ -49,6 +50,9 @@ export async function PUT(req: Request) {
       dataToUpdate.email = email;
     }
     if (whatsappNumber !== undefined) dataToUpdate.whatsappNumber = whatsappNumber;
+    if (password && password.trim().length >= 4) {
+      dataToUpdate.password_hash = await bcrypt.hash(password.trim(), 10);
+    }
 
     const updated = await prisma.partner.update({
       where: { id: session.id },
