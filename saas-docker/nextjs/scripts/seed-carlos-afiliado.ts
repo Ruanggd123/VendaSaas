@@ -16,7 +16,7 @@ async function main() {
   const referralCode = "CARLOS01";
   const rawPassword = "carlos123";
   const password_hash = await bcrypt.hash(rawPassword, 10);
-  const createdDate = new Date("2024-01-15T10:00:00Z");
+  const createdDate = new Date("2026-01-05T10:00:00Z");
 
   let partner = await prisma.partner.findFirst({ where: { email } });
 
@@ -38,6 +38,7 @@ async function main() {
       where: { id: partner.id },
       data: {
         name,
+        email,
         referralCode,
         password_hash,
         type: "vendedor",
@@ -47,26 +48,29 @@ async function main() {
     });
   }
 
+  // Limpa comissões e saques antigos para resetar 100% limpo
+  await prisma.partnerCommission.deleteMany({ where: { partner_id: partner.id } });
+  await prisma.partnerWithdrawal.deleteMany({ where: { partner_id: partner.id } });
+
   console.log(`✅ Parceiro configurado: ${partner.name} (ID: ${partner.id})`);
 
-  // Criar histórico de Leads e Vendas/Comissões de 2024, 2025 e 2026
+  // Criar histórico de Leads e Vendas/Comissões de 2026
   const dummyClients = [
-    { name: "Marcos Oliveira", phone: "5511988881111", amount: 197, date: "2024-02-10" },
-    { name: "Patrícia Souza", phone: "5511988882222", amount: 397, date: "2024-03-15" },
-    { name: "Luciana Lima", phone: "5521977773333", amount: 997, date: "2024-05-20" },
-    { name: "Roberto Santos", phone: "5531966664444", amount: 197, date: "2024-07-01" },
-    { name: "Fernanda Costa", phone: "5541955555555", amount: 397, date: "2024-09-12" },
-    { name: "Empresa Alfa Tech", phone: "5511944446666", amount: 1997, date: "2024-11-05" },
-    { name: "Clínica Vida Ativa", phone: "5511933337777", amount: 1497, date: "2025-01-20" },
-    { name: "Bruno Castro", phone: "5521922228888", amount: 197, date: "2025-03-10" },
-    { name: "Camila Ribeiro", phone: "5531911119999", amount: 397, date: "2025-05-18" },
-    { name: "Academia Forma Top", phone: "5541900001111", amount: 997, date: "2025-08-22" },
-    { name: "Agência Digital X", phone: "5511999992222", amount: 2497, date: "2025-10-14" },
-    { name: "Advocacia Mendes", phone: "5521988883333", amount: 1497, date: "2025-12-05" },
-    { name: "Restaurante Sabor Real", phone: "5531977774444", amount: 397, date: "2026-02-11" },
-    { name: "Drogaria Central", phone: "5541966665555", amount: 997, date: "2026-04-19" },
-    { name: "Construtora Horizonte", phone: "5511955556666", amount: 2997, date: "2026-06-25" },
-    { name: "Eduardo Fonseca", phone: "5521944447777", amount: 197, date: "2026-07-10" },
+    { name: "Marcos Oliveira (Empresa Tech)", phone: "5511988881111", amount: 1997, date: "2026-01-12" },
+    { name: "Patrícia Souza (Clínica Estética)", phone: "5511988882222", amount: 1497, date: "2026-01-25" },
+    { name: "Luciana Lima (Advocacia)", phone: "5521977773333", amount: 997, date: "2026-02-08" },
+    { name: "Roberto Santos (Autopeças)", phone: "5531966664444", amount: 397, date: "2026-02-19" },
+    { name: "Fernanda Costa (Imobiliária)", phone: "5541955555555", amount: 2497, date: "2026-03-05" },
+    { name: "Academia Forma Top", phone: "5511944446666", amount: 997, date: "2026-03-22" },
+    { name: "Restaurante Sabor Real", phone: "5511933337777", amount: 397, date: "2026-04-10" },
+    { name: "Bruno Castro (Consultoria)", phone: "5521922228888", amount: 1497, date: "2026-04-28" },
+    { name: "Camila Ribeiro (E-commerce)", phone: "5531911119999", amount: 2997, date: "2026-05-15" },
+    { name: "Drogaria Central", phone: "5541900001111", amount: 997, date: "2026-05-29" },
+    { name: "Agência Digital X", phone: "5511999992222", amount: 3997, date: "2026-06-12" },
+    { name: "Construtora Horizonte", phone: "5521988883333", amount: 4997, date: "2026-06-27" },
+    { name: "Dr. Marcelo Santos", phone: "5531977774444", amount: 1497, date: "2026-07-08" },
+    { name: "Studio Beleza VIP", phone: "5541966665555", amount: 397, date: "2026-07-19" },
+    { name: "Eduardo Fonseca (SaaS)", phone: "5511955556666", amount: 1997, date: "2026-07-26" },
   ];
 
   for (const c of dummyClients) {
@@ -94,7 +98,7 @@ async function main() {
       data: {
         tenant_id: tenantId,
         lead_id: lead.id,
-        product_name: `Plano/Serviço: ${c.name}`,
+        product_name: `Assinatura: ${c.name}`,
         amount: c.amount,
         status: "paid",
         paid_at: dt,
@@ -114,13 +118,11 @@ async function main() {
     });
   }
 
-  // Criar histórico de Saques (Withdrawals) efetuados no Pix
+  // Criar histórico de Saques (Withdrawals) efetuados em 2026
   const withdrawalsData = [
-    { amount: 1500, status: "paid", date: "2024-06-15" },
-    { amount: 2200, status: "paid", date: "2024-12-20" },
-    { amount: 3500, status: "paid", date: "2025-06-10" },
-    { amount: 4800, status: "paid", date: "2025-12-18" },
-    { amount: 3000, status: "paid", date: "2026-04-15" },
+    { amount: 1800, status: "paid", date: "2026-02-28" },
+    { amount: 2500, status: "paid", date: "2026-04-30" },
+    { amount: 3200, status: "paid", date: "2026-06-30" },
   ];
 
   for (const w of withdrawalsData) {
@@ -138,10 +140,14 @@ async function main() {
     });
   }
 
-  console.log(`\n🎉 Conta do Carlos Eduardo Silva alimentada com histórico de 2024-2026!`);
+  console.log(`\n🎉 Conta do Carlos Eduardo Silva alimentada com histórico de 2026!`);
   console.log(`Login: ${email} / Senha: ${rawPassword}`);
   console.log(`Código de Indicação: ${referralCode}`);
 }
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
 
 main()
   .catch(console.error)
