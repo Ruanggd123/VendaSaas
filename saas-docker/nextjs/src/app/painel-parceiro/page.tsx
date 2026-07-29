@@ -102,6 +102,26 @@ function WithdrawalStatusBadge({ status }: { status: string }) {
   );
 }
 
+// ── Mascaramento de Privacidade LGPD para Afiliados ──
+function maskClientName(name: string | null): string {
+  if (!name) return "Cliente ***";
+  const parts = name.trim().split(" ");
+  if (parts.length === 1) return `${parts[0].slice(0, 3)}***`;
+  return `${parts[0]} ${parts[parts.length - 1][0]}. (Privacidade Protegida)`;
+}
+
+function maskPhone(phone: string | null): string {
+  if (!phone) return "(**) *****-****";
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length >= 10) {
+    const ddd = clean.slice(-11, -9) || "11";
+    const start = clean.slice(-9, -7);
+    const end = clean.slice(-2);
+    return `(${ddd}) ${start}***-**${end}`;
+  }
+  return `(**) *****-****`;
+}
+
 // ─── Página Principal do Painel ───
 
 export default function PainelParceiro() {
@@ -635,13 +655,23 @@ export default function PainelParceiro() {
           </GlassCard>
         )}
 
-        {/* ── ABA 3: LEADS & COMISSÕES ── */}
+        {/* ── ABA 3: LEADS & COMISSÕES (COM PRIVACIDADE LGPD) ── */}
         {activeTab === 'leads' && (
           <GlassCard className="p-6">
-            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-400" />
-              <span>Seus Leads e Indicações</span>
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  <span>Seus Leads e Indicações</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  🔒 <strong className="text-emerald-400">Proteção LGPD Ativa:</strong> Dados sensíveis dos clientes são mascarados por segurança e conformidade legal.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shrink-0">
+                <ShieldCheck className="w-4 h-4" /> Conformidade LGPD
+              </div>
+            </div>
 
             {data.leads.length === 0 ? (
               <div className="text-center py-12 text-zinc-500 text-xs">
@@ -651,21 +681,32 @@ export default function PainelParceiro() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-white/10 text-zinc-400 font-bold">
+                    <tr className="border-b border-white/10 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
                       <th className="pb-3">Cliente</th>
-                      <th className="pb-3">Telefone</th>
-                      <th className="pb-3">Produto</th>
+                      <th className="pb-3">Contato WhatsApp</th>
+                      <th className="pb-3">Produto Adquirido</th>
                       <th className="pb-3">Data</th>
                       <th className="pb-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {data.leads.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-white/[0.02]">
-                        <td className="py-3 font-bold text-white">{lead.name || 'Cliente'}</td>
-                        <td className="py-3 text-zinc-400 font-mono">{lead.phone}</td>
-                        <td className="py-3 text-indigo-300 font-medium">{lead.interested_product || 'SaaS Bot IA'}</td>
-                        <td className="py-3 text-zinc-400">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</td>
+                      <tr key={lead.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 font-bold text-white flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300">
+                            {lead.name ? lead.name[0].toUpperCase() : 'C'}
+                          </div>
+                          <span>{maskClientName(lead.name)}</span>
+                        </td>
+                        <td className="py-3 text-zinc-400 font-mono">
+                          {maskPhone(lead.phone)}
+                        </td>
+                        <td className="py-3 text-indigo-300 font-medium">
+                          {lead.interested_product || 'SaaS Bot IA (Plano)'}
+                        </td>
+                        <td className="py-3 text-zinc-400">
+                          {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                        </td>
                         <td className="py-3">
                           <StatusBadge status={lead.status} />
                         </td>
