@@ -963,7 +963,7 @@ export default function PainelParceiro() {
                     </button>
                   </div>
                   <p className="text-xs text-zinc-300 italic bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 leading-relaxed">
-                    "Oi! Vi que você atende clientes no WhatsApp. Você sabia que dá para colocar um robô com Inteligência Artificial para responder dúvidas, mostrar catálogo e fechar vendas 24h por dia? Dá uma olhada aqui: {referralUrl}"
+                    &quot;Oi! Vi que você atende clientes no WhatsApp. Você sabia que dá para colocar um robô com Inteligência Artificial para responder dúvidas, mostrar catálogo e fechar vendas 24h por dia? Dá uma olhada aqui: {referralUrl}&quot;
                   </p>
                 </GlassCard>
 
@@ -979,7 +979,7 @@ export default function PainelParceiro() {
                     </button>
                   </div>
                   <p className="text-xs text-zinc-300 italic bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 leading-relaxed">
-                    "Você ainda perde horas respondendo mensagem no WhatsApp manualmente? 🤯 Conheça a IA que atende, agenda e recebe Pix no WhatsApp no automático! Clique no link da minha bio: {referralUrl}"
+                    &quot;Você ainda perde horas respondendo mensagem no WhatsApp manualmente? 🤯 Conheça a IA que atende, agenda e recebe Pix no WhatsApp no automático! Clique no link da minha bio: {referralUrl}&quot;
                   </p>
                 </GlassCard>
               </div>
