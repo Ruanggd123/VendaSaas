@@ -91,6 +91,10 @@ export async function POST(req: Request) {
       MAX_PARALLEL,
       async (conversationId) => {
         try {
+          // Anti-Ban protection: Intervalo humano randômico entre envios (1.5s a 3.5s)
+          const randomDelay = Math.floor(Math.random() * 2000) + 1500;
+          await new Promise((resolve) => setTimeout(resolve, randomDelay));
+
           const result = await sendConversationMessage(
             prisma,
             sessionData,
