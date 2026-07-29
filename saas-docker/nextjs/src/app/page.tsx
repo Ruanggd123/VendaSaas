@@ -535,8 +535,8 @@ export default function Home() {
   const toggleSite = (id: string) => setSelected((prev) => ({ ...prev, site: prev.site === id ? null : id }));
   const toggleBot = (id: string) => setSelected((prev) => ({ ...prev, bot: prev.bot === id ? null : id }));
 
-  const handleCheckoutWhatsApp = () => {
-    const text = `Olá! Quero assinar o combo da Nexus SaaS com o Plano de Atendimento 24h e ter meu site criado com isenção da taxa de setup!`;
+  const handleCheckoutWhatsApp = (planId: string, planName: string, planPrice: string) => {
+    const text = `Olá! Quero assinar o plano *${planName}* (${planPrice}/mês) da Nexus SaaS.`;
     window.open(`https://wa.me/${PHONE}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -1195,7 +1195,7 @@ export default function Home() {
                     </div>
 
                     <button
-                      onClick={handleCheckoutWhatsApp}
+                      onClick={() => handleCheckoutWhatsApp(plan.id, plan.name, plan.price)}
                       className={`w-full mt-6 py-4 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${
                         plan.popular
                           ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-amber-500/25"

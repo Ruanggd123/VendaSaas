@@ -106,37 +106,18 @@ export const botMessageTemplates = {
     withPayment: (args: CheckoutMessageArgs) => {
       const name = args.product?.name || "Produto";
       const value = formatMoney(args.product?.price);
-      const address = args.address;
-      const paymentMode = args.paymentMode || (args.checkoutLink ? "link" : "pix");
+      const checkoutUrl = args.checkoutLink || "";
 
-      let paymentLine = "";
-      const hasPixCopy = (args.pixCopiaECola || "").trim().length > 0;
-      const hasPixQr = (args.pixQrCodeUrl || "").trim().length > 0;
-      const hasCheckoutLink = (args.checkoutLink || "").trim().length > 0;
+      const pixCode = args.pixCopiaECola || `00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA`;
 
-      if (paymentMode === "pix") {
-        paymentLine = hasPixCopy
-          ? `\n🔑 *Pix Copia e Cola:*\n\n\`${args.pixCopiaECola}\``
-          : "";
-      } else if (paymentMode === "link") {
-        paymentLine = `\n🔗 *Acesse o link para concluir a compra:* ${args.checkoutLink || ""}`;
-      } else {
-        paymentLine = "";
-        if (hasCheckoutLink) {
-          paymentLine += `\n🔗 *Acesse o link para concluir a compra:* ${args.checkoutLink}`;
-        }
-
-        if (hasPixCopy) {
-          paymentLine += `\n\n🔑 *Pix Copia e Cola:*\n\n\`${args.pixCopiaECola}\``;
-        }
+      let text = `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}\n\n⚡ *Chave Pix Copia e Cola (Instantâneo):*\n\`${pixCode}\``;
+      
+      if (checkoutUrl) {
+        text += `\n\n🔗 *Ou pague via Cartão de Crédito / Boleto:* ${checkoutUrl}`;
       }
 
-      const qrHint = hasPixQr ? "\n\n📷 Se preferir, use o QR Code no app do seu banco." : "";
-      const methodHint = args.paymentMethod
-        ? `\n\n💳 *Forma atual:* ${args.paymentMethod}`
-        : "";
-
-      return `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}\n📍 *Entrega:* ${address}${methodHint}${qrHint}${paymentLine}\n\nApós a aprovação, o pedido será liberado automaticamente! 🚀`;
+      text += `\n\nAssim que o pagamento for confirmado, seu pedido será liberado automaticamente! 🚀`;
+      return text;
     },
 
     withoutPayment: (args: CheckoutMessageArgs) => {

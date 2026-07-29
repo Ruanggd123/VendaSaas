@@ -827,7 +827,7 @@ export default function WorkflowPage() {
         {(activeTab === "canvas" || activeTab === "simulator") && (
           <aside
             className={`${activeTab === "simulator" ? "order-1 border-r" : "order-2 border-l"} border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
-              isRightPanelOpen ? (activeTab === "simulator" ? "w-full max-w-[420px] p-5 space-y-6 overflow-y-auto" : "w-full max-w-[380px] p-5 space-y-6 overflow-y-auto") : "w-12 p-2 items-center"
+              isRightPanelOpen ? (activeTab === "simulator" ? "fixed inset-y-0 right-0 z-50 w-full max-w-[420px] p-5 space-y-6 overflow-y-auto md:relative md:inset-auto md:z-10" : "fixed inset-y-0 right-0 z-50 w-full max-w-[380px] p-5 space-y-6 overflow-y-auto md:relative md:inset-auto md:z-10") : "w-12 p-2 items-center"
             }`}
           >
             {/* BOTÃO RETRÁTIL DO PAINEL LATERAL */}

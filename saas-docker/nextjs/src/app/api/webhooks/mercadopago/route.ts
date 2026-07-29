@@ -156,10 +156,15 @@ export async function POST(req: Request) {
             }).catch(e => console.error("❌ Erro comissão MP:", e));
           }
 
-          // 4. Buscar a instância do WhatsApp conectada para este tenant
-          const instance = await prisma.whatsappInstance.findFirst({
-            where: { tenant_id: tenantId, status: "open" }
+          // 4. Buscar a instância do WhatsApp conectada para este tenant com fallback inteligente
+          let instance = await prisma.whatsappInstance.findFirst({
+            where: { tenant_id: tenantId, status: { in: ["open", "connected", "WORKING", "PAIRED", "connecting"] } }
           });
+          if (!instance) {
+            instance = await prisma.whatsappInstance.findFirst({
+              where: { tenant_id: tenantId }
+            });
+          }
 
           const finalContact = normalizePhone(contactNumber) || normalizePhone(sale.lead?.phone);
 

@@ -257,14 +257,25 @@ export async function POST(req: Request) {
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Pegar a instância WhatsApp do provedor (tenant dono da loja)
-            const providerInstance = await prisma.whatsappInstance.findFirst({
-              where: { tenant_id: tenantId, status: 'open' }
+            // Pegar a instância WhatsApp do provedor (tenant dono da loja) com fallback inteligente
+            let providerInstance = await prisma.whatsappInstance.findFirst({
+              where: { tenant_id: tenantId, status: { in: ['open', 'connected', 'WORKING', 'PAIRED', 'connecting'] } }
             });
+            if (!providerInstance) {
+              providerInstance = await prisma.whatsappInstance.findFirst({
+                where: { tenant_id: tenantId }
+              });
+            }
             const providerPhone = providerInstance?.phone_number || "";
 
+            // Envio imediato de confirmação de pagamento para o cliente via WhatsApp
+            if (clientPhone && providerInstance) {
+              const paymentMsg = `🎉 *Pagamento Confirmado com Sucesso!*\n\nOlá ${clientName}! Seu pagamento de R$ ${sale.amount.toFixed(2)} para *${sale.product_name}* foi confirmado e aprovado com sucesso!\n\nSeu pedido já foi ativado em nosso sistema. Qualquer dúvida, estamos à disposição! 🚀`;
+              await sendWhatsAppMessage(providerInstance.name, clientPhone, paymentMsg).catch(e => console.error("Erro envio whatsapp webhook:", e));
+            }
+
             // ── SE FOR BOT: Criar usuário de acesso ──
-            const isBot = productName.includes('bot') || productName.includes('starter') || productName.includes('pro ia') || productName.includes('equipe');
+            const isBot = productName.includes('bot') || productName.includes('starter') || productName.includes('pro ia') || productName.includes('equipe') || productName.includes('crm') || productName.includes('plano');
 
             if (isBot && clientEmail) {
               const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
@@ -290,14 +301,14 @@ export async function POST(req: Request) {
                 });
 
                 if (clientPhone && providerInstance) {
-                  const msg = `🎉 *Pagamento Confirmado!*\n\nOlá ${clientName}, seu *${sale.product_name}* já está liberado!\n\n📋 *Seus dados de acesso:*\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n🔑 ${password}\n\nRecomendamos trocar a senha após o primeiro acesso.\nQualquer dúvida, estamos aqui! 🚀`;
-                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg);
+                  const msg = `📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n🔑 ${password}\n\nRecomendamos trocar a senha após o primeiro acesso. 🚀`;
+                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg).catch(e => console.error("Erro envio acesso:", e));
                 }
               } else {
                 // Cliente já cadastrado: Enviar confirmação de assinatura sem alterar ou inventar nova senha
                 if (clientPhone && providerInstance) {
                   const msg = `🎉 *Assinatura Confirmada!*\n\nOlá ${clientName}, sua assinatura do *${sale.product_name}* foi confirmada!\n\nSua conta já está ativa em nosso sistema:\n🔗 ${APP_URL}/login\n📧 ${clientEmail}\n\n(Caso não se lembre da sua senha, utilize a opção "Esqueci minha senha" na tela de login). 🚀`;
-                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg);
+                  await sendWhatsAppMessage(providerInstance.name, clientPhone, msg).catch(e => console.error("Erro envio confirmação:", e));
                 }
               }
             }
