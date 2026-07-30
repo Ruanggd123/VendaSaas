@@ -1333,10 +1333,14 @@ export async function processMessageWithRules(
       }
       else if (matchedNode.actionType === "checkout") {
         const productsList = settings.products || [];
-        const chosen = resolveProductFromNode(productsList, matchedNode);
-        if (!chosen) {
-          return "❌ Erro: Produto não encontrado no sistema.";
-        }
+        let chosen: ProductLike = resolveProductFromNode(productsList, matchedNode) || {
+          name: matchedNode.productName || matchedNode.title || "Plano ou Serviço",
+          price: matchedNode.productPrice || "97",
+          monthly: matchedNode.productPrice || "97",
+          description: matchedNode.productDescription || matchedNode.textContent || "",
+          delivery_type: "virtual_instant",
+          requires_payment: true
+        };
         // Verifica estoque
         if (chosen.stock !== undefined && chosen.stock !== null && chosen.stock <= 0) {
           return `❌ *${chosen.name}* está esgotado no momento. Digite *0* para voltar.`;
