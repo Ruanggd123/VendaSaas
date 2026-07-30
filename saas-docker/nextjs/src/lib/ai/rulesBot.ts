@@ -236,15 +236,16 @@ function renderCollectedVariables(value: unknown, collected: Record<string, unkn
     }
   );
 
-  // 2. Substituição flexível das variáveis coletadas
+  // 2. Substituição flexível de qualquer variável coletada no dicionário (com ou sem chaves)
   Object.keys(collected).forEach((k) => {
     const val = collected[k];
     if (val !== undefined && val !== null && String(val).trim().length > 0) {
-      const regexBrackets = new RegExp(`\\{${k}\\}`, "gi");
+      // Replaça {var} e {{var}}
+      const regexBrackets = new RegExp(`\\{\\{?\\s*${k}\\s*\\}?\\}`, "gi");
       str = str.replace(regexBrackets, String(val));
       
-      // Se a variável for "nome", "email", "telefone", substitui também se o usuário escreveu solto no texto (ex: "Olá nome, bem vindo" -> "Olá Ruan, bem vindo")
-      if (k.length > 2 && (k.toLowerCase() === "nome" || k.toLowerCase() === "email" || k.toLowerCase() === "telefone")) {
+      // Replaça a palavra solta exata no texto se o nome da variável tiver pelo menos 3 caracteres
+      if (k.length >= 3) {
         const regexWord = new RegExp(`\\b${k}\\b`, "gi");
         str = str.replace(regexWord, String(val));
       }
