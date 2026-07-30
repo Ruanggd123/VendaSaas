@@ -30,6 +30,7 @@ interface AccountModalProps {
     tenantPlan: string;
     tenantId: string;
     userId: string;
+    referralCode?: string;
   };
 }
 
@@ -42,6 +43,23 @@ export default function AccountModal({ isOpen, onClose, user }: AccountModalProp
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   if (!isOpen) return null;
+
+  const isPartner = (user.role || "").toLowerCase() === "partner";
+
+  const orgName = isPartner
+    ? "Programa de Afiliados Nexus"
+    : (user.tenantName || "Sua Organização");
+
+  const planName = isPartner
+    ? "Afiliado Vitalício (30%)"
+    : (user.tenantPlan ? `Plano ${user.tenantPlan.toUpperCase()}` : "Plano Ativo");
+
+  const displayId = isPartner
+    ? (user.referralCode || user.userId || "parceiro-afiliado")
+    : (user.tenantId || user.userId || "");
+
+  const settingsHref = isPartner ? "/painel-parceiro" : "/settings";
+  const settingsLabel = isPartner ? "Meu Painel Afiliado" : "Configurações";
 
   const initials = (user.name || "U")
     .split(" ")
@@ -160,26 +178,28 @@ export default function AccountModal({ isOpen, onClose, user }: AccountModalProp
                   <Building2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-400 uppercase font-bold">Empresa / Organização</p>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-zinc-200">{user.tenantName || "Nexus Admin"}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-400 uppercase font-bold">
+                    {isPartner ? "Programa & Conta" : "Empresa / Organização"}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-zinc-200">{orgName}</p>
                 </div>
               </div>
 
               <div className="text-right">
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
                   <CheckCircle2 className="w-3 h-3" />
-                  Plano {user.tenantPlan ? user.tenantPlan.toUpperCase() : "ENTERPRISE"}
+                  {planName}
                 </span>
               </div>
             </div>
 
-            {user.tenantId && (
+            {displayId && (
               <div className="pt-2 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-xs">
                 <span className="text-slate-400 dark:text-zinc-500 font-mono text-[11px] truncate max-w-[260px]">
-                  ID: {user.tenantId}
+                  {isPartner ? `Código / ID: ${displayId}` : `ID: ${displayId}`}
                 </span>
                 <button
-                  onClick={() => copyToClipboard(user.tenantId)}
+                  onClick={() => copyToClipboard(displayId)}
                   className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
                 >
                   {copiedId ? (
@@ -260,12 +280,12 @@ export default function AccountModal({ isOpen, onClose, user }: AccountModalProp
           {/* Action Links */}
           <div className="grid grid-cols-2 gap-2.5 mb-6">
             <Link
-              href="/settings"
+              href={settingsHref}
               onClick={onClose}
               className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-700 dark:text-zinc-300 transition-all group"
             >
               <Settings className="w-4 h-4 text-indigo-500 group-hover:rotate-45 transition-transform" />
-              <span>Configurações</span>
+              <span>{settingsLabel}</span>
             </Link>
 
             {(user.role === "superadmin" || user.role === "admin" || user.role === "manager") && (

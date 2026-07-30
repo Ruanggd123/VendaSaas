@@ -89,7 +89,8 @@ export default function DashboardLayout({
     tenantName: "Nexus Admin",
     tenantPlan: "Enterprise",
     tenantId: "",
-    userId: ""
+    userId: "",
+    referralCode: ""
   });
 
   const [partnerTrial, setPartnerTrial] = useState<{ expired: boolean; remainingMinutes: number; remainingSeconds: number } | null>(null);
@@ -102,13 +103,14 @@ export default function DashboardLayout({
         if (data.authenticated && data.user) {
           const u = data.user;
           setUserAccount({
-            name: u.name || "Ruan Gomes",
-            email: u.email || "fraruann159@gmail.com",
-            role: u.role || "superadmin",
-            tenantName: u.tenant_name || "Nexus Admin",
-            tenantPlan: u.tenant_plan || "Enterprise",
+            name: u.name || "Usuário",
+            email: u.email || "",
+            role: u.role || "client",
+            tenantName: u.tenant_name || "",
+            tenantPlan: u.tenant_plan || "",
             tenantId: u.tenant_id || "",
-            userId: u.id || u.userId || ""
+            userId: u.id || u.userId || "",
+            referralCode: u.referral_code || ""
           });
         }
       })
