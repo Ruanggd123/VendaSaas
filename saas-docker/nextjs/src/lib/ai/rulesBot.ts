@@ -870,26 +870,73 @@ export async function processMessageWithRules(
       if (!selectedProductNode) {
         return "❌ Erro: produto não encontrado no fluxo.";
       }
-      // Transition to product node's submenu
       const hasChildren = customNodes.some((n: any) => n.parentId === selectedProductNode.id);
-      state.step = hasChildren ? `submenu:${selectedProductNode.id}` : "main_menu";
-      state.data = { ...state.data };
-      await saveState(state);
-
-      // Show product info
-      const prod = resolveProductFromNode(settings.products || [], selectedProductNode);
-      let msg = `Você selecionou: *${selectedProductNode.title}*\n\n`;
-      if (prod) {
-        if (prod.description) msg += `${prod.description}\n\n`;
-        msg += `Valor: R$ ${prod.price}\n\n`;
-        if (prod.image_url && prod.send_photo !== false) msg += `${prod.image_url}\n\n`;
-      }
       if (hasChildren) {
+        state.step = `submenu:${selectedProductNode.id}`;
+        state.data = { ...state.data };
+        await saveState(state);
+
+        const prod = resolveProductFromNode(settings.products || [], selectedProductNode);
+        let msg = `Você selecionou: *${selectedProductNode.title}*\n\n`;
+        if (prod) {
+          if (prod.description) msg += `${prod.description}\n\n`;
+          msg += `Valor: R$ ${prod.price}\n\n`;
+          if (prod.image_url && prod.send_photo !== false) msg += `${prod.image_url}\n\n`;
+        }
         msg += getSubmenuMessage(selectedProductNode, customNodes);
-      } else {
-        msg += "✅ Opção registrada.";
+        return msg;
       }
-      return msg;
+
+      // No children: trigger checkout flow for the selected product
+      const chosenService = resolveProductFromNode(settings.products || [], selectedProductNode) || {
+        name: selectedProductNode.productName || selectedProductNode.title || "Plano ou Serviço",
+        price: selectedProductNode.productPrice || "97",
+        monthly: selectedProductNode.productPrice || "97",
+        description: selectedProductNode.productDescription || selectedProductNode.textContent || "",
+        delivery_type: "virtual_instant",
+        requires_payment: true
+      };
+
+      const deliveryType = (chosenService as any).delivery_type || "virtual_instant";
+      const deadline = (chosenService as any).delivery_deadline || "imediato";
+      state.data = { chosenService, chosenNodeText: selectedProductNode.textContent || null };
+
+      if (deliveryType === "virtual_instant") {
+        const addr = botMessageTemplates.labels.digitalImmediate();
+        state.data.address = addr;
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId,
+          contactNumber,
+          chosenService,
+          addr,
+          settings,
+          stateKey,
+          state.data.collected,
+          state.data.chosenNodeText,
+          contactName
+        );
+      } else if (deliveryType === "virtual_deadline") {
+        const addr = botMessageTemplates.labels.bothDigital(deadline);
+        state.data.address = addr;
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId,
+          contactNumber,
+          chosenService,
+          addr,
+          settings,
+          stateKey,
+          state.data.collected,
+          state.data.chosenNodeText,
+          contactName
+        );
+      } else {
+        state.step = "catalog_select_delivery_method";
+        await saveState(state);
+        return appendInteractiveOptions(botMessageTemplates.catalog.deliveryOrPickup(chosenService), [
+          { label: "Entrega", value: "1" },
+          { label: "Retirada", value: "2" },
+        ]);
+      }
     }
 
     // Fallback: original hardcoded product flow
