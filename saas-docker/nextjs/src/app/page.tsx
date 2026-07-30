@@ -1043,23 +1043,20 @@ export default function Home() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
-                        <th className="text-left p-4 font-bold text-slate-600 dark:text-slate-400">Comparativo</th>
-                        <th className="p-4 text-center font-black text-indigo-700 dark:text-indigo-300">Site Grátis</th>
-                        <th className="p-4 text-center font-black text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-500/5">CRM Grátis</th>
-                        <th className="p-4 text-center font-black text-emerald-700 dark:text-emerald-300">Loja Grátis</th>
+                        <th className="text-left p-4 font-bold text-slate-600 dark:text-slate-400">Recurso / Benefício</th>
+                        <th className="p-4 text-center font-black text-slate-700 dark:text-slate-300">Plano Start</th>
+                        <th className="p-4 text-center font-black text-indigo-700 dark:text-indigo-300">Só Bot (Assinatura)</th>
+                        <th className="p-4 text-center font-black text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-500/5">Plano Growth ⭐</th>
+                        <th className="p-4 text-center font-black text-emerald-700 dark:text-emerald-300">Plano Scale</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">Preço</td><td className="p-4 text-center font-black text-indigo-600 dark:text-indigo-400">R$ 97/mês</td><td className="p-4 text-center font-black text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 197/mês</td><td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400">R$ 397/mês</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎁 Bônus Grátis</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400 font-bold">Site Institucional</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50/50 dark:bg-amber-500/5">Plataforma + CRM*</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400 font-bold">Loja Virtual</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💰 Economia</td><td className="p-4 text-center text-indigo-600 dark:text-indigo-400">R$ 497</td><td className="p-4 text-center text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 997</td><td className="p-4 text-center text-emerald-600 dark:text-emerald-400">R$ 1.997</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">💬 Atendimentos</td><td className="p-4 text-center font-bold text-indigo-600 dark:text-indigo-400">ILIMITADO</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">ILIMITADO</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">ILIMITADO</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">📱 WhatsApp</td><td className="p-4 text-center">1</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">1</td><td className="p-4 text-center font-bold">Até 3</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">👥 Multi-Atendente</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">Até 2 humanos</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Ilimitado</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">📦 Catálogo + Pix</td><td className="p-4 text-center">✅</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5">✅</td><td className="p-4 text-center">✅</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎯 Disparo em Massa</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ Ilimitado</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🧠 Base Conhecimento</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🔧 API Dedicada</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center bg-amber-50/50 dark:bg-amber-500/5 text-slate-400">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">Preço Mensal</td><td className="p-4 text-center font-black text-slate-700 dark:text-slate-300">R$ 67/mês</td><td className="p-4 text-center font-black text-indigo-600 dark:text-indigo-400">R$ 97/mês</td><td className="p-4 text-center font-black text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 147/mês</td><td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400">R$ 497/mês</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🤖 Bot Fixo de Regras</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold bg-amber-50/50 dark:bg-amber-500/5">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🧠 Inteligência Artificial (DeepSeek/ChatGPT)</td><td className="p-4 text-center text-slate-400">— (Sem IA)</td><td className="p-4 text-center font-bold text-indigo-600 dark:text-indigo-400">✅ 5.000 msgs/mês</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">✅ 5.000 msgs/mês</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ 20.000 msgs/mês</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🌐 Criação de Site Grátis</td><td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300">Single Page</td><td className="p-4 text-center text-slate-400">— (Sem site)</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">Até 5 Páginas</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Loja Virtual E-Commerce</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">👥 CRM &amp; Multi-Atendente</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">Até 2 atendentes</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Equipe Ilimitada</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎯 Disparo em Massa &amp; Funis</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400 bg-amber-50/50 dark:bg-amber-500/5">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ Incluso</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -1068,65 +1065,81 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Cards dos Planos */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Cards dos 4 Planos Oficiais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   {
-                    id: "site_gratis",
-                    name: "Site Grátis",
-                    price: "R$ 97",
-                    tagline: "Site institucional grátis + bot IA",
-                    desc: "Para autônomos, MEI e profissionais liberais",
-                    bonus: "🎉 Site Institucional 100% GRÁTIS",
-                    bonusValue: "R$ 497",
-                    color: "border-indigo-500/30",
+                    id: "plano_start",
+                    name: "Plano Start",
+                    price: "R$ 67",
+                    tagline: "Presença digital + bot fixo de regras",
+                    desc: "Para quem quer iniciar no digital com economia",
+                    bonus: "🎉 Site Single Page Grátis",
+                    bonusValue: "R$ 297",
+                    color: "border-slate-300 dark:border-white/10",
                     features: [
-                      "Site Institucional Grátis (economia de R$ 497)",
-                      "1 Número de WhatsApp",
-                      "Atendimentos ILIMITADOS",
-                      "Bot IA + Regras + Áudio",
-                      "Catálogo e Agendamento",
+                      "Site Single Page (Página Única)",
+                      "Bot Starter (Baseado em Regras)",
+                      "Conversas Ilimitadas via Regras",
+                      "Hospedagem & Manutenção Inclusos",
                     ],
-                    limits: ["Sem CRM", "Sem Multi-Atendente", "Sem Disparo em Massa"],
+                    limits: ["Sem IA (ChatGPT/DeepSeek)", "Sem CRM de Vendas", "Sem Agendamento IA"],
                     popular: false,
                   },
                   {
-                    id: "crm_gratis",
-                    name: "CRM Grátis",
-                    price: "R$ 197",
-                    tagline: "CRM grátis (gestão de clientes) + atendimento ilimitado",
-                    desc: "Para empresas e equipes de vendas",
-                    bonus: "🎉 Plataforma + CRM (Gestão de Clientes) 100% GRÁTIS",
+                    id: "so_bot",
+                    name: "Só Bot (Assinatura)",
+                    price: "R$ 97",
+                    tagline: "Ambos os bots inclusos (Regras + IA)",
+                    desc: "Para quem já possui site e quer apenas automação",
+                    bonus: "⚡ AMBOS OS BOTS INCLUSOS (Regras + IA)",
+                    bonusValue: "R$ 497",
+                    color: "border-indigo-500/30",
+                    features: [
+                      "AMBOS OS BOTS INCLUSOS (Regras + IA)",
+                      "Bot Inteligente (DeepSeek / ChatGPT)",
+                      "5.000 mensagens IA / mês",
+                      "Agendamento & Atendimento 24h",
+                    ],
+                    limits: ["Sem Criação de Site", "Sem CRM de Vendas", "Sem Disparo em Massa"],
+                    popular: false,
+                  },
+                  {
+                    id: "plano_growth",
+                    name: "Plano Growth",
+                    price: "R$ 147",
+                    tagline: "Site 5 pág + Ambos os Bots (Regras + IA) + CRM",
+                    desc: "O mais completo e buscado por empresas",
+                    bonus: "🎉 Site 5 Páginas + CRM 100% GRÁTIS",
                     bonusValue: "R$ 997",
                     color: "border-amber-500",
                     features: [
-                      "Plataforma + CRM Grátis (economia de R$ 997)",
-                      "📌 CRM = Sistema de Gestão de Clientes: cadastro, histórico e vendas",
-                      "1 Número de WhatsApp",
-                      "Atendimentos ILIMITADOS",
-                      "Multi-Atendente (até 2 humanos)",
-                      "Painel de Vendas + Pix no Chat",
+                      "Site Institucional até 5 Páginas",
+                      "AMBOS OS BOTS INCLUSOS (Regras + IA)",
+                      "CRM de Gestão de Clientes & Vendas",
+                      "5.000 mensagens IA / mês",
+                      "Agendamento Automático + Pix",
                       "Suporte Prioritário VIP",
                     ],
-                    limits: ["Sem Loja Virtual", "Sem Disparo em Massa"],
+                    limits: ["Até 2 Atendentes Humanos", "Sem E-Commerce Completo"],
                     popular: true,
                   },
                   {
-                    id: "loja_gratis",
-                    name: "Loja Grátis",
-                    price: "R$ 397",
-                    tagline: "Loja virtual grátis + 3 WhatsApp + disparo",
-                    desc: "Para marcas, lojas e operações grandes",
-                    bonus: "🎉 Loja Virtual E-Commerce 100% GRÁTIS",
+                    id: "plano_scale",
+                    name: "Plano Scale",
+                    price: "R$ 497",
+                    tagline: "Loja virtual completa + IA Enterprise + Disparo",
+                    desc: "Para marcas, e-commerce e escala",
+                    bonus: "🎉 E-Commerce Completo 100% GRÁTIS",
                     bonusValue: "R$ 1.997",
                     color: "border-emerald-500/30",
                     features: [
-                      "Loja Virtual Grátis (economia de R$ 1.997)",
-                      "Até 3 Números de WhatsApp",
-                      "Atendimentos ILIMITADOS",
-                      "Multi-Atendente Ilimitado",
-                      "Disparo em Massa (Campanhas)",
-                      "Base de Conhecimento + API",
+                      "Loja Virtual E-Commerce Completa",
+                      "AMBOS OS BOTS INCLUSOS (Regras + IA)",
+                      "20.000 mensagens IA / mês",
+                      "Multiatendente Ilimitado",
+                      "Disparo em Massa + Funis",
+                      "Gestor de Conta Dedicado",
                     ],
                     limits: [],
                     popular: false,
