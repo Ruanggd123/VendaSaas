@@ -1333,7 +1333,7 @@ export async function processMessageWithRules(
       }
       else if (matchedNode.actionType === "checkout") {
         const productsList = settings.products || [];
-        let chosen: ProductLike = resolveProductFromNode(productsList, matchedNode) || {
+        const chosen: ProductLike = resolveProductFromNode(productsList, matchedNode) || {
           name: matchedNode.productName || matchedNode.title || "Plano ou Serviço",
           price: matchedNode.productPrice || "97",
           monthly: matchedNode.productPrice || "97",
