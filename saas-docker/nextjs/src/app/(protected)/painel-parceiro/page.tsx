@@ -150,43 +150,38 @@ function maskPixKey(key: string | null, keyType: string | null): string {
 }
 
 function RecurrenceChart({ leads = [], commissionRate = 30 }: { leads?: any[]; commissionRate?: number }) {
-  // Calcular o acúmulo de comissão recorrente mês a mês com base na data de conversão dos clientes reais
-  const monthsList = [
-    { key: "2026-03", name: "Mar/26" },
-    { key: "2026-04", name: "Abr/26" },
-    { key: "2026-05", name: "Mai/26" },
-    { key: "2026-06", name: "Jun/26" },
-    { key: "2026-07", name: "Jul/26" },
+  // Próximos 5 meses projetados a partir dos clientes ativos atuais
+  const futureMonths = [
+    { name: "Ago/26" },
+    { name: "Set/26" },
+    { name: "Out/26" },
+    { name: "Nov/26" },
+    { name: "Dez/26" },
   ];
 
+  // Calcular o valor total de comissão recorrente mensal garantido pelos clientes já ativos
   const convertedLeads = leads.filter(l => l.status === "CONVERTED" || l.status === "converted" || (l.value && l.value > 0));
+  const totalMonthlyRevenue = convertedLeads.reduce((acc, l) => acc + (l.value || 147), 0);
+  const currentMonthlyRecurrence = Math.round(totalMonthlyRevenue * (commissionRate / 100));
 
-  const chartData = monthsList.map(m => {
-    // Somar valor mensal dos clientes acumulados até aquele mês
-    const activeLeadsUntilMonth = convertedLeads.filter(l => {
-      if (!l.created_at) return true;
-      const createdDate = new Date(l.created_at);
-      const monthKey = createdDate.toISOString().substring(0, 7);
-      return monthKey <= m.key;
-    });
-
-    const totalMonthlyRevenue = activeLeadsUntilMonth.reduce((acc, l) => acc + (l.value || 147), 0);
-    const recurringCommission = (totalMonthlyRevenue * (commissionRate / 100));
-
+  const chartData = futureMonths.map(m => {
     return {
       month: m.name,
-      val: Math.round(recurringCommission),
-      label: `R$ ${Math.round(recurringCommission).toLocaleString("pt-BR")}`
+      val: currentMonthlyRecurrence,
+      label: `R$ ${currentMonthlyRecurrence.toLocaleString("pt-BR")}`
     };
   });
 
-  const maxVal = Math.max(...chartData.map(d => d.val), 100);
-
   return (
     <div className="pt-2 space-y-3">
-      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
-        Acúmulo real de comissões recorrentes geradas pela entrada progressiva de clientes ativos:
-      </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
+          Projeção de renda recorrente garantida para os próximos meses com base nos seus clientes ativos (sem necessidade de novas indicações):
+        </p>
+        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-black shrink-0">
+          R$ {currentMonthlyRecurrence.toLocaleString("pt-BR")}/mês passivos
+        </span>
+      </div>
       
       <div className="bg-slate-50/80 dark:bg-zinc-950/70 p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 relative overflow-hidden shadow-inner">
         {/* Linhas de Grade de Fundo */}
@@ -198,7 +193,7 @@ function RecurrenceChart({ leads = [], commissionRate = 30 }: { leads?: any[]; c
 
         <div className="grid grid-cols-5 gap-3 sm:gap-6 items-end h-44 pt-6 relative z-10">
           {chartData.map((item, idx) => {
-            const heightPercent = Math.max(15, Math.round((item.val / (maxVal * 1.15)) * 100));
+            const heightPercent = currentMonthlyRecurrence > 0 ? 65 : 15;
             return (
               <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
                 {/* Tooltip de Valor */}
