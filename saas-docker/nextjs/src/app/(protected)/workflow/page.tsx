@@ -89,10 +89,12 @@ const DEFAULT_AI: AISettings = {
   interactive_poll_enabled: true,
   enableScheduling: true,
   custom_rules_nodes: [
-    { id: "opt_1", parentId: null, keyword: "1", title: "Catálogo de Produtos & Serviços", actionType: "catalog", textContent: "", showInPoll: true },
-    { id: "opt_2", parentId: null, keyword: "2", title: "Horários de Atendimento", actionType: "text", textContent: "Nosso horário de funcionamento é de Segunda a Sexta das 08:00 às 18:00.", showInPoll: true },
-    { id: "opt_3", parentId: null, keyword: "3", title: "Agendar Horário", actionType: "scheduling", textContent: "", showInPoll: true },
-    { id: "opt_4", parentId: null, keyword: "4", title: "Falar com Atendente Humano", actionType: "human", textContent: "Transferindo seu atendimento para a nossa equipe humana...", showInPoll: true },
+    { id: "node_plano_start", parentId: null, keyword: "1", title: "Plano Start (R$ 67/mês)", actionType: "checkout", productId: "Plano Start", productName: "Plano Start", productPrice: "67", textContent: "Você selecionou o Plano Start (R$ 67/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_97", parentId: null, keyword: "2", title: "Plano 97 (R$ 97/mês)", actionType: "checkout", productId: "Plano 97", productName: "Plano 97", productPrice: "97", textContent: "Você selecionou o Plano 97 (R$ 97/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_growth", parentId: null, keyword: "3", title: "Plano Growth (R$ 147/mês ⭐)", actionType: "checkout", productId: "Plano Growth (Mais Vendido ⭐)", productName: "Plano Growth (Mais Vendido ⭐)", productPrice: "147", textContent: "Você selecionou o Plano Growth (R$ 147/mês ⭐). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_scale", parentId: null, keyword: "4", title: "Plano Scale (R$ 497/mês)", actionType: "checkout", productId: "Plano Scale", productName: "Plano Scale", productPrice: "497", textContent: "Você selecionou o Plano Scale (R$ 497/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_form_question", parentId: null, keyword: "5", title: "Solicitar Informação / Formulário", actionType: "collect_data", variableName: "informacao_cliente", textContent: "Qual a sua principal dúvida ou informação que deseja solicitar?", showInPoll: true },
+    { id: "node_form_next_step", parentId: "node_form_question", keyword: "1", title: "Confirmar Solicitação", actionType: "text", textContent: "Perfeito! Recebemos sua informação: \"{informacao_cliente}\". Nossa equipe já está analisando para te atender!", showInPoll: true },
   ],
 };
 
@@ -1315,13 +1317,42 @@ export default function WorkflowPage() {
                             }}
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
                             >
-                              <option value="text">💬 Exibir Resposta de Texto</option>
+                              <option value="text">💬 Exibir Resposta de Texto / Submenu</option>
+                              <option value="collect_data">📝 Fazer Pergunta / Coletar Dado (Formulário)</option>
                               <option value="catalog">📋 Exibir Catálogo de Produtos</option>
                               <option value="product">🧩 Produto (exibe e segue submenu)</option>
                               <option value="checkout">💳 Pagamento / Checkout de Produto</option>
                               <option value="scheduling">📅 Abrir Agendamento de Horário</option>
                               <option value="human">👤 Transferir para Atendente Humano</option>
                             </select>
+
+                          {/* CAMPOS ESPECÍFICOS PARA FORMULÁRIO / PERGUNTA (COLLECT DATA) */}
+                          {node.actionType === "collect_data" && (
+                            <div className="space-y-2 p-2.5 bg-pink-50 dark:bg-pink-950/40 border border-pink-200 dark:border-pink-500/30 rounded-xl">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-pink-700 dark:text-pink-300">
+                                  🔑 Variável onde salvar a resposta:
+                                </label>
+                                <span className="text-[9px] font-mono font-bold text-pink-600 dark:text-pink-400">
+                                  {node.variableName ? `{${node.variableName}}` : "sem variável"}
+                                </span>
+                              </div>
+                              <input
+                                type="text"
+                                value={node.variableName || ""}
+                                onChange={(e) => {
+                                  const newNodes = [...(settings.custom_rules_nodes || [])];
+                                  newNodes[nodeIdx].variableName = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                                  updateField("custom_rules_nodes", newNodes);
+                                }}
+                                placeholder="ex: informacao_cliente, nome_cliente, cpf"
+                                className="w-full bg-white dark:bg-slate-950 border border-pink-200 dark:border-pink-500/30 rounded-lg px-2 py-1 text-xs font-mono font-bold text-pink-900 dark:text-pink-200 focus:outline-none"
+                              />
+                              <p className="text-[9px] text-pink-700 dark:text-pink-300 italic">
+                                A resposta digitada pelo cliente será gravada nesta variável. Exemplo de uso nas mensagens das etapas seguintes: <code className="font-mono bg-pink-100 dark:bg-pink-900 px-1 py-0.5 rounded text-pink-800 dark:text-pink-200">{`{${node.variableName || "informacao_cliente"}}`}</code>
+                              </p>
+                            </div>
+                          )}
 
                           <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
                             <input
@@ -1437,20 +1468,22 @@ export default function WorkflowPage() {
                             <button
                               onClick={() => {
                                 const newNodes = [...(settings.custom_rules_nodes || [])];
+                                const isForm = node.actionType === "collect_data";
                                 newNodes.push({
-                                  id: "node_" + Math.random().toString(36).substr(2, 9),
+                                  id: "node_" + Math.random().toString(36).substring(2, 9),
                                   parentId: node.id,
                                   keyword: String(children.length + 1),
-                                  title: `Sub-opção ${children.length + 1}`,
-                                  actionType: "text",
-                                  textContent: "Digite a resposta desta sub-opção...",
+                                  title: isForm ? `Próxima Pergunta / Etapa ${children.length + 1}` : `Sub-opção ${children.length + 1}`,
+                                  actionType: isForm ? "collect_data" : "text",
+                                  textContent: isForm ? "Qual a próxima pergunta que deseja fazer ao cliente?" : "Digite a resposta desta sub-opção...",
                                   showInPoll: true,
+                                  variableName: "",
                                 });
                                 updateField("custom_rules_nodes", newNodes);
                               }}
                               className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                             >
-                              <Plus className="w-3.5 h-3.5" /> Add Sub-opção
+                              <Plus className="w-3.5 h-3.5" /> {node.actionType === "collect_data" ? "Add Próxima Pergunta (Formulário)" : "Add Sub-opção"}
                             </button>
                             <span className="text-[9px] text-slate-400 font-medium">{children.length} sub-opção(ões)</span>
                           </div>

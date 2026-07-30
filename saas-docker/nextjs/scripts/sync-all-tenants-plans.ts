@@ -86,38 +86,12 @@ async function main() {
   ];
 
   const officialRulesNodes = [
-    {
-      id: "node_plano_start",
-      title: "Plano Start (R$ 67/mês)",
-      keyword: "Plano Start",
-      productId: "Plano Start",
-      productName: "Plano Start",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_97",
-      title: "Plano 97 (R$ 97/mês)",
-      keyword: "Plano 97",
-      productId: "Plano 97",
-      productName: "Plano 97",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_growth",
-      title: "Plano Growth (R$ 147/mês ⭐)",
-      keyword: "Plano Growth",
-      productId: "Plano Growth (Mais Vendido ⭐)",
-      productName: "Plano Growth (Mais Vendido ⭐)",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_scale",
-      title: "Plano Scale (R$ 497/mês)",
-      keyword: "Plano Scale",
-      productId: "Plano Scale",
-      productName: "Plano Scale",
-      showInPoll: true,
-    }
+    { id: "node_plano_start", parentId: null, keyword: "1", title: "Plano Start (R$ 67/mês)", actionType: "checkout", productId: "Plano Start", productName: "Plano Start", productPrice: "67", textContent: "Você selecionou o Plano Start (R$ 67/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_97", parentId: null, keyword: "2", title: "Plano 97 (R$ 97/mês)", actionType: "checkout", productId: "Plano 97", productName: "Plano 97", productPrice: "97", textContent: "Você selecionou o Plano 97 (R$ 97/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_growth", parentId: null, keyword: "3", title: "Plano Growth (R$ 147/mês ⭐)", actionType: "checkout", productId: "Plano Growth (Mais Vendido ⭐)", productName: "Plano Growth (Mais Vendido ⭐)", productPrice: "147", textContent: "Você selecionou o Plano Growth (R$ 147/mês ⭐). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_plano_scale", parentId: null, keyword: "4", title: "Plano Scale (R$ 497/mês)", actionType: "checkout", productId: "Plano Scale", productName: "Plano Scale", productPrice: "497", textContent: "Você selecionou o Plano Scale (R$ 497/mês). Escolha a forma de pagamento:", paymentMode: "both", showInPoll: true },
+    { id: "node_form_question", parentId: null, keyword: "5", title: "Solicitar Informação / Formulário", actionType: "collect_data", variableName: "informacao_cliente", textContent: "Qual a sua principal dúvida ou informação que deseja solicitar?", showInPoll: true },
+    { id: "node_form_next_step", parentId: "node_form_question", keyword: "1", title: "Confirmar Solicitação", actionType: "text", textContent: "Perfeito! Recebemos sua informação: \"{informacao_cliente}\". Nossa equipe já está analisando para te atender!", showInPoll: true },
   ];
 
   const officialPrompt = `Você é um Consultor Especialista de Vendas da VendasSAAS. Seu objetivo é apresentar nossos planos e soluções de forma altamente profissional, persuasiva e transparente.

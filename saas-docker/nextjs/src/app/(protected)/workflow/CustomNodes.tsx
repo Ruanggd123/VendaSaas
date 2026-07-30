@@ -124,6 +124,26 @@ export const MenuNode = ({ data, selected }: any) => {
           </div>
         )}
 
+        {data.actionType === "collect_data" && (
+          <div className="mt-1 p-2 bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/20 rounded-xl text-[10px] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-pink-800 dark:text-pink-300">📝 Pergunta do Formulário:</span>
+              {data.variableName ? (
+                <span className="font-mono font-bold bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded border border-pink-300 dark:border-pink-500/30">
+                  {`{${data.variableName}}`}
+                </span>
+              ) : (
+                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 italic">sem variável</span>
+              )}
+            </div>
+            {data.textContent && (
+              <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 italic">
+                &ldquo;{data.textContent}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
+
         {data.actionType === "product" && data.productPrice ? (
           <div className={`flex items-center justify-between gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-xl px-2.5 py-1.5 font-bold`}>
             <div className="flex items-center gap-1.5">
@@ -132,7 +152,7 @@ export const MenuNode = ({ data, selected }: any) => {
             </div>
             <span className="font-extrabold text-slate-900 dark:text-white bg-white dark:bg-slate-950 px-1.5 py-0.5 rounded-md shadow-sm">R$ {data.productPrice}</span>
           </div>
-        ) : (
+        ) : data.actionType !== "collect_data" && (
           <div className={`flex items-center gap-1.5 text-[10px] ${cfg.color} ${cfg.bg} ${cfg.border} border rounded-xl px-2.5 py-1.5 font-bold`}>
             <Icon className="w-3.5 h-3.5" />
             <span>{label}</span>
@@ -143,7 +163,7 @@ export const MenuNode = ({ data, selected }: any) => {
             {data.productDescription}
           </p>
         )}
-        {data.textContent && data.actionType !== "product" && data.actionType !== "catalog" && (
+        {data.textContent && data.actionType !== "product" && data.actionType !== "catalog" && data.actionType !== "collect_data" && (
           <p className="line-clamp-2 border-t border-slate-100 pt-1.5 text-[9px] font-medium leading-relaxed text-slate-500 dark:border-slate-800/80">
             {data.textContent}
           </p>
