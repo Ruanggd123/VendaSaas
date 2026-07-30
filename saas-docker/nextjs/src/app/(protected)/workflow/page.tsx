@@ -1340,9 +1340,9 @@ export default function WorkflowPage() {
                           id: "node_" + Math.random().toString(36).substr(2, 9),
                           parentId: null,
                           keyword: String(nextNum),
-                          title: `OpÃƒÂ§ÃƒÂ£o ${nextNum}`,
+                          title: `Opção ${nextNum}`,
                           actionType: "text",
-                          textContent: "Digite a resposta desta opÃƒÂ§ÃƒÂ£o...",
+                          textContent: "Digite a resposta desta opção...",
                           showInPoll: true,
                         });
                         updateField("custom_rules_nodes", newNodes);
@@ -1400,8 +1400,8 @@ export default function WorkflowPage() {
                                 newNodes[nodeIdx].title = e.target.value;
                                 updateField("custom_rules_nodes", newNodes);
                               }}
-                              className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-extrabold text-slate-900 dark:text-white text-xs min-w-0"
-                              placeholder={depth === 0 ? "TÃƒÂ­tulo do Menu" : "TÃƒÂ­tulo da Sub-opÃƒÂ§ÃƒÂ£o"}
+                              className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 font-extrabold text-slate-900 dark:text-white text-xs min-w-0"
+                              placeholder={depth === 0 ? "Nome da Opção na Enquete do WhatsApp (ex: Agendar Consulta)" : "Nome da Sub-opção na Enquete"}
                             />
 
                             <button
