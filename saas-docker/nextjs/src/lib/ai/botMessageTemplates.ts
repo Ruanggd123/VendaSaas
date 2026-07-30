@@ -108,15 +108,19 @@ export const botMessageTemplates = {
       const value = formatMoney(args.product?.price);
       const checkoutUrl = args.checkoutLink || "";
 
-      const pixCode = args.pixCopiaECola || `00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-4266141740005204000053039865405147.005802BR5910NexusSaaS6009SaoPaulo62070503***6304E2CA`;
+      const pixCode = args.pixCopiaECola || "";
 
-      let text = `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}\n\n⚡ *Chave Pix Copia e Cola (Instantâneo):*\n\`${pixCode}\``;
+      let text = `🛒 *Resumo do Pedido:* ${name}\n💰 *Valor:* R$ ${value}`;
+
+      if (pixCode) {
+        text += `\n\n📱 *Pix Copia e Cola:*\n\`${pixCode}\``;
+      }
       
       if (checkoutUrl) {
-        text += `\n\n🔗 *Ou pague via Cartão de Crédito / Boleto:* ${checkoutUrl}`;
+        text += `\n\n🔗 *Link para pagamento:* ${checkoutUrl}`;
       }
 
-      text += `\n\nAssim que o pagamento for confirmado, seu pedido será liberado automaticamente! 🚀`;
+      text += `\n\n✅ Após a confirmação, seu pedido será liberado!`;
       return text;
     },
 
@@ -124,7 +128,7 @@ export const botMessageTemplates = {
       const name = args.product?.name || "Produto";
       const value = formatMoney(args.product?.price);
       const address = args.address;
-      return `🛒 *Produto:* ${name}\n💰 *Valor:* R$ ${value}\n🚚 *Método/Endereço:* ${address}\n\n✅ Pedido registrado com sucesso! O pagamento será realizado presencialmente na retirada ou momento da entrega. Obrigado!`;
+      return `🛒 *${name}* - R$ ${value}\n📍 ${address}\n\n✅ Pedido registrado! O pagamento será combinado na entrega/retirada.`;
     },
   },
 
@@ -133,23 +137,23 @@ export const botMessageTemplates = {
       const name = product?.name || "Produto";
       const price = formatMoney(product?.price);
       const deadline = delivery.deadline || "imediato";
-      return `🛒 *Você selecionou:* ${name}\n💰 *Valor:* R$ ${price}\n\nEste produto está disponível nas opções Digital e Física. Como prefere receber?\n1️⃣ ${botMessageTemplates.labels.bothDigital(deadline)}\n2️⃣ ${botMessageTemplates.labels.bothPhysical()}\n\nResponda com o número correspondente (*1* ou *2*):`;
+      return `🛒 *${name}* - R$ ${price}\n\nComo prefere receber?\n1️⃣ ${botMessageTemplates.labels.bothDigital(deadline)}\n2️⃣ ${botMessageTemplates.labels.bothPhysical()}\n\nResponda *1* ou *2*:`;
     },
 
     deliveryOrPickup: (product: MessageProduct) => {
       const name = product?.name || "Produto";
       const price = formatMoney(product?.price);
-      return `🛒 *Você selecionou:* ${name}\n💰 *Valor:* R$ ${price}\n\nComo deseja receber o produto/serviço?\n1️⃣ ${botMessageTemplates.labels.delivery()}\n2️⃣ ${botMessageTemplates.labels.pickup()} / Presencial\n\nResponda com o número correspondente (*1* ou *2*):`;
+      return `🛒 *${name}* - R$ ${price}\n\nComo deseja receber?\n1️⃣ ${botMessageTemplates.labels.delivery()}\n2️⃣ ${botMessageTemplates.labels.pickup()}\n\nResponda *1* ou *2*:`;
     },
   },
 
   errors: {
-    invalidBothMethodsChoice: () => "❌ Opção inválida. Digite *1* para Envio Digital ou *2* para Entrega Física:",
-    invalidDeliveryChoice: () => "❌ Opção inválida. Digite *1* para Entrega (Delivery) ou *2* para Retirada na Loja:",
+    invalidBothMethodsChoice: () => "❌ Opção inválida. Responda *1* para Digital ou *2* para Física:",
+    invalidDeliveryChoice: () => "❌ Opção inválida. Responda *1* para Entrega ou *2* para Retirada:",
   },
 
   prompts: {
-    requestAddress: () => "🚚 Por favor, envie seu endereço completo de entrega (Rua, Número, Bairro, Cidade):",
+    requestAddress: () => "📍 Por favor, informe seu endereço completo para entrega (rua, número, bairro, cidade):",
   },
 };
 

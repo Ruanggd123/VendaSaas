@@ -205,14 +205,53 @@ function getSchedulableProducts(products: any[]): ProductLike[] {
   return products.filter((p) => String(p?.name || "").trim().length > 0) as ProductLike[];
 }
 
+function isValidNode(node: any) {
+  if (!node) return false;
+  const title = (node.title || "").trim();
+  const textContent = (node.textContent || "").trim();
+  const variableName = (node.variableName || "").trim();
+  if (!title && !textContent && !variableName) return false;
+  return true;
+}
+
+function sanitizeMessageWhitespace(msg: string): string {
+  if (!msg) return "";
+  return msg
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function renderCollectedVariables(value: unknown, collected: Record<string, unknown> | null | undefined): string {
-  return String(value || "").replace(
-    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}|\{\s*([a-zA-Z0-9_]+)\s*\}/g,
+  let str = String(value || "");
+  if (!collected || typeof collected !== "object") return str;
+
+  // 1. Replaça {{key}} e {key}
+  str = str.replace(
+    /\{\{\s*([a-zA-Z0-9_\-\.]+)\s*\}\}|\{\s*([a-zA-Z0-9_\-\.]+)\s*\}/g,
     (match, doubleKey, singleKey) => {
-      const replacement = collected?.[doubleKey || singleKey];
-      return replacement === undefined || replacement === null ? match : String(replacement);
-    },
+      const key = doubleKey || singleKey;
+      const replacement = collected[key] ?? collected[key.toLowerCase()];
+      return replacement !== undefined && replacement !== null ? String(replacement) : match;
+    }
   );
+
+  // 2. Substituição flexível das variáveis coletadas
+  Object.keys(collected).forEach((k) => {
+    const val = collected[k];
+    if (val !== undefined && val !== null && String(val).trim().length > 0) {
+      const regexBrackets = new RegExp(`\\{${k}\\}`, "gi");
+      str = str.replace(regexBrackets, String(val));
+      
+      // Se a variável for "nome", "email", "telefone", substitui também se o usuário escreveu solto no texto (ex: "Olá nome, bem vindo" -> "Olá Ruan, bem vindo")
+      if (k.length > 2 && (k.toLowerCase() === "nome" || k.toLowerCase() === "email" || k.toLowerCase() === "telefone")) {
+        const regexWord = new RegExp(`\\b${k}\\b`, "gi");
+        str = str.replace(regexWord, String(val));
+      }
+    }
+  });
+
+  return sanitizeMessageWhitespace(str);
 }
 
 export function resolveChoiceIndex(value: string, labels: string[]): number {
@@ -652,22 +691,46 @@ export async function processMessageWithRules(
     }
 
     const varName = state.data.collect_variable || "dado_coletado";
-    // Initialize or get collected data array/object
     state.data.collected = state.data.collected || {};
     state.data.collected[varName] = userMessage.trim();
 
     const nodeId = state.step.replace("collect_data:", "");
-    const hasChildren = customNodes.some((n: any) => n.parentId === nodeId);
-    
-    if (hasChildren) {
+    const children = customNodes.filter((n: any) => n.parentId === nodeId && isValidNode(n));
+
+    if (children.length === 1) {
+      const nextNode = children[0];
+      if (nextNode.actionType === "collect_data") {
+        state.step = `collect_data:${nextNode.id}`;
+        state.data.collect_variable = nextNode.variableName || "dado_coletado";
+        await saveState(state);
+        const questionText = renderCollectedVariables(nextNode.textContent || "Por favor, digite a informação solicitada:", state.data.collected);
+        return sanitizeMessageWhitespace(questionText);
+      } else if (nextNode.actionType === "text" || !nextNode.actionType) {
+        state.step = "main_menu";
+        await saveState(state);
+        const textMsg = renderCollectedVariables(nextNode.textContent || "Obrigado! Suas informações foram registradas.", state.data.collected);
+        return sanitizeMessageWhitespace(textMsg);
+      } else if (nextNode.actionType === "human") {
+        await prisma.conversation.updateMany({
+          where: conversationId
+            ? { id: conversationId, tenant_id: tenantId }
+            : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+          data: { ai_paused: true }
+        });
+        await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+        return renderCollectedVariables(nextNode.textContent || "Transferindo para atendente humano...", state.data.collected);
+      }
+    }
+
+    if (children.length > 1) {
       state.step = `submenu:${nodeId}`;
       await saveState(state);
       const currentNode = customNodes.find((n: any) => n.id === nodeId);
-      return `✅ Registrado!\n\n${getSubmenuMessage(currentNode, customNodes)}`;
+      return sanitizeMessageWhitespace(`✅ Registrado!\n\n${getSubmenuMessage(currentNode, customNodes)}`);
     } else {
       state.step = "main_menu";
       await saveState(state);
-      return `✅ Registrado!\n\n${getMainMenuMessage(settings)}`;
+      return "✅ Registrado com sucesso! Suas informações foram salvas.";
     }
   }
 

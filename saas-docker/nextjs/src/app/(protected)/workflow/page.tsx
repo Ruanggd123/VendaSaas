@@ -74,17 +74,17 @@ const DEFAULT_AI: AISettings = {
   bot_type: "ia",
   ai_name: "Bot da loja",
   ai_personality: "profissional",
-  ai_prompt: "Você é um Atendente de excelência...",
+  ai_prompt: "VocÃƒÂª ÃƒÂ© um Atendente de excelÃƒÂªncia...",
   business_hours_start: "08:00",
   business_hours_end: "18:00",
   business_days: ["mon", "tue", "wed", "thu", "fri"],
   schedule_per_day: DEFAULT_SCHEDULE_PER_DAY,
   appointment_gap_min: 15,
-  off_hours_message: "Olá! Estamos fora do horário de expediente. Deixe sua mensagem que responderemos assim que retornarmos!",
+  off_hours_message: "OlÃƒÂ¡! Estamos fora do horÃƒÂ¡rio de expediente. Deixe sua mensagem que responderemos assim que retornarmos!",
   products: [],
   manager_phone: "",
   blocked_dates: [],
-  welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
+  welcome_message: "OlÃƒÂ¡! Seja bem-vindo(a) ao nosso atendimento! Ã°Å¸â€˜â€¹ Como posso te ajudar hoje?",
   welcome_menu_auto_append: true,
   interactive_poll_enabled: true,
   enableScheduling: true,
@@ -93,13 +93,13 @@ const DEFAULT_AI: AISettings = {
       id: "node_plano_start",
       parentId: null,
       keyword: "1",
-      title: "Plano Start (R$ 67/mês)",
+      title: "Plano Start (R$ 67/mÃƒÂªs)",
       actionType: "checkout",
       productId: "Plano Start",
-      productName: "Plano Start (R$ 67/mês)",
+      productName: "Plano Start (R$ 67/mÃƒÂªs)",
       productPrice: "67",
-      productDescription: "📌 Plano Start (R$ 67/mês + R$ 150 adesão)\n• Bot Fixo de Regras e Botões no WhatsApp\n• Atendimento Automático 24 horas\n• Respostas Ilimitadas via Menu\n(NÃO inclui criação de site nem IA)",
-      textContent: "Você selecionou o *Plano Start (R$ 67/mês + R$ 150 adesão)*:\n\n✨ *O que está incluso:*\n• Bot Fixo de Regras/Botões no WhatsApp\n• Atendimento 24h automático\n• Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
+      productDescription: "Ã°Å¸â€œÅ’ Plano Start (R$ 67/mÃƒÂªs + R$ 150 adesÃƒÂ£o)\nÃ¢â‚¬Â¢ Bot Fixo de Regras e BotÃƒÂµes no WhatsApp\nÃ¢â‚¬Â¢ Atendimento AutomÃƒÂ¡tico 24 horas\nÃ¢â‚¬Â¢ Respostas Ilimitadas via Menu\n(NÃƒÆ’O inclui criaÃƒÂ§ÃƒÂ£o de site nem IA)",
+      textContent: "VocÃƒÂª selecionou o *Plano Start (R$ 67/mÃƒÂªs + R$ 150 adesÃƒÂ£o)*:\n\nÃ¢Å“Â¨ *O que estÃƒÂ¡ incluso:*\nÃ¢â‚¬Â¢ Bot Fixo de Regras/BotÃƒÂµes no WhatsApp\nÃ¢â‚¬Â¢ Atendimento 24h automÃƒÂ¡tico\nÃ¢â‚¬Â¢ Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -107,13 +107,13 @@ const DEFAULT_AI: AISettings = {
       id: "node_plano_97",
       parentId: null,
       keyword: "2",
-      title: "Plano 97 (R$ 97/mês)",
+      title: "Plano 97 (R$ 97/mÃƒÂªs)",
       actionType: "checkout",
       productId: "Plano 97",
-      productName: "Plano 97 (R$ 97/mês)",
+      productName: "Plano 97 (R$ 97/mÃƒÂªs)",
       productPrice: "97",
-      productDescription: "📌 Plano 97 (R$ 97/mês + R$ 150 adesão)\n• Site Institucional 100% GRÁTIS Incluso\n• Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mês)\n• Agendamento Automático de Atendimentos",
-      textContent: "Você selecionou o *Plano 97 (R$ 97/mês + R$ 150 adesão)*:\n\n✨ *O que está incluso:*\n• Site Institucional 100% GRÁTIS\n• AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mês)\n• Agendamento de Horários\n\nEscolha a forma de pagamento:",
+      productDescription: "Ã°Å¸â€œÅ’ Plano 97 (R$ 97/mÃƒÂªs + R$ 150 adesÃƒÂ£o)\nÃ¢â‚¬Â¢ Site Institucional 100% GRÃƒÂTIS Incluso\nÃ¢â‚¬Â¢ Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ Agendamento AutomÃƒÂ¡tico de Atendimentos",
+      textContent: "VocÃƒÂª selecionou o *Plano 97 (R$ 97/mÃƒÂªs + R$ 150 adesÃƒÂ£o)*:\n\nÃ¢Å“Â¨ *O que estÃƒÂ¡ incluso:*\nÃ¢â‚¬Â¢ Site Institucional 100% GRÃƒÂTIS\nÃ¢â‚¬Â¢ AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ Agendamento de HorÃƒÂ¡rios\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -121,13 +121,13 @@ const DEFAULT_AI: AISettings = {
       id: "node_plano_growth",
       parentId: null,
       keyword: "3",
-      title: "Plano Growth (R$ 147/mês ⭐)",
+      title: "Plano Growth (R$ 147/mÃƒÂªs Ã¢Â­Â)",
       actionType: "checkout",
-      productId: "Plano Growth (Mais Vendido ⭐)",
-      productName: "Plano Growth (Mais Vendido ⭐)",
+      productId: "Plano Growth (Mais Vendido Ã¢Â­Â)",
+      productName: "Plano Growth (Mais Vendido Ã¢Â­Â)",
       productPrice: "147",
-      productDescription: "📌 Plano Growth (R$ 147/mês ⭐) — O Mais Vendido!\n• Site Institucional de até 5 Páginas\n• Ambos os Bots (Regras + IA 5k msgs/mês)\n• CRM de Vendas e Atendimento\n• Agendamento Automático + Suporte VIP",
-      textContent: "Você selecionou o *Plano Growth (R$ 147/mês ⭐)*:\n\n✨ *O que está incluso:*\n• Site Institucional Completo (até 5 páginas)\n• AMBOS OS BOTS INCLUSOS (Regras + IA 5k msgs/mês)\n• CRM de Atendimento e Vendas\n• Agendamento Automático de Horários\n\nEscolha a forma de pagamento:",
+      productDescription: "Ã°Å¸â€œÅ’ Plano Growth (R$ 147/mÃƒÂªs Ã¢Â­Â) Ã¢â‚¬â€ O Mais Vendido!\nÃ¢â‚¬Â¢ Site Institucional de atÃƒÂ© 5 PÃƒÂ¡ginas\nÃ¢â‚¬Â¢ Ambos os Bots (Regras + IA 5k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ CRM de Vendas e Atendimento\nÃ¢â‚¬Â¢ Agendamento AutomÃƒÂ¡tico + Suporte VIP",
+      textContent: "VocÃƒÂª selecionou o *Plano Growth (R$ 147/mÃƒÂªs Ã¢Â­Â)*:\n\nÃ¢Å“Â¨ *O que estÃƒÂ¡ incluso:*\nÃ¢â‚¬Â¢ Site Institucional Completo (atÃƒÂ© 5 pÃƒÂ¡ginas)\nÃ¢â‚¬Â¢ AMBOS OS BOTS INCLUSOS (Regras + IA 5k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ CRM de Atendimento e Vendas\nÃ¢â‚¬Â¢ Agendamento AutomÃƒÂ¡tico de HorÃƒÂ¡rios\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -135,13 +135,13 @@ const DEFAULT_AI: AISettings = {
       id: "node_plano_scale",
       parentId: null,
       keyword: "4",
-      title: "Plano Scale (R$ 497/mês)",
+      title: "Plano Scale (R$ 497/mÃƒÂªs)",
       actionType: "checkout",
       productId: "Plano Scale",
-      productName: "Plano Scale (R$ 497/mês)",
+      productName: "Plano Scale (R$ 497/mÃƒÂªs)",
       productPrice: "497",
-      productDescription: "📌 Plano Scale (R$ 497/mês + R$ 150 adesão)\n• Loja Virtual E-Commerce Completa\n• Ambos os Bots (Regras + IA 20k msgs/mês)\n• Multiatendimento Ilimitado para Equipes\n• Disparos em Massa + Gestor Dedicado",
-      textContent: "Você selecionou o *Plano Scale (R$ 497/mês)*:\n\n✨ *O que está incluso:*\n• Loja Virtual E-Commerce Completa (sem taxas por venda)\n• AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mês)\n• Multiatendimento Ilimitado para Atendentes\n• Disparos em Massa + Funis de Vendas\n\nEscolha a forma de pagamento:",
+      productDescription: "Ã°Å¸â€œÅ’ Plano Scale (R$ 497/mÃƒÂªs + R$ 150 adesÃƒÂ£o)\nÃ¢â‚¬Â¢ Loja Virtual E-Commerce Completa\nÃ¢â‚¬Â¢ Ambos os Bots (Regras + IA 20k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ Multiatendimento Ilimitado para Equipes\nÃ¢â‚¬Â¢ Disparos em Massa + Gestor Dedicado",
+      textContent: "VocÃƒÂª selecionou o *Plano Scale (R$ 497/mÃƒÂªs)*:\n\nÃ¢Å“Â¨ *O que estÃƒÂ¡ incluso:*\nÃ¢â‚¬Â¢ Loja Virtual E-Commerce Completa (sem taxas por venda)\nÃ¢â‚¬Â¢ AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mÃƒÂªs)\nÃ¢â‚¬Â¢ Multiatendimento Ilimitado para Atendentes\nÃ¢â‚¬Â¢ Disparos em Massa + Funis de Vendas\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -154,8 +154,8 @@ const DEFAULT_AI: AISettings = {
       productId: "Site Avulso / Personalizado",
       productName: "Site Avulso / Sob Medida",
       productPrice: "497",
-      productDescription: "📌 Site Avulso Personalizado (R$ 497 taxa única)\n• Desenvolvimento de Site Exclusivo para seu Nicho\n• Sem mensalidade obrigatória\n• Entregue em 3 a 5 dias úteis com domínio e SSL inclusos",
-      textContent: "Você selecionou *Site Avulso / Sob Medida (R$ 497 taxa única)*:\n\n✨ *O que está incluso:*\n• Design exclusivo e sob medida para a sua empresa\n• Domínio próprio, SSL e Hospedagem\n• Otimizado para Celulares e Google (SEO)\n• Botão de WhatsApp Direct-to-Chat\n\nEscolha a forma de pagamento:",
+      productDescription: "Ã°Å¸â€œÅ’ Site Avulso Personalizado (R$ 497 taxa ÃƒÂºnica)\nÃ¢â‚¬Â¢ Desenvolvimento de Site Exclusivo para seu Nicho\nÃ¢â‚¬Â¢ Sem mensalidade obrigatÃƒÂ³ria\nÃ¢â‚¬Â¢ Entregue em 3 a 5 dias ÃƒÂºteis com domÃƒÂ­nio e SSL inclusos",
+      textContent: "VocÃƒÂª selecionou *Site Avulso / Sob Medida (R$ 497 taxa ÃƒÂºnica)*:\n\nÃ¢Å“Â¨ *O que estÃƒÂ¡ incluso:*\nÃ¢â‚¬Â¢ Design exclusivo e sob medida para a sua empresa\nÃ¢â‚¬Â¢ DomÃƒÂ­nio prÃƒÂ³prio, SSL e Hospedagem\nÃ¢â‚¬Â¢ Otimizado para Celulares e Google (SEO)\nÃ¢â‚¬Â¢ BotÃƒÂ£o de WhatsApp Direct-to-Chat\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -163,46 +163,51 @@ const DEFAULT_AI: AISettings = {
       id: "node_agendamento",
       parentId: null,
       keyword: "6",
-      title: "📅 Agendar Horário / Reunião",
+      title: "Ã°Å¸â€œâ€¦ Agendar HorÃƒÂ¡rio / ReuniÃƒÂ£o",
       actionType: "scheduling",
-      textContent: "Escolha uma data e horário disponível abaixo para realizarmos a sua reunião ou atendimento:",
+      textContent: "Escolha uma data e horÃƒÂ¡rio disponÃƒÂ­vel abaixo para realizarmos a sua reuniÃƒÂ£o ou atendimento:",
       showInPoll: true,
     },
     {
       id: "node_atendente_humano",
       parentId: null,
       keyword: "7",
-      title: "👤 Falar com Atendente Humano",
+      title: "Ã°Å¸â€˜Â¤ Falar com Atendente Humano",
       actionType: "human",
-      textContent: "Transferindo o seu atendimento para um especialista humano da nossa equipe! Por favor, aguarde um instante que já vamos te responder. 💙",
+      textContent: "Transferindo o seu atendimento para um especialista humano da nossa equipe! Por favor, aguarde um instante que jÃƒÂ¡ vamos te responder. Ã°Å¸â€™â„¢",
       showInPoll: true,
     },
     {
       id: "node_catalogo",
       parentId: null,
       keyword: "8",
-      title: "📋 Catálogo Completo de Serviços",
+      title: "Ã°Å¸â€œâ€¹ CatÃƒÂ¡logo Completo de ServiÃƒÂ§os",
       actionType: "catalog",
-      textContent: "Confira nosso catálogo completo de produtos e serviços disponíveis:",
+      textContent: "Ã°Å¸â€œâ€¹ *Confira nosso CatÃƒÂ¡logo Completo de Produtos & Planos:*\n\nEscolha uma das opÃƒÂ§ÃƒÂµes abaixo para ver os detalhes e contratar:",
       showInPoll: true,
     },
+    { id: "node_cat_1", parentId: "node_catalogo", keyword: "1", title: "Plano Start (R$ 67/mÃƒÂªs)", actionType: "product", productId: "Plano Start", productName: "Plano Start (R$ 67/mÃƒÂªs)", productPrice: "67", productDescription: "Ã°Å¸â€œÅ’ Bot Fixo de Regras e BotÃƒÂµes no WhatsApp sem criaÃƒÂ§ÃƒÂ£o de site.", textContent: "VocÃƒÂª selecionou o Plano Start no catÃƒÂ¡logo:", paymentMode: "both", showInPoll: true },
+    { id: "node_cat_2", parentId: "node_catalogo", keyword: "2", title: "Plano 97 (R$ 97/mÃƒÂªs)", actionType: "product", productId: "Plano 97", productName: "Plano 97 (R$ 97/mÃƒÂªs)", productPrice: "97", productDescription: "Ã°Å¸â€œÅ’ Site Institucional GrÃƒÂ¡tis + Ambos os Bots Inclusos (Regras + IA 5k msgs).", textContent: "VocÃƒÂª selecionou o Plano 97 no catÃƒÂ¡logo:", paymentMode: "both", showInPoll: true },
+    { id: "node_cat_3", parentId: "node_catalogo", keyword: "3", title: "Plano Growth (R$ 147/mÃƒÂªs Ã¢Â­Â)", actionType: "product", productId: "Plano Growth (Mais Vendido Ã¢Â­Â)", productName: "Plano Growth (Mais Vendido Ã¢Â­Â)", productPrice: "147", productDescription: "Ã°Å¸â€œÅ’ Site 5 PÃƒÂ¡ginas + Ambos os Bots (Regras + IA) + CRM + Agendamento VIP.", textContent: "VocÃƒÂª selecionou o Plano Growth no catÃƒÂ¡logo:", paymentMode: "both", showInPoll: true },
+    { id: "node_cat_4", parentId: "node_catalogo", keyword: "4", title: "Plano Scale (R$ 497/mÃƒÂªs)", actionType: "product", productId: "Plano Scale", productName: "Plano Scale (R$ 497/mÃƒÂªs)", productPrice: "497", productDescription: "Ã°Å¸â€œÅ’ Loja Virtual E-Commerce Completa + Multiatendimento + Disparos em Massa.", textContent: "VocÃƒÂª selecionou o Plano Scale no catÃƒÂ¡logo:", paymentMode: "both", showInPoll: true },
+    { id: "node_cat_5", parentId: "node_catalogo", keyword: "5", title: "Site Avulso / Sob Medida (R$ 497)", actionType: "product", productId: "Site Avulso / Personalizado", productName: "Site Avulso / Sob Medida", productPrice: "497", productDescription: "Ã°Å¸â€œÅ’ Desenvolvimento de Site Exclusivo Personalizado Sob Medida (sem mensalidade).", textContent: "VocÃƒÂª selecionou Site Avulso no catÃƒÂ¡logo:", paymentMode: "both", showInPoll: true },
     {
       id: "node_form_question",
       parentId: null,
       keyword: "9",
-      title: "📝 Solicitar Informação / Orçamento",
+      title: "Ã°Å¸â€œÂ Solicitar InformaÃƒÂ§ÃƒÂ£o / OrÃƒÂ§amento",
       actionType: "collect_data",
       variableName: "informacao_cliente",
-      textContent: "Qual a sua principal dúvida, segmento de empresa ou informação que deseja solicitar?",
+      textContent: "Qual a sua principal dÃƒÂºvida, segmento de empresa ou informaÃƒÂ§ÃƒÂ£o que deseja solicitar?",
       showInPoll: true,
     },
     {
       id: "node_form_next_step",
       parentId: "node_form_question",
       keyword: "1",
-      title: "Confirmar Solicitação",
+      title: "Confirmar SolicitaÃƒÂ§ÃƒÂ£o",
       actionType: "text",
-      textContent: "Perfeito! Recebemos sua solicitação: \"{informacao_cliente}\". Um de nossos consultores entrará em contato em instantes!",
+      textContent: "Perfeito! Recebemos sua solicitaÃƒÂ§ÃƒÂ£o: \"{informacao_cliente}\". Um de nossos consultores entrarÃƒÂ¡ em contato em instantes!",
       showInPoll: true,
     },
   ],
@@ -211,45 +216,45 @@ const DEFAULT_AI: AISettings = {
 const TEMPLATES = [
   {
     id: "comercial",
-    title: "Comercial Padrão",
-    description: "Ideal para empresas que querem listar serviços, informar horários e agendar clientes.",
-    welcome_message: "Olá! Seja bem-vindo(a) ao canal de atendimento da nossa empresa! Como podemos te ajudar hoje? 👋",
+    title: "Comercial PadrÃƒÂ£o",
+    description: "Ideal para empresas que querem listar serviÃƒÂ§os, informar horÃƒÂ¡rios e agendar clientes.",
+    welcome_message: "OlÃƒÂ¡! Seja bem-vindo(a) ao canal de atendimento da nossa empresa! Como podemos te ajudar hoje? Ã°Å¸â€˜â€¹",
     enableScheduling: true,
   },
   {
     id: "saude",
-    title: "Clínica Médica / Odonto",
-    description: "Focado em agendamento de consultas médicas e informações de contato clínico.",
-    welcome_message: "Olá! Você está no pré-atendimento da nossa Clínica de Saúde. Escolha uma das opções abaixo para agendar sua consulta: 👋",
+    title: "ClÃƒÂ­nica MÃƒÂ©dica / Odonto",
+    description: "Focado em agendamento de consultas mÃƒÂ©dicas e informaÃƒÂ§ÃƒÂµes de contato clÃƒÂ­nico.",
+    welcome_message: "OlÃƒÂ¡! VocÃƒÂª estÃƒÂ¡ no prÃƒÂ©-atendimento da nossa ClÃƒÂ­nica de SaÃƒÂºde. Escolha uma das opÃƒÂ§ÃƒÂµes abaixo para agendar sua consulta: Ã°Å¸â€˜â€¹",
     enableScheduling: true,
   },
   {
     id: "alimentacao",
     title: "Delivery / Restaurante",
-    description: "Cardápio integrado e direcionamento direto para falar com atendentes.",
-    welcome_message: "Olá! Que bom ter você aqui no nosso restaurante. Digite 1 para ver o cardápio ou 4 para falar com nossos atendentes! 🍽️",
+    description: "CardÃƒÂ¡pio integrado e direcionamento direto para falar com atendentes.",
+    welcome_message: "OlÃƒÂ¡! Que bom ter vocÃƒÂª aqui no nosso restaurante. Digite 1 para ver o cardÃƒÂ¡pio ou 4 para falar com nossos atendentes! Ã°Å¸ÂÂ½Ã¯Â¸Â",
     enableScheduling: false,
   },
   {
     id: "suporte",
-    title: "Suporte Técnico",
-    description: "Foco total em triagem e repasse rápido para atendimento humano.",
-    welcome_message: "Olá, bem-vindo(a) ao nosso suporte técnico! Diga o que precisa ou digite 4 para falar com um técnico. 👨‍💻",
+    title: "Suporte TÃƒÂ©cnico",
+    description: "Foco total em triagem e repasse rÃƒÂ¡pido para atendimento humano.",
+    welcome_message: "OlÃƒÂ¡, bem-vindo(a) ao nosso suporte tÃƒÂ©cnico! Diga o que precisa ou digite 4 para falar com um tÃƒÂ©cnico. Ã°Å¸â€˜Â¨Ã¢â‚¬ÂÃ°Å¸â€™Â»",
     enableScheduling: false,
   },
 ];
 
 function sanitizeWelcomeText(msg: any): string {
   if (!msg || typeof msg !== "string") {
-    return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
+    return "OlÃƒÂ¡! Seja bem-vindo(a) ao nosso atendimento! Ã°Å¸â€˜â€¹ Como posso te ajudar hoje?";
   }
   const clean = msg
     .replace(/[\uFFFD\u00A0]/g, "")
-    .replace(/🟣\s*¤\s*–\s*🟣\s*‘\s*‹/g, "")
-    .replace(/¤|‘|‹/g, "")
+    .replace(/Ã°Å¸Å¸Â£\s*Ã‚Â¤\s*Ã¢â‚¬â€œ\s*Ã°Å¸Å¸Â£\s*Ã¢â‚¬Ëœ\s*Ã¢â‚¬Â¹/g, "")
+    .replace(/Ã‚Â¤|Ã¢â‚¬Ëœ|Ã¢â‚¬Â¹/g, "")
     .trim();
   if (!clean || clean.length < 5) {
-    return "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?";
+    return "OlÃƒÂ¡! Seja bem-vindo(a) ao nosso atendimento! Ã°Å¸â€˜â€¹ Como posso te ajudar hoje?";
   }
   return clean;
 }
@@ -297,7 +302,7 @@ export default function WorkflowPage() {
         if (data.tenantId) setTenantId(data.tenantId);
       }
     } catch (e) {
-      console.error("Erro ao buscar configurações:", e);
+      console.error("Erro ao buscar configuraÃƒÂ§ÃƒÂµes:", e);
     } finally {
       setIsLoaded(true);
     }
@@ -316,10 +321,10 @@ export default function WorkflowPage() {
         body: JSON.stringify(updatedSettings),
       });
       if (!res.ok) throw new Error();
-      if (!silent) setAlert({ type: "success", msg: "Configurações salvas com sucesso! ✅" });
+      if (!silent) setAlert({ type: "success", msg: "ConfiguraÃƒÂ§ÃƒÂµes salvas com sucesso! Ã¢Å“â€¦" });
       setJsonText(JSON.stringify(updatedSettings, null, 2));
     } catch {
-      setAlert({ type: "error", msg: "Erro ao salvar as configurações. Tente novamente." });
+      setAlert({ type: "error", msg: "Erro ao salvar as configuraÃƒÂ§ÃƒÂµes. Tente novamente." });
     } finally {
       setSaving(false);
     }
@@ -355,9 +360,9 @@ export default function WorkflowPage() {
       setSettings(merged);
       saveConfig(merged);
       setShowJsonModal(false);
-      setAlert({ type: "success", msg: "Configuração JSON restaurada e importada com sucesso! ✅" });
+      setAlert({ type: "success", msg: "ConfiguraÃƒÂ§ÃƒÂ£o JSON restaurada e importada com sucesso! Ã¢Å“â€¦" });
     } catch {
-      setAlert({ type: "error", msg: "JSON inválido. Verifique a sintaxe." });
+      setAlert({ type: "error", msg: "JSON invÃƒÂ¡lido. Verifique a sintaxe." });
     }
   };
 
@@ -371,7 +376,7 @@ export default function WorkflowPage() {
     setSettings(updated);
     saveConfig(updated);
     setShowTemplatesModal(false);
-    setAlert({ type: "success", msg: `Template "${tpl.title}" carregado com sucesso! ✅` });
+    setAlert({ type: "success", msg: `Template "${tpl.title}" carregado com sucesso! Ã¢Å“â€¦` });
   };
 
   const selectedNode = (selectedNodeId && selectedNodeId !== "start")
@@ -462,12 +467,12 @@ export default function WorkflowPage() {
         : null;
     const keyword = nextKeywordForParent(parentId);
     const labels: Record<string, string> = {
-      text: "Nova resposta",
-      catalog: "Catálogo",
+      text: "📄 Mensagem",
+      catalog: "CatÃƒÂ¡logo",
       product: "Produto",
       checkout: "Comprar agora",
-      scheduling: "Agendar horário",
-      collect_data: "Solicitar informação",
+      scheduling: "Agendar horÃƒÂ¡rio",
+      collect_data: "Solicitar informaÃƒÂ§ÃƒÂ£o",
       human: "Falar com atendente",
     };
     const node = {
@@ -527,7 +532,7 @@ export default function WorkflowPage() {
       ...selectedNode,
       id: `node_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       keyword: nextKeywordForParent(selectedNode.parentId || null),
-      title: `${selectedNode.title} (cópia)`,
+      title: `${selectedNode.title} (cÃƒÂ³pia)`,
       position: undefined,
     };
     updateField("custom_rules_nodes", [...(settings.custom_rules_nodes || []), clone]);
@@ -676,7 +681,7 @@ export default function WorkflowPage() {
 
   const deleteProduct = (productIndex: number) => {
     const product = (settings.products || [])[productIndex];
-    if (!product || !window.confirm(`Excluir "${product.name}" do catálogo?`)) return;
+    if (!product || !window.confirm(`Excluir "${product.name}" do catÃƒÂ¡logo?`)) return;
     const nodes = settingsRef.current.custom_rules_nodes || [];
     const catalogIds = new Set(nodes.filter((node: any) => node.actionType === "catalog").map((node: any) => node.id));
     const productBranches = nodes
@@ -752,9 +757,9 @@ export default function WorkflowPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] w-auto flex-col overflow-hidden bg-slate-100 -m-4 font-sans text-slate-900 dark:bg-slate-950 dark:text-white md:h-screen md:-m-8">
-      {/* HEADER SUPERIOR ESPAÇOSO E SEM SOBREPOSIÇÕES */}
+      {/* HEADER SUPERIOR ESPAÃƒâ€¡OSO E SEM SOBREPOSIÃƒâ€¡Ãƒâ€¢ES */}
       <header className="min-h-16 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-3 py-2 md:px-5 flex flex-col items-stretch sm:flex-row sm:items-center justify-between z-20 shadow-sm gap-2 sm:gap-4">
-        {/* ESQUERDA: TÍTULO E NAVEGAÇÃO DE ABAS */}
+        {/* ESQUERDA: TÃƒÂTULO E NAVEGAÃƒâ€¡ÃƒÆ’O DE ABAS */}
         <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start sm:gap-4 sm:flex-shrink-0">
           <div className="hidden items-center gap-2.5 md:flex">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-sm">
@@ -764,7 +769,7 @@ export default function WorkflowPage() {
               <h1 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
                 Fluxo do Bot
               </h1>
-              <p className="text-[10px] text-slate-500 font-medium">Menus e automações do WhatsApp</p>
+              <p className="text-[10px] text-slate-500 font-medium">Menus e automaÃƒÂ§ÃƒÂµes do WhatsApp</p>
             </div>
           </div>
 
@@ -799,7 +804,7 @@ export default function WorkflowPage() {
           </div>
         </div>
 
-        {/* DIREITA: BOTÕES DE AÇÃO ORGANIZADOS */}
+        {/* DIREITA: BOTÃƒâ€¢ES DE AÃƒâ€¡ÃƒÆ’O ORGANIZADOS */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
           {alert && (
             <div
@@ -827,7 +832,7 @@ export default function WorkflowPage() {
                 <button
                   onClick={() => setShowProductsModal(true)}
                   className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-sky-200 dark:border-sky-500/20"
-                  title="Ver produtos disponíveis para vincular ao fluxo"
+                  title="Ver produtos disponÃƒÂ­veis para vincular ao fluxo"
                 >
                   <Package className="w-3.5 h-3.5" />
                   <span className="hidden xl:inline">Produtos</span>
@@ -844,10 +849,10 @@ export default function WorkflowPage() {
 
                 <button
                   onClick={() => {
-                    if (!window.confirm("Limpar todo o fluxo? Esta ação remove todas as etapas personalizadas.")) return;
+                    if (!window.confirm("Limpar todo o fluxo? Esta aÃƒÂ§ÃƒÂ£o remove todas as etapas personalizadas.")) return;
                     updateField("custom_rules_nodes", []);
                     setSelectedNodeId("start");
-                    setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. 🧹" });
+                    setAlert({ type: "success", msg: "Fluxo limpo! Crie suas regras 100% do zero. Ã°Å¸Â§Â¹" });
                   }}
                   className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-rose-200 dark:border-rose-500/20"
                   title="Limpar todas as regras para criar do zero"
@@ -863,7 +868,7 @@ export default function WorkflowPage() {
                 className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 border border-indigo-200 dark:border-indigo-500/20"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Opção</span>
+                <span>+ OpÃƒÂ§ÃƒÂ£o</span>
               </button>
             </>
 
@@ -888,9 +893,9 @@ export default function WorkflowPage() {
         </div>
       </header>
 
-      {/* ÁREA PRINCIPAL TOTALMENTE ESPAÇOSA E LIVRE */}
+      {/* ÃƒÂREA PRINCIPAL TOTALMENTE ESPAÃƒâ€¡OSA E LIVRE */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* ABA 1: CANVAS VISUAL ESPAÇOSO */}
+        {/* ABA 1: CANVAS VISUAL ESPAÃƒâ€¡OSO */}
         {activeTab === "canvas" && (
           <main className="flex-1 h-full bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
             {isLoaded && (
@@ -904,13 +909,13 @@ export default function WorkflowPage() {
 
             <div className="absolute bottom-5 left-5 z-30 w-56 rounded-2xl border border-slate-200 bg-white/95 p-2.5 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
               <div className="mb-2 px-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Adicionar após {selectedNode?.title || "Início"}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Adicionar apÃƒÂ³s {selectedNode?.title || "InÃƒÂ­cio"}</p>
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
                   { type: "text", label: "Mensagem", icon: MessageCircle, color: "text-indigo-600" },
                   { type: "collect_data", label: "Pergunta", icon: ClipboardPenLine, color: "text-pink-600" },
-                  { type: "catalog", label: "Catálogo", icon: BookOpen, color: "text-sky-600" },
+                  { type: "catalog", label: "CatÃƒÂ¡logo", icon: BookOpen, color: "text-sky-600" },
                   { type: "product", label: "Produto", icon: Box, color: "text-cyan-600" },
                   { type: "scheduling", label: "Agenda", icon: Calendar, color: "text-emerald-600" },
                   { type: "checkout", label: "Pagamento", icon: ShoppingCart, color: "text-fuchsia-600" },
@@ -923,7 +928,7 @@ export default function WorkflowPage() {
               </div>
             </div>
 
-            {/* BOTÃO FLUTUANTE DE ACESSO RÁPIDO AO SIMULADOR */}
+            {/* BOTÃƒÆ’O FLUTUANTE DE ACESSO RÃƒÂPIDO AO SIMULADOR */}
             <button
               onClick={() => setActiveTab("simulator")}
               className="absolute bottom-6 right-6 z-30 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-xl border border-emerald-400/30 flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95"
@@ -935,14 +940,14 @@ export default function WorkflowPage() {
           </main>
         )}
 
-        {/* DIREITA: PROPRIEDADES DO NÓ SELECIONADO (PAINEL DESLIZANTE QUE PODE SER ENCOLHIDO) */}
+        {/* DIREITA: PROPRIEDADES DO NÃƒâ€œ SELECIONADO (PAINEL DESLIZANTE QUE PODE SER ENCOLHIDO) */}
         {(activeTab === "canvas" || activeTab === "simulator") && (
           <aside
             className={`${activeTab === "simulator" ? "order-1 border-r" : "order-2 border-l"} border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl flex flex-col flex-shrink-0 z-10 transition-all duration-300 relative ${
               isRightPanelOpen ? (activeTab === "simulator" ? "fixed inset-y-0 right-0 z-50 w-full max-w-[420px] p-5 space-y-6 overflow-y-auto md:relative md:inset-auto md:z-10" : "fixed inset-y-0 right-0 z-50 w-full max-w-[380px] p-5 space-y-6 overflow-y-auto md:relative md:inset-auto md:z-10") : "w-12 p-2 items-center"
             }`}
           >
-            {/* BOTÃO RETRÁTIL DO PAINEL LATERAL */}
+            {/* BOTÃƒÆ’O RETRÃƒÂTIL DO PAINEL LATERAL */}
             <button
               onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
               className="absolute top-4 left-3 p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 transition-all"
@@ -965,9 +970,9 @@ export default function WorkflowPage() {
                 {activeTab === "simulator" && (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />Prévia automática
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />PrÃƒÂ©via automÃƒÂ¡tica
                     </div>
-                    <p className="mt-1 text-[10px] leading-relaxed text-emerald-800/80 dark:text-emerald-200/80">Altere qualquer campo abaixo. O telefone reinicia e mostra imediatamente a versão nova do fluxo.</p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-emerald-800/80 dark:text-emerald-200/80">Altere qualquer campo abaixo. O telefone reinicia e mostra imediatamente a versÃƒÂ£o nova do fluxo.</p>
                   </div>
                 )}
 
@@ -997,7 +1002,7 @@ export default function WorkflowPage() {
                         className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
                       <label htmlFor="hide_auto_catalog" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                        Ocultar catálogo automático de produtos
+                        Ocultar catÃƒÂ¡logo automÃƒÂ¡tico de produtos
                       </label>
                     </div>
 
@@ -1010,7 +1015,7 @@ export default function WorkflowPage() {
                         className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
                       <label htmlFor="welcome_menu_auto_append" className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                        Adicionar menu automático abaixo da mensagem
+                        Adicionar menu automÃƒÂ¡tico abaixo da mensagem
                       </label>
                     </div>
 
@@ -1024,7 +1029,7 @@ export default function WorkflowPage() {
                           className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <label htmlFor="interactive_poll_enabled" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                          Usar opções interativas (enquete)
+                          Usar opÃƒÂ§ÃƒÂµes interativas (enquete)
                         </label>
                       </div>
                       <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
@@ -1039,7 +1044,7 @@ export default function WorkflowPage() {
                     <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-4 dark:border-indigo-500/20 dark:from-indigo-500/10 dark:to-purple-500/10">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">Editando etapa</p>
                       <p className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{selectedNode.title}</p>
-                      <p className="mt-1 text-[10px] font-medium text-slate-500">Tudo que for alterado aqui é usado no fluxo real.</p>
+                      <p className="mt-1 text-[10px] font-medium text-slate-500">Tudo que for alterado aqui ÃƒÂ© usado no fluxo real.</p>
                     </div>
 
                     <div className="space-y-2">
@@ -1049,7 +1054,7 @@ export default function WorkflowPage() {
                         onChange={(e) => setSelectedNodeField("parentId", e.target.value === "start" ? null : e.target.value)}
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
                       >
-                        <option value="start">Início do atendimento</option>
+                        <option value="start">InÃƒÂ­cio do atendimento</option>
                         {(settings.custom_rules_nodes || [])
                           .filter((node: any) => node.id !== selectedNode.id && !descendantIds(selectedNode.id).has(node.id))
                           .map((node: any) => <option key={node.id} value={node.id}>{node.title}</option>)}
@@ -1058,7 +1063,7 @@ export default function WorkflowPage() {
 
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        🔑 Gatilho de Ativação (Dígito ou Palavra-chave)
+                        Ã°Å¸â€â€˜ Gatilho de AtivaÃƒÂ§ÃƒÂ£o (DÃƒÂ­gito ou Palavra-chave)
                       </label>
                       <input
                         type="text"
@@ -1068,17 +1073,17 @@ export default function WorkflowPage() {
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500"
                       />
                       <p className="text-[10px] text-slate-500 font-medium">
-                        Quando o cliente enviar este dígito ou palavra no WhatsApp, esta opção ou sub-menu será ativado.
+                        Quando o cliente enviar este dÃƒÂ­gito ou palavra no WhatsApp, esta opÃƒÂ§ÃƒÂ£o ou sub-menu serÃƒÂ¡ ativado.
                       </p>
                       {selectedKeywordConflict && (
                         <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-                          Este gatilho já é usado por outra opção no mesmo nível. Escolha outro para evitar conflito.
+                          Este gatilho jÃƒÂ¡ ÃƒÂ© usado por outra opÃƒÂ§ÃƒÂ£o no mesmo nÃƒÂ­vel. Escolha outro para evitar conflito.
                         </p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Título do Menu</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">TÃƒÂ­tulo do Menu</label>
                       <input
                         type="text"
                         value={selectedNode.title || ""}
@@ -1088,19 +1093,19 @@ export default function WorkflowPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Tipo de Ação</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Tipo de AÃƒÂ§ÃƒÂ£o</label>
                       <select
                         value={selectedNode.actionType || "text"}
                         onChange={(e) => setSelectedNodeField("actionType", e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:border-indigo-500 cursor-pointer"
                       >
-                        <option value="text">💬 Texto Personalizado / Submenu</option>
-                        <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                        <option value="product">🧩 Produto (exibe e segue submenu)</option>
-                        <option value="checkout">🛒 Checkout / Pagamento</option>
-                        <option value="scheduling">📅 Iniciar Agendamento</option>
-                        <option value="collect_data">📝 Fazer Pergunta / Coletar Dado</option>
-                        <option value="human">👤 Transferir para Humano</option>
+                        <option value="text">Ã°Å¸â€™Â¬ Texto Personalizado / Submenu</option>
+                        <option value="catalog">Ã°Å¸â€œâ€¹ Exibir CatÃƒÂ¡logo de Produtos</option>
+                        <option value="product">Ã°Å¸Â§Â© Produto (exibe e segue submenu)</option>
+                        <option value="checkout">Ã°Å¸â€ºâ€™ Checkout / Pagamento</option>
+                        <option value="scheduling">Ã°Å¸â€œâ€¦ Iniciar Agendamento</option>
+                        <option value="collect_data">Ã°Å¸â€œÂ Fazer Pergunta / Coletar Dado</option>
+                        <option value="human">Ã°Å¸â€˜Â¤ Transferir para Humano</option>
                       </select>
                     </div>
 
@@ -1112,7 +1117,7 @@ export default function WorkflowPage() {
                             rows={4}
                             value={selectedNode.textContent || ""}
                             onChange={(e) => setSelectedNodeField("textContent", e.target.value)}
-                            placeholder="Ex: Qual tamanho você deseja?"
+                            placeholder="Ex: Qual tamanho vocÃƒÂª deseja?"
                             className="mt-2 w-full resize-none rounded-xl border border-pink-200 bg-white p-3 text-xs font-medium leading-relaxed outline-none focus:border-pink-500 dark:border-pink-500/20 dark:bg-slate-950"
                           />
                         </div>
@@ -1147,25 +1152,25 @@ export default function WorkflowPage() {
                           className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <label htmlFor="showInPoll" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                          Exibir esta opção na enquete
+                          Exibir esta opÃƒÂ§ÃƒÂ£o na enquete
                         </label>
                       </div>
                       <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-                        Se ocultar, o gatilho ainda poderá ser digitado pelo cliente.
+                        Se ocultar, o gatilho ainda poderÃƒÂ¡ ser digitado pelo cliente.
                       </p>
                     </div>
 
                     {(selectedNode.actionType === "checkout" || selectedNode.actionType === "product") && (
                       <div className="space-y-2">
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">💳 Forma de Pagamento</label>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Ã°Å¸â€™Â³ Forma de Pagamento</label>
                         <select
                           value={selectedNode.paymentMode || "both"}
                           onChange={(e) => setSelectedNodeField("paymentMode", e.target.value)}
                           className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
                         >
-                          <option value="both">⭐ Cliente escolhe entre PIX e Cartão</option>
-                          <option value="pix">⚡ Pix Direto no WhatsApp</option>
-                          <option value="link">🔗 Link de Checkout no Site</option>
+                          <option value="both">Ã¢Â­Â Cliente escolhe entre PIX e CartÃƒÂ£o</option>
+                          <option value="pix">Ã¢Å¡Â¡ Pix Direto no WhatsApp</option>
+                          <option value="link">Ã°Å¸â€â€” Link de Checkout no Site</option>
                         </select>
 
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Produto Vinculado</label>
@@ -1188,7 +1193,7 @@ export default function WorkflowPage() {
                           value={selectedNode.productName || ""}
                           onChange={(e) => setSelectedNodeField("productName", e.target.value)}
                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                          placeholder="Usado como fallback quando não houver id"
+                          placeholder="Usado como fallback quando nÃƒÂ£o houver id"
                         />
                       </div>
                     )}
@@ -1199,9 +1204,9 @@ export default function WorkflowPage() {
                           {selectedNode.actionType === "collect_data"
                             ? "Pergunta enviada ao cliente"
                             : selectedNode.actionType === "human"
-                              ? "Mensagem antes da transferência"
+                              ? "Mensagem antes da transferÃƒÂªncia"
                               : selectedNode.actionType === "catalog"
-                                ? "Título/introdução do catálogo"
+                                ? "TÃƒÂ­tulo/introduÃƒÂ§ÃƒÂ£o do catÃƒÂ¡logo"
                                 : selectedNode.actionType === "product"
                                   ? "Texto antes dos detalhes do produto"
                                   : "Mensagem desta etapa"}
@@ -1230,7 +1235,7 @@ export default function WorkflowPage() {
 
                     {selectedNode.actionType === "catalog" && (
                       <button type="button" onClick={createCatalogFlow} className="w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-black text-sky-700 transition hover:bg-sky-100 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
-                        <Package className="mr-2 inline size-4" />Criar/atualizar opções com meus produtos
+                        <Package className="mr-2 inline size-4" />Criar/atualizar opÃƒÂ§ÃƒÂµes com meus produtos
                       </button>
                     )}
 
@@ -1242,14 +1247,14 @@ export default function WorkflowPage() {
                       className="w-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl px-4 py-2 text-xs font-bold hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>+ Adicionar Sub-opção</span>
+                      <span>+ Adicionar Sub-opÃƒÂ§ÃƒÂ£o</span>
                     </button>
 
                     <div className="grid grid-cols-4 gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
                       <button type="button" onClick={() => moveSelectedNode(-1)} title="Mover para cima" className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"><ChevronUp className="mx-auto size-4" /></button>
                       <button type="button" onClick={() => moveSelectedNode(1)} title="Mover para baixo" className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"><ChevronDown className="mx-auto size-4" /></button>
                       <button type="button" onClick={duplicateSelectedNode} title="Duplicar etapa" className="rounded-xl border border-indigo-200 p-2 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500/20 dark:text-indigo-300"><Copy className="mx-auto size-4" /></button>
-                      <button type="button" onClick={deleteSelectedNode} title="Excluir etapa e dependências" className="rounded-xl border border-rose-200 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-500/20 dark:text-rose-300"><X className="mx-auto size-4" /></button>
+                      <button type="button" onClick={deleteSelectedNode} title="Excluir etapa e dependÃƒÂªncias" className="rounded-xl border border-rose-200 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-500/20 dark:text-rose-300"><X className="mx-auto size-4" /></button>
                     </div>
                   </div>
                 )}
@@ -1261,7 +1266,7 @@ export default function WorkflowPage() {
         {/* ABA 2: SIMULADOR DE SMARTPHONE DEDICADO COM PAINEL DE REGRAS COMPLETO */}
         {activeTab === "simulator" && (
           <div className="order-2 flex-1 h-full bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_46%)] bg-slate-100 dark:bg-slate-950 flex items-center justify-center gap-5 p-6 overflow-y-auto">
-            {/* PAINEL LATERAL COMPLETO DE GERENCIAMENTO DE NÓS E TESTES */}
+            {/* PAINEL LATERAL COMPLETO DE GERENCIAMENTO DE NÃƒâ€œS E TESTES */}
             {false && (<div className="hidden">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
                 <div className="flex items-center gap-2">
@@ -1277,7 +1282,7 @@ export default function WorkflowPage() {
                   type="text"
                   value={nodeSearchQuery}
                   onChange={(e) => setNodeSearchQuery(e.target.value)}
-                  placeholder="🔍 Buscar opção ou gatilho..."
+                  placeholder="Ã°Å¸â€Â Buscar opÃƒÂ§ÃƒÂ£o ou gatilho..."
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500"
                 />
                 {nodeSearchQuery && (
@@ -1300,11 +1305,11 @@ export default function WorkflowPage() {
                 />
               </div>
 
-              {/* ÁRVORE DE NÓS E SUB-NÓS */}
+              {/* ÃƒÂRVORE DE NÃƒâ€œS E SUB-NÃƒâ€œS */}
               <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/10">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Árvore de Nós ({ (settings.custom_rules_nodes || []).length })
+                    ÃƒÂrvore de NÃƒÂ³s ({ (settings.custom_rules_nodes || []).length })
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -1325,7 +1330,7 @@ export default function WorkflowPage() {
                       }}
                       className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
-                      ✨ Auto-Numerar
+                      Ã¢Å“Â¨ Auto-Numerar
                     </button>
 
                     <button
@@ -1336,21 +1341,21 @@ export default function WorkflowPage() {
                           id: "node_" + Math.random().toString(36).substr(2, 9),
                           parentId: null,
                           keyword: String(nextNum),
-                          title: `Opção ${nextNum}`,
+                          title: `OpÃƒÂ§ÃƒÂ£o ${nextNum}`,
                           actionType: "text",
-                          textContent: "Digite a resposta desta opção...",
+                          textContent: "Digite a resposta desta opÃƒÂ§ÃƒÂ£o...",
                           showInPoll: true,
                         });
                         updateField("custom_rules_nodes", newNodes);
                       }}
                       className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Nó
+                      <Plus className="w-3.5 h-3.5" /> Add NÃƒÂ³
                     </button>
                   </div>
                 </div>
 
-                {/* LISTA HIERÁRQUICA RECURSIVA COM BUSCA */}
+                {/* LISTA HIERÃƒÂRQUICA RECURSIVA COM BUSCA */}
                 {(() => {
                   const renderNodeItem = (node: any, depth = 0): React.ReactNode => {
                     const children = (settings.custom_rules_nodes || []).filter((n: any) => n.parentId === node.id);
@@ -1364,14 +1369,14 @@ export default function WorkflowPage() {
                             ? "bg-slate-50 dark:bg-slate-950 border-indigo-200 dark:border-indigo-500/30"
                             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10"
                         }`}>
-                          {/* LINHA DE TÍTULO E GATILHO */}
+                          {/* LINHA DE TÃƒÂTULO E GATILHO */}
                           <div className="flex items-center gap-1.5 w-full min-w-0">
                             <button
                               onClick={() => setExpandedParents({ ...expandedParents, [node.id]: !isExpanded })}
                               className="text-slate-400 hover:text-indigo-600 p-0.5 font-bold text-xs shrink-0"
-                              title={isExpanded ? "Recolher sub-opções" : "Expandir sub-opções"}
+                              title={isExpanded ? "Recolher sub-opÃƒÂ§ÃƒÂµes" : "Expandir sub-opÃƒÂ§ÃƒÂµes"}
                             >
-                              {children.length > 0 ? (isExpanded ? "▼" : "▶") : "•"}
+                              {children.length > 0 ? (isExpanded ? "Ã¢â€“Â¼" : "Ã¢â€“Â¶") : "Ã¢â‚¬Â¢"}
                             </button>
 
                             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-1.5 py-0.5 shrink-0">
@@ -1397,7 +1402,7 @@ export default function WorkflowPage() {
                                 updateField("custom_rules_nodes", newNodes);
                               }}
                               className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-extrabold text-slate-900 dark:text-white text-xs min-w-0"
-                              placeholder={depth === 0 ? "Título do Menu" : "Título da Sub-opção"}
+                              placeholder={depth === 0 ? "TÃƒÂ­tulo do Menu" : "TÃƒÂ­tulo da Sub-opÃƒÂ§ÃƒÂ£o"}
                             />
 
                             <button
@@ -1417,7 +1422,7 @@ export default function WorkflowPage() {
                             </button>
                           </div>
 
-                          {/* TIPO DE AÇÃO DO NÓ */}
+                          {/* TIPO DE AÃƒâ€¡ÃƒÆ’O DO NÃƒâ€œ */}
                           <select
                             value={node.actionType || "text"}
                             onChange={(e) => {
@@ -1427,24 +1432,24 @@ export default function WorkflowPage() {
                             }}
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1 font-bold text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
                             >
-                              <option value="text">💬 Exibir Resposta de Texto / Submenu</option>
-                              <option value="collect_data">📝 Fazer Pergunta / Coletar Dado (Formulário)</option>
-                              <option value="catalog">📋 Exibir Catálogo de Produtos</option>
-                              <option value="product">🧩 Produto (exibe e segue submenu)</option>
-                              <option value="checkout">💳 Pagamento / Checkout de Produto</option>
-                              <option value="scheduling">📅 Abrir Agendamento de Horário</option>
-                              <option value="human">👤 Transferir para Atendente Humano</option>
+                              <option value="text">Ã°Å¸â€™Â¬ Exibir Resposta de Texto / Submenu</option>
+                              <option value="collect_data">Ã°Å¸â€œÂ Fazer Pergunta / Coletar Dado (FormulÃƒÂ¡rio)</option>
+                              <option value="catalog">Ã°Å¸â€œâ€¹ Exibir CatÃƒÂ¡logo de Produtos</option>
+                              <option value="product">Ã°Å¸Â§Â© Produto (exibe e segue submenu)</option>
+                              <option value="checkout">Ã°Å¸â€™Â³ Pagamento / Checkout de Produto</option>
+                              <option value="scheduling">Ã°Å¸â€œâ€¦ Abrir Agendamento de HorÃƒÂ¡rio</option>
+                              <option value="human">Ã°Å¸â€˜Â¤ Transferir para Atendente Humano</option>
                             </select>
 
-                          {/* CAMPOS ESPECÍFICOS PARA FORMULÁRIO / PERGUNTA (COLLECT DATA) */}
+                          {/* CAMPOS ESPECÃƒÂFICOS PARA FORMULÃƒÂRIO / PERGUNTA (COLLECT DATA) */}
                           {node.actionType === "collect_data" && (
                             <div className="space-y-2 p-2.5 bg-pink-50 dark:bg-pink-950/40 border border-pink-200 dark:border-pink-500/30 rounded-xl">
                               <div className="flex items-center justify-between">
                                 <label className="text-[10px] font-black text-pink-700 dark:text-pink-300">
-                                  🔑 Variável onde salvar a resposta:
+                                  Ã°Å¸â€â€˜ VariÃƒÂ¡vel onde salvar a resposta:
                                 </label>
                                 <span className="text-[9px] font-mono font-bold text-pink-600 dark:text-pink-400">
-                                  {node.variableName ? `{${node.variableName}}` : "sem variável"}
+                                  {node.variableName ? `{${node.variableName}}` : "sem variÃƒÂ¡vel"}
                                 </span>
                               </div>
                               <input
@@ -1459,7 +1464,7 @@ export default function WorkflowPage() {
                                 className="w-full bg-white dark:bg-slate-950 border border-pink-200 dark:border-pink-500/30 rounded-lg px-2 py-1 text-xs font-mono font-bold text-pink-900 dark:text-pink-200 focus:outline-none"
                               />
                               <p className="text-[9px] text-pink-700 dark:text-pink-300 italic">
-                                A resposta digitada pelo cliente será gravada nesta variável. Exemplo de uso nas mensagens das etapas seguintes: <code className="font-mono bg-pink-100 dark:bg-pink-900 px-1 py-0.5 rounded text-pink-800 dark:text-pink-200">{`{${node.variableName || "informacao_cliente"}}`}</code>
+                                A resposta digitada pelo cliente serÃƒÂ¡ gravada nesta variÃƒÂ¡vel. Exemplo de uso nas mensagens das etapas seguintes: <code className="font-mono bg-pink-100 dark:bg-pink-900 px-1 py-0.5 rounded text-pink-800 dark:text-pink-200">{`{${node.variableName || "informacao_cliente"}}`}</code>
                               </p>
                             </div>
                           )}
@@ -1475,13 +1480,13 @@ export default function WorkflowPage() {
                               }}
                               className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            Exibir esta opção na enquete
+                            Exibir esta opÃƒÂ§ÃƒÂ£o na enquete
                           </label>
 
                           {/* MOSTRA FORMA DE PAGAMENTO APENAS SE FOR PAGAMENTO OU CHECKOUT! */}
                             {(node.actionType === "checkout" || node.actionType === "product") && (
                               <div className="space-y-1">
-                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">💳 Forma de Pagamento:</label>
+                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">Ã°Å¸â€™Â³ Forma de Pagamento:</label>
                                 <select
                                   value={node.paymentMode || "both"}
                                 onChange={(e) => {
@@ -1491,12 +1496,12 @@ export default function WorkflowPage() {
                                 }}
                                 className="w-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/30 rounded-xl px-2 py-1 font-bold text-[10px] text-indigo-900 dark:text-indigo-200 focus:outline-none"
                               >
-                                <option value="both">⭐ Cliente escolhe entre PIX e Cartão</option>
-                                  <option value="pix">⚡ Pix Direto no WhatsApp (Copia e Cola)</option>
-                                  <option value="link">🔗 Link de Checkout no Site (Cartão / Boleto / Pix)</option>
+                                <option value="both">Ã¢Â­Â Cliente escolhe entre PIX e CartÃƒÂ£o</option>
+                                  <option value="pix">Ã¢Å¡Â¡ Pix Direto no WhatsApp (Copia e Cola)</option>
+                                  <option value="link">Ã°Å¸â€â€” Link de Checkout no Site (CartÃƒÂ£o / Boleto / Pix)</option>
                                 </select>
 
-                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">🛒 Produto Vinculado:</label>
+                                <label className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block">Ã°Å¸â€ºâ€™ Produto Vinculado:</label>
                                 <select
                                   value={getProductOptionValue(node)}
                                   onChange={(e) => applyProductToNode(nodeIdx, parseInt(e.target.value, 10))}
@@ -1519,13 +1524,13 @@ export default function WorkflowPage() {
                                     newNodes[nodeIdx].productName = e.target.value;
                                     updateField("custom_rules_nodes", newNodes);
                                   }}
-                                  placeholder="Fallback se não houver produto vinculado"
+                                  placeholder="Fallback se nÃƒÂ£o houver produto vinculado"
                                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-0.5 font-medium text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
                                 />
                               </div>
                             )}
 
-                          {/* RESPOSTA DO ROBÔ */}
+                          {/* RESPOSTA DO ROBÃƒâ€ */}
                           <textarea
                             rows={2}
                             value={node.textContent || ""}
@@ -1534,11 +1539,11 @@ export default function WorkflowPage() {
                               newNodes[nodeIdx].textContent = e.target.value;
                               updateField("custom_rules_nodes", newNodes);
                             }}
-                            placeholder="Resposta enviada ao cliente ao selecionar esta opção..."
+                            placeholder="Resposta enviada ao cliente ao selecionar esta opÃƒÂ§ÃƒÂ£o..."
                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-[11px] text-slate-800 dark:text-slate-200 font-medium focus:outline-none resize-none leading-relaxed"
                           />
 
-                          {/* BOTÃO SINCRONIZAR PRODUTOS (SE FOR CATÁLOGO) */}
+                          {/* BOTÃƒÆ’O SINCRONIZAR PRODUTOS (SE FOR CATÃƒÂLOGO) */}
                           {node.actionType === "catalog" && (
                             <button
                               onClick={() => {
@@ -1554,7 +1559,7 @@ export default function WorkflowPage() {
                                     title: `${prod.name} (R$ ${prod.price})`,
                                     actionType: "checkout",
                                     paymentMode: "both",
-                                    textContent: `Você selecionou *${prod.name}* (R$ ${prod.price}). Escolha como deseja realizar o pagamento abaixo:`,
+                                    textContent: `VocÃƒÂª selecionou *${prod.name}* (R$ ${prod.price}). Escolha como deseja realizar o pagamento abaixo:`,
                                     productId: prod.id != null ? String(prod.id) : "",
                                     productName: prod.name || "",
                                     productPrice: prod.price != null ? String(prod.price) : "",
@@ -1564,16 +1569,16 @@ export default function WorkflowPage() {
                                 }
                               });
                                 updateField("custom_rules_nodes", newNodes);
-                                setAlert({ type: "success", msg: "Sub-nós de produtos gerados com sucesso! 📦" });
+                                setAlert({ type: "success", msg: "Sub-nÃƒÂ³s de produtos gerados com sucesso! Ã°Å¸â€œÂ¦" });
                               }}
                               className="w-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-2.5 py-1.5 text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
                             >
                               <Package className="w-3.5 h-3.5 text-emerald-500" />
-                              <span>✨ Gerar Sub-nós dos Produtos</span>
+                              <span>Ã¢Å“Â¨ Gerar Sub-nÃƒÂ³s dos Produtos</span>
                             </button>
                           )}
 
-                          {/* RODAPÉ DO CARD DO NÓ: ADD SUB-OPÇÃO */}
+                          {/* RODAPÃƒâ€° DO CARD DO NÃƒâ€œ: ADD SUB-OPÃƒâ€¡ÃƒÆ’O */}
                           <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/10">
                             <button
                               onClick={() => {
@@ -1583,9 +1588,9 @@ export default function WorkflowPage() {
                                   id: "node_" + Math.random().toString(36).substring(2, 9),
                                   parentId: node.id,
                                   keyword: String(children.length + 1),
-                                  title: isForm ? `Próxima Pergunta / Etapa ${children.length + 1}` : `Sub-opção ${children.length + 1}`,
+                                  title: isForm ? `PrÃƒÂ³xima Pergunta / Etapa ${children.length + 1}` : `Sub-opÃƒÂ§ÃƒÂ£o ${children.length + 1}`,
                                   actionType: isForm ? "collect_data" : "text",
-                                  textContent: isForm ? "Qual a próxima pergunta que deseja fazer ao cliente?" : "Digite a resposta desta sub-opção...",
+                                  textContent: isForm ? "Qual a prÃƒÂ³xima pergunta que deseja fazer ao cliente?" : "Digite a resposta desta sub-opÃƒÂ§ÃƒÂ£o...",
                                   showInPoll: true,
                                   variableName: "",
                                 });
@@ -1593,13 +1598,13 @@ export default function WorkflowPage() {
                               }}
                               className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                             >
-                              <Plus className="w-3.5 h-3.5" /> {node.actionType === "collect_data" ? "Add Próxima Pergunta (Formulário)" : "Add Sub-opção"}
+                              <Plus className="w-3.5 h-3.5" /> {node.actionType === "collect_data" ? "Add PrÃƒÂ³xima Pergunta (FormulÃƒÂ¡rio)" : "Add Sub-opÃƒÂ§ÃƒÂ£o"}
                             </button>
-                            <span className="text-[9px] text-slate-400 font-medium">{children.length} sub-opção(ões)</span>
+                            <span className="text-[9px] text-slate-400 font-medium">{children.length} sub-opÃƒÂ§ÃƒÂ£o(ÃƒÂµes)</span>
                           </div>
                         </div>
 
-                        {/* SUB-NÓS RECURSIVOS (SUBSEÇÃO DA SUBSEÇÃO...) */}
+                        {/* SUB-NÃƒâ€œS RECURSIVOS (SUBSEÃƒâ€¡ÃƒÆ’O DA SUBSEÃƒâ€¡ÃƒÆ’O...) */}
                         {isExpanded && children.length > 0 && (
                           <div className="border-l-2 border-indigo-400/60 dark:border-indigo-500/50 pl-2.5 ml-2 space-y-2 relative">
                             {children.map((child: any) => renderNodeItem(child, depth + 1))}
@@ -1638,7 +1643,7 @@ export default function WorkflowPage() {
                   onClick={() => setSelectedNodeId("start")}
                   className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[10px] font-black transition ${selectedNodeId === "start" ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300" : "border-slate-100 bg-slate-50 text-slate-600 hover:border-indigo-200 dark:border-white/5 dark:bg-white/5 dark:text-slate-300"}`}
                 >
-                  <Bot className="size-3.5" />Início e boas-vindas
+                  <Bot className="size-3.5" />InÃƒÂ­cio e boas-vindas
                 </button>
                 {(settings.custom_rules_nodes || []).map((node: any) => {
                   let depth = 0;
@@ -1665,7 +1670,7 @@ export default function WorkflowPage() {
               </div>
               <div className="border-t border-slate-100 p-3 dark:border-white/10">
                 <button type="button" onClick={() => addWorkflowNode("text")} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black text-white hover:bg-indigo-500">
-                  <Plus className="size-3.5" />Adicionar após {selectedNode?.title || "Início"}
+                  <Plus className="size-3.5" />Adicionar apÃƒÂ³s {selectedNode?.title || "InÃƒÂ­cio"}
                 </button>
               </div>
             </div>
@@ -1742,7 +1747,7 @@ export default function WorkflowPage() {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <FileCode className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-black text-slate-900 dark:text-white">JSON de Configuração da Automação</h3>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">JSON de ConfiguraÃƒÂ§ÃƒÂ£o da AutomaÃƒÂ§ÃƒÂ£o</h3>
               </div>
               <button onClick={() => setShowJsonModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -1789,7 +1794,7 @@ export default function WorkflowPage() {
         </div>
       )}
 
-      {/* MODAL GERENCIAR CATÁLOGO DE PRODUTOS */}
+      {/* MODAL GERENCIAR CATÃƒÂLOGO DE PRODUTOS */}
       {showProductsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto">
@@ -1797,9 +1802,9 @@ export default function WorkflowPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <Package className="w-5 h-5 text-indigo-600" />
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">Editar catálogo</h3>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">Editar catÃƒÂ¡logo</h3>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500">As alterações aparecem automaticamente no simulador e nos nós já vinculados.</p>
+                <p className="mt-1 text-[11px] text-slate-500">As alteraÃƒÂ§ÃƒÂµes aparecem automaticamente no simulador e nos nÃƒÂ³s jÃƒÂ¡ vinculados.</p>
               </div>
               <button onClick={() => setShowProductsModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -1815,7 +1820,7 @@ export default function WorkflowPage() {
                       <input value={prod.name || ""} onChange={(event) => updateProductField(idx, "name", event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900" />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Preço</span>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">PreÃƒÂ§o</span>
                       <input value={prod.price ?? ""} onChange={(event) => updateProductField(idx, "price", event.target.value)} inputMode="decimal" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-emerald-700 outline-none focus:border-emerald-500 dark:border-white/10 dark:bg-slate-900 dark:text-emerald-300" />
                     </label>
                     <label className="space-y-1">
@@ -1824,20 +1829,20 @@ export default function WorkflowPage() {
                         <option value="virtual_instant">Digital imediata</option>
                         <option value="virtual_deadline">Digital com prazo</option>
                         <option value="delivery">Entrega ou retirada</option>
-                        <option value="both">Digital ou física</option>
-                        <option value="service">Serviço agendável</option>
+                        <option value="both">Digital ou fÃƒÂ­sica</option>
+                        <option value="service">ServiÃƒÂ§o agendÃƒÂ¡vel</option>
                       </select>
                     </label>
                     <button type="button" onClick={() => deleteProduct(idx)} title="Excluir produto" className="mt-5 flex size-9 items-center justify-center rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-500/20 dark:text-rose-300 dark:hover:bg-rose-500/10"><X className="size-4" /></button>
                   </div>
                   <label className="mt-3 block space-y-1">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Descrição mostrada ao cliente</span>
-                    <textarea value={prod.description || ""} onChange={(event) => updateProductField(idx, "description", event.target.value)} rows={2} className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900" placeholder="Explique de forma curta o que o cliente está comprando." />
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">DescriÃƒÂ§ÃƒÂ£o mostrada ao cliente</span>
+                    <textarea value={prod.description || ""} onChange={(event) => updateProductField(idx, "description", event.target.value)} rows={2} className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900" placeholder="Explique de forma curta o que o cliente estÃƒÂ¡ comprando." />
                   </label>
                 </div>
               ))}
               {(settings.products || []).length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs font-bold text-slate-500 dark:border-white/15">Seu catálogo está vazio. Adicione o primeiro produto abaixo.</div>
+                <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs font-bold text-slate-500 dark:border-white/15">Seu catÃƒÂ¡logo estÃƒÂ¡ vazio. Adicione o primeiro produto abaixo.</div>
               )}
             </div>
 
@@ -1855,7 +1860,7 @@ export default function WorkflowPage() {
           </div>
         </div>
       )}
-      {/* MODAL CONFIGURAÇÃO DE GRUPOS DO WHATSAPP */}
+      {/* MODAL CONFIGURAÃƒâ€¡ÃƒÆ’O DE GRUPOS DO WHATSAPP */}
       {showGroupsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
@@ -1872,8 +1877,8 @@ export default function WorkflowPage() {
             <div className="space-y-4 pt-1">
               <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-2xl">
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Ativar Resposta do Robô em Grupos</h4>
-                  <p className="text-[11px] text-slate-500 font-medium">Por padrão o robô atende apenas conversas privadas 1-x-1.</p>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Ativar Resposta do RobÃƒÂ´ em Grupos</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">Por padrÃƒÂ£o o robÃƒÂ´ atende apenas conversas privadas 1-x-1.</p>
                 </div>
                 <button
                   type="button"
@@ -1892,7 +1897,7 @@ export default function WorkflowPage() {
                     Grupos Autorizados (Nome ou ID do WhatsApp)
                   </label>
                   <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
-                    Digite o nome ou ID dos grupos autorizados separados por vírgula. O robô responderá <strong>apenas</strong> aos grupos cadastrados aqui.
+                    Digite o nome ou ID dos grupos autorizados separados por vÃƒÂ­rgula. O robÃƒÂ´ responderÃƒÂ¡ <strong>apenas</strong> aos grupos cadastrados aqui.
                   </p>
                   <input
                     type="text"
@@ -1913,7 +1918,7 @@ export default function WorkflowPage() {
                 }}
                 className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all shadow-md"
               >
-                Salvar Configurações de Grupos
+                Salvar ConfiguraÃƒÂ§ÃƒÂµes de Grupos
               </button>
             </div>
           </div>
