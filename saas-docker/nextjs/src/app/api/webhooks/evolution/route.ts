@@ -1037,49 +1037,45 @@ export async function POST(req: Request) {
                 let cleanedText = normalizeText(text);
                 if (!cleanedText) return;
 
-                const imageMarker = '\n---IMAGE---\n';
-                const imageIdx = cleanedText.indexOf(imageMarker);
-                let imagePayload = "";
-                if (imageIdx !== -1) {
-                  imagePayload = cleanedText.slice(imageIdx + imageMarker.length).trim();
-                  cleanedText = cleanedText.slice(0, imageIdx).trim();
-                }
-
-                // Envia o payload Pix sozinho para o WhatsApp tratá-lo como texto copiável.
-                const pixCopyMarker = '\n---PIX-COPY---\n';
-                const pixCopyIdx = cleanedText.indexOf(pixCopyMarker);
-                let pixCopyPayload = "";
-                if (pixCopyIdx !== -1) {
-                  pixCopyPayload = cleanedText.slice(pixCopyIdx + pixCopyMarker.length).trim();
-                  cleanedText = cleanedText.slice(0, pixCopyIdx).trim();
-                }
-
-                // Detecta lista interativa no formato:
-                // Texto da mensagem
-                // ---LIST---
-                // Label 1|id1
-                // Label 2|id2
-                // ...
-                const listMarker = '\n---LIST---\n';
-                const listIdx = cleanedText.indexOf(listMarker);
-
-                // Detecta botões interativos no formato:
-                // Texto da mensagem
-                // ---BUTTONS---
-                // Label 1|id1
-                // Label 2|id2
-                const buttonsMarker = '\n---BUTTONS---\n';
-                const buttonsIdx = cleanedText.indexOf(buttonsMarker);
-
                 let mainText = cleanedText;
+                let pixCopyPayload = "";
+                let imagePayload = "";
+                let buttonsSection = "";
+                let listSection = "";
+
+                // Encontra todas as posições dos marcadores na string
+                const markerRegex = /\n---(IMAGE|PIX-COPY|BUTTONS|LIST)---\n/g;
+                const matches = Array.from(cleanedText.matchAll(markerRegex));
+
+                if (matches.length > 0) {
+                  // O texto principal fica antes do primeiro marcador
+                  mainText = cleanedText.slice(0, matches[0].index!).trim();
+
+                  for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    const markerType = match[1];
+                    const startIndex = match.index! + match[0].length;
+                    const endIndex = (i + 1 < matches.length) ? matches[i + 1].index! : cleanedText.length;
+                    const content = cleanedText.slice(startIndex, endIndex).trim();
+
+                    if (markerType === "PIX-COPY") {
+                      pixCopyPayload = content;
+                    } else if (markerType === "IMAGE") {
+                      imagePayload = content;
+                    } else if (markerType === "BUTTONS") {
+                      buttonsSection = content;
+                    } else if (markerType === "LIST") {
+                      listSection = content;
+                    }
+                  }
+                }
+
                 let buttons: { text: string; id: string }[] = [];
                 let listItems: { title: string; id: string }[] = [];
                 let useList = false;
 
-                if (listIdx !== -1) {
+                if (listSection) {
                   useList = true;
-                  mainText = cleanedText.slice(0, listIdx).trim();
-                  const listSection = cleanedText.slice(listIdx + listMarker.length).trim();
                   listItems = listSection.split('\n')
                     .map(line => line.trim())
                     .filter(line => line.includes('|'))
@@ -1088,9 +1084,7 @@ export async function POST(req: Request) {
                       return { title: label || id, id: id || label };
                     })
                     .slice(0, 10);
-                } else if (buttonsIdx !== -1) {
-                  mainText = cleanedText.slice(0, buttonsIdx).trim();
-                  const buttonsSection = cleanedText.slice(buttonsIdx + buttonsMarker.length).trim();
+                } else if (buttonsSection) {
                   buttons = buttonsSection.split('\n')
                     .map(line => line.trim())
                     .filter(line => line.includes('|'))

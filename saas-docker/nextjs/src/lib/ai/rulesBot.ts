@@ -1443,11 +1443,44 @@ export async function processMessageWithRules(
         })));
       }
       else if (matchedNode.actionType === "scheduling") {
-        const servicesList = getSchedulableProducts(settings.products || []);
+        let servicesList = getSchedulableProducts(settings.products || []);
         if (servicesList.length === 0) {
-          return "📋 No momento não temos serviços disponíveis para agendamento. Digite *voltar* para retornar.";
+          servicesList = [{
+            name: "Reunião de Atendimento / Consultoria",
+            price: "0",
+            duration_min: 30,
+            delivery_type: "service",
+            type: "service"
+          }];
         }
         
+        if (servicesList.length === 1) {
+          const chosenService = servicesList[0];
+          const availableDates = await obterProximosDiasDisponiveis(tenantId, settings, chosenService.duration_min || 60);
+
+          state.step = "scheduling_select_date";
+          const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
+          state.data = {
+            serviceName: chosenService.name,
+            servicePrice: chosenService.price,
+            servicePriceLabel: getProductPriceLabel(chosenService),
+            duration: chosenService.duration_min || 60,
+            availableDates: availableDates.map(d => d.toISOString()),
+            availableDateLabels,
+          };
+          await saveState(state);
+
+          let response = `📅 *Agendamento de ${chosenService.name}*\n\nEscolha um dos dias disponíveis abaixo:\n\n`;
+          const dateOptions: Array<{ label: string; value: string }> = [];
+          availableDates.forEach((d, idx) => {
+            const label = availableDateLabels[idx];
+            response += `${idx + 1}️⃣ ${label}\n`;
+            dateOptions.push({ label, value: String(idx + 1) });
+          });
+          response += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
+          return appendInteractiveOptions(response, dateOptions);
+        }
+
         const response = "📅 *Agende seu horário*\n\nEscolha o serviço desejado:";
         
         state.step = "scheduling_select_service";
@@ -1754,7 +1787,13 @@ function getMainMenuMessage(settings: any): string {
   const rootNodes = (settings.custom_rules_nodes || []).filter((n: any) => !n.parentId);
 
   if (rootNodes.length > 0) {
-    const interactiveNodes = getInteractiveNodes(rootNodes);
+    const hasCatalogNode = rootNodes.some((n: any) => n.actionType === "catalog");
+    const interactiveNodes = getInteractiveNodes(rootNodes).filter((n: any) => {
+      if (hasCatalogNode && (n.actionType === "product" || n.actionType === "checkout")) {
+        return false;
+      }
+      return true;
+    });
     const hasInteractive = interactiveNodes.length > 0;
 
     let msg = hasExplicitMenuSection(welcome)
@@ -2256,7 +2295,13 @@ async function processarFinalizacaoPedidoRulesBot(
             create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
           });
 
-          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}`;
+          const numericPrice = parseFloat(chosenService.price || "0");
+          const monthlyPrice = chosenService.monthly ? parseFloat(chosenService.monthly) : 0;
+          const displayPriceStr = (monthlyPrice > 0 && numericPrice > 0 && numericPrice !== monthlyPrice)
+            ? `R$ ${monthlyPrice.toFixed(2).replace(".", ",")}/mês (+ R$ ${numericPrice.toFixed(2).replace(".", ",")} Adesão)`
+            : `R$ ${numericPrice.toFixed(2).replace(".", ",")}`;
+
+          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* ${displayPriceStr}\n📍 *Entrega:* ${address}`;
 
           if (chosenService.description) {
             msg += `\n\n📄 *Detalhes do Produto:*\n${chosenService.description}`;
