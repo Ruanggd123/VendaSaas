@@ -8,17 +8,23 @@ import { sanitizeInput, validateOutput, checkRateLimit } from "./guardian/securi
 const prisma = new PrismaClient();
 
 export async function processMessageWithAI(tenantId: string, contactNumber: string, userMessage: string, isMessageToMyself: boolean = false, instanceSettings?: any, conversationId?: string) {
+  let sanitizedMessage = userMessage;
+  let settings: any = {};
+
   try {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return "Desculpe, não consegui identificar a empresa dessa conversa. Pode me enviar novamente em alguns instantes?";
 
+    try {
+      settings = JSON.parse((tenant.settings as string) || "{}");
+    } catch {}
+
+    if (instanceSettings) {
+      settings = { ...settings, ...instanceSettings };
+    }
+
     const isGroup = contactNumber.includes("@g.us") || contactNumber.includes("g.us") || contactNumber.length > 15;
     if (isGroup) {
-      let settings: any = {};
-      try {
-        settings = JSON.parse((tenant.settings as string) || "{}");
-      } catch {}
-
       const enableGroups = settings?.enable_groups === true;
       const whitelistStr = (settings?.whitelisted_groups || tenant.whitelisted_groups || "").trim();
 
@@ -41,22 +47,12 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
       return "Muitas mensagens em pouco tempo. Por favor, aguarde alguns segundos antes de enviar outra mensagem.";
     }
 
-    const sanitizedMessage = sanitizeInput(userMessage);
+    sanitizedMessage = sanitizeInput(userMessage);
 
     // 1. Verificar status da Assinatura no Banco de Dados
     if (tenant.subscription_expires_at && tenant.subscription_expires_at < new Date()) {
       console.warn(`Tenant ${tenantId} está com a assinatura expirada. Bloqueando respostas.`);
       return "⚠️ *Aviso Importante:* O atendimento automático desta empresa está temporariamente suspenso devido a pendências na assinatura. Por favor, regularize sua assinatura no painel para reativar.";
-    }
-
-    let settings: any = {};
-    try {
-      settings = JSON.parse((tenant.settings as string) || "{}");
-    } catch {}
-
-    // Merge instance-level settings (override tenant settings)
-    if (instanceSettings) {
-      settings = { ...settings, ...instanceSettings };
     }
 
     // Buscar histórico de mensagens da conversa (as 30 mais recentes em ordem cronológica)
@@ -675,7 +671,7 @@ REGRAS:
     console.error("Erro no processMessageWithAI:", error);
     const errorMsg = error?.message || "Erro de API / Desconhecido";
 
-    // Se o erro for de API key inválida, notifica o dono de forma mais útil
+    // Se o erro for de API key inválida, notifica o dono no WhatsApp
     if (errorMsg.includes("Invalid API Key") || errorMsg.includes("401") || errorMsg.includes("400 status code")) {
       try {
         const tenantData = await prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -685,13 +681,25 @@ REGRAS:
           const { sendWhatsAppMessage } = await import('../evolution');
           await sendWhatsAppMessage(activeInstance.name, tenantData.phone,
             `⚠️ *Aviso do Sistema Nexus:*\nO bot de IA falhou ao responder o contato ${contactNumber}.\n\n` +
-            `*Motivo:* A chave de API da IA (Groq/Gemini/OpenAI) está inválida ou expirou.\n\n` +
-            `*Solução:* Acesse Configurações > IA & WhatsApp e configure uma chave de API válida, ou peça suporte.`);
+            `*Motivo:* A chave de API da IA está inválida ou expirou.\n\n` +
+            `*Solução:* Acesse Configurações > IA & WhatsApp e configure uma chave de API válida.`);
         }
       } catch (notifyErr) {
         console.error("Erro ao notificar o dono sobre a falha da IA:", notifyErr);
       }
     }
-    return "Desculpe, estou com instabilidade no momento e não consegui responder agora. Você pode repetir sua mensagem em alguns instantes?";
+
+    // FALLBACK DE SEGURANÇA: Aciona o Bot de Regras para NUNCA deixar o cliente sem resposta
+    try {
+      const { processMessageWithRules } = await import("./rulesBot");
+      const rulesResponse = await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
+      if (rulesResponse) {
+        return rulesResponse;
+      }
+    } catch (rulesErr) {
+      console.error("Erro ao executar fallback do Bot de Regras:", rulesErr);
+    }
+
+    return "Olá! Seja bem-vindo ao nosso atendimento. Como posso te ajudar hoje?";
   }
 }
