@@ -191,15 +191,6 @@ const DEFAULT_AI: AISettings = {
     { id: "node_cat_4", parentId: "node_catalogo", keyword: "4", title: "Plano Scale (R$ 497/mês)", actionType: "product", productId: "Plano Scale", productName: "Plano Scale (R$ 497/mês)", productPrice: "497", productDescription: "📌 Loja Virtual E-Commerce Completa + Multiatendimento + Disparos em Massa.", textContent: "Você selecionou o Plano Scale no catálogo:", paymentMode: "both", showInPoll: true },
     { id: "node_cat_5", parentId: "node_catalogo", keyword: "5", title: "Site Avulso / Sob Medida (R$ 497)", actionType: "product", productId: "Site Avulso / Personalizado", productName: "Site Avulso / Sob Medida", productPrice: "497", productDescription: "📌 Desenvolvimento de Site Exclusivo Personalizado Sob Medida (sem mensalidade).", textContent: "Você selecionou Site Avulso no catálogo:", paymentMode: "both", showInPoll: true },
     {
-      id: "node_nicho_sites",
-      parentId: "node_catalogo",
-      keyword: "6",
-      title: "🌐 Sites por Nicho (Clínicas, Advogados, Imóveis, etc.)",
-      actionType: "text",
-      textContent: "🌐 *Criação de Sites para Todos os Segmentos & Nichos!*\n\nNossa equipe desenvolve o site 100% personalizado e sob medida para o seu segmento específico, com as suas cores, marca, fotos e catálogo!\n\n✨ *Exemplos de Nichos Atendidos com Perfeição:*\n• 🏥 *Clínicas Médicas, Odontológicas & Estética*\n• ⚖️ *Escritórios de Advocacia & Consultoria*\n• 🏠 *Imobiliárias & Corretores de Imóveis*\n• 💈 *Barbearias, Salões de Beleza & Spas*\n• 🍽️ *Restaurantes, Lanchonetes & Delivery*\n• 🛠️ *Prestadores de Serviços em Geral*\n\n💡 *Como ter o seu site?*\nBasta assinar qualquer plano com site incluso (*Plano 97*, *Plano Growth*, *Plano Scale* ou *Site Avulso*)! Não cobramos taxa extra de desenvolvimento sob medida!",
-      showInPoll: true,
-    },
-    {
       id: "node_form_question",
       parentId: null,
       keyword: "9",

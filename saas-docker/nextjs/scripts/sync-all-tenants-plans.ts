@@ -84,20 +84,69 @@ async function main() {
       limitations: []
     },
     {
-      name: "Site Avulso / Personalizado",
+      name: "Landing Page de Alta Conversão",
+      price: 397.00,
+      monthly: 0.00,
+      type: "service",
+      delivery_type: "virtual_deadline",
+      delivery_deadline: "24h a 48h",
+      description: "📌 Landing Page Focada em Alta Conversão e Anúncios (R$ 397 taxa única)\n• Otimizada para Vendas Rápidas, Google e Facebook Ads\n• Entregue em 24h a 48h com botão de WhatsApp integrado",
+      features: ["Design Focado em Vendas e Conversão", "Entrega Ultrarrápida em 24h a 48h", "Integrada ao WhatsApp e formulários"],
+      limitations: []
+    },
+    {
+      name: "Site Institucional Completo",
       price: 497.00,
       monthly: 0.00,
       type: "service",
       delivery_type: "virtual_deadline",
       delivery_deadline: "3 a 5 dias úteis",
-      description: "Desenvolvimento de Site Personalizado Sob Medida (Clínicas, Advogados, Imobiliárias, Restaurantes, etc.). Sem mensalidade obrigatória.",
-      features: [
-        "Design 100% Personalizado e Exclusivo",
-        "Domínio Próprio e SSL Grátis",
-        "Otimizado para Celular e Google (SEO)",
-        "Botão WhatsApp Flutuante Direct-to-Chat",
-        "Entregue em 3 a 5 dias úteis"
-      ],
+      description: "📌 Site Institucional Completo de até 5 Páginas (R$ 497 taxa única)\n• Home, Quem Somos, Serviços, Depoimentos e Contato\n• Otimizado para o Google (SEO) com Domínio e SSL Inclusos",
+      features: ["Até 5 Páginas Personalizadas", "Otimização SEO Google", "Domínio e SSL Grátis"],
+      limitations: []
+    },
+    {
+      name: "Loja Virtual E-Commerce Avulsa",
+      price: 897.00,
+      monthly: 0.00,
+      type: "service",
+      delivery_type: "virtual_deadline",
+      delivery_deadline: "5 a 7 dias úteis",
+      description: "📌 Loja Virtual E-Commerce Completa (R$ 897 taxa única)\n• Catálogo de Produtos com Carrinho e Checkout Integrado\n• Sem comissões ou porcentagem por venda",
+      features: ["Carrinho de Compras e Checkout", "Sem Comissões sobre Vendas", "Integração de Pagamentos"],
+      limitations: []
+    },
+    {
+      name: "Site Sob Medida para Clínicas & Saúde",
+      price: 597.00,
+      monthly: 0.00,
+      type: "service",
+      delivery_type: "virtual_deadline",
+      delivery_deadline: "3 a 5 dias úteis",
+      description: "📌 Site Especializado para Clínicas, Médicos e Dentistas (R$ 597 taxa única)\n• Layout Elegante de Saúde com Agendamento Online Integrado",
+      features: ["Agendamento de Consultas", "Apresentação de Especialidades", "Visual Médico de Alto Padrão"],
+      limitations: []
+    },
+    {
+      name: "Site Sob Medida para Advogados",
+      price: 597.00,
+      monthly: 0.00,
+      type: "service",
+      delivery_type: "virtual_deadline",
+      delivery_deadline: "3 a 5 dias úteis",
+      description: "📌 Site Corporativo para Advogados e Escritórios (R$ 597 taxa única)\n• Design Jurídico de Alto Padrão focado em Captação de Clientes",
+      features: ["Áreas de Atuação Jurídica", "Design Corporativo Sobriedade", "Captação Direta via WhatsApp"],
+      limitations: []
+    },
+    {
+      name: "Site para Imobiliárias & Corretores",
+      price: 697.00,
+      monthly: 0.00,
+      type: "service",
+      delivery_type: "virtual_deadline",
+      delivery_deadline: "4 a 6 dias úteis",
+      description: "📌 Site para Imobiliárias e Corretores de Imóveis (R$ 697 taxa única)\n• Catálogo de Imóveis com Filtros de Busca e Fotos",
+      features: ["Catálogo de Imóveis", "Filtros por Bairro/Preço", "Contato Rápido no WhatsApp"],
       limitations: []
     }
   ];
