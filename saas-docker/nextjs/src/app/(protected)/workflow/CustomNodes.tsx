@@ -125,22 +125,30 @@ export const MenuNode = ({ data, selected }: any) => {
         )}
 
         {data.actionType === "collect_data" && (
-          <div className="mt-1 p-2 bg-pink-50 dark:bg-pink-500/10 border border-pink-200 dark:border-pink-500/20 rounded-xl text-[10px] space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="font-black text-pink-800 dark:text-pink-300">📝 Pergunta do Formulário:</span>
+          <div className="mt-1 p-2 bg-pink-50 dark:bg-pink-950/40 border border-pink-200 dark:border-pink-500/30 rounded-xl text-[10px] space-y-1.5 shadow-sm">
+            <div className="flex items-center justify-between gap-1 border-b border-pink-200/60 dark:border-pink-500/20 pb-1">
+              <span className="font-black text-pink-800 dark:text-pink-300 truncate flex items-center gap-1">
+                📋 <span className="underline decoration-pink-400">{data.title || "Formulário de Coleta"}</span>
+              </span>
               {data.variableName ? (
-                <span className="font-mono font-bold bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded border border-pink-300 dark:border-pink-500/30">
+                <span className="font-mono font-black text-[9px] bg-pink-600 text-white px-1.5 py-0.5 rounded shadow-sm shrink-0">
                   {`{${data.variableName}}`}
                 </span>
               ) : (
-                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 italic">sem variável</span>
+                <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 italic shrink-0">sem variável</span>
               )}
             </div>
             {data.textContent && (
-              <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 italic">
+              <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 leading-tight italic bg-white/60 dark:bg-slate-900/60 p-1 rounded border border-pink-100 dark:border-pink-900/40">
                 &ldquo;{data.textContent}&rdquo;
               </p>
             )}
+            <div className="flex items-center justify-between text-[9px] font-bold text-pink-700 dark:text-pink-300 pt-0.5">
+              <span>⚡ Pergunta Automática</span>
+              {data.childrenCount === 1 && (
+                <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-mono">➡️ Próximo Passo Automático</span>
+              )}
+            </div>
           </div>
         )}
 
