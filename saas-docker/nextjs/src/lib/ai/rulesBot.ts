@@ -430,6 +430,7 @@ export async function processMessageWithRules(
       payment_link: true,
       payment_id: true,
       notes: true,
+      status: true,
     }
   });
 
@@ -481,6 +482,32 @@ export async function processMessageWithRules(
     const asaasUrl = settings.asaas_mode === 'production'
       ? 'https://asaas.com/api/v3'
       : 'https://sandbox.asaas.com/api/v3';
+
+    // Verificação de pagamento em tempo real no Asaas / Banco de Dados
+    if (pendingSale.status === "paid") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return `🎉 *Pagamento Confirmado com Sucesso!*\n\nSeu pagamento de R$ ${pendingSale.amount.toFixed(2)} para *${pendingSale.product_name}* foi aprovado e ativado com sucesso! 🚀\n\nSeus dados de acesso foram liberados!\n\n${getMainMenuMessage(settings)}`;
+    }
+
+    if (asaasKey && pendingSale.payment_id) {
+      try {
+        const { getPayment } = await import("@/lib/asaas");
+        const paymentStatusRes = await getPayment(pendingSale.payment_id, asaasKey, asaasUrl);
+        const payStatus = paymentStatusRes.status;
+        if (payStatus === "RECEIVED" || payStatus === "CONFIRMED" || payStatus === "RECEIVED_IN_CASH") {
+          await prisma.sale.update({
+            where: { id: pendingSale.id },
+            data: { status: "paid", paid_at: new Date() },
+          });
+          state = { step: "main_menu", data: {} };
+          await saveState(state);
+          return `🎉 *Pagamento Confirmado com Sucesso!*\n\nSeu pagamento de R$ ${pendingSale.amount.toFixed(2)} para *${pendingSale.product_name}* foi confirmado e aprovado com sucesso! 🚀\n\nSeus dados de acesso e pedido já foram ativados!\n\n${getMainMenuMessage(settings)}`;
+        }
+      } catch (checkErr) {
+        console.error("Erro ao checar status do pagamento no Asaas:", checkErr);
+      }
+    }
 
     const debtPaymentChoice = resolveChoiceIndex(cleanText, ["Pagar com PIX", "Pagar com Cartão", "Cancelar cobrança"]);
     if (debtPaymentChoice === 0 || cleanText.includes("pix")) {
@@ -2084,7 +2111,16 @@ async function processarFinalizacaoPedidoRulesBot(
             create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
           });
 
-          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}\n\n💳 *Pagamento via PIX*`;
+          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* R$ ${parseFloat(chosenService.price).toFixed(2)}\n📍 *Entrega:* ${address}`;
+
+          if (chosenService.description) {
+            msg += `\n\n📄 *Detalhes do Produto:*\n${chosenService.description}`;
+          }
+          if (Array.isArray(chosenService.features) && chosenService.features.length > 0) {
+            msg += `\n\n✨ *O que está incluso:*\n` + chosenService.features.map((f: any) => `• ${f}`).join("\n");
+          }
+
+          msg += `\n\n💳 *Pagamento via PIX*`;
 
           if (pixCopy) msg += `\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\n---PIX-COPY---\n${pixCopy}`;
           // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback

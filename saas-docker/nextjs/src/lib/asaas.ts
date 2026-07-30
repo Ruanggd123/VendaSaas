@@ -132,6 +132,10 @@ export const cancelPayment = async (paymentId: string, apiKey?: string, apiUrl?:
   return await asaasFetch(`/payments/${paymentId}`, { method: 'DELETE' }, apiKey, apiUrl);
 };
 
+export const getPayment = async (paymentId: string, apiKey?: string, apiUrl?: string) => {
+  return await asaasFetch(`/payments/${paymentId}`, { method: 'GET' }, apiKey, apiUrl);
+};
+
 export const createSubscription = async (
   customerId: string,
   plan: SubscriptionPlan,
