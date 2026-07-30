@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Atualizando TODOS os tenants do banco de dados com a estrutura oficial de planos...");
+  console.log("Atualizando TODOS os tenants do banco de dados com a estrutura oficial de planos e regras...");
 
   const tenants = await prisma.tenant.findMany({});
 
@@ -13,6 +13,7 @@ async function main() {
       price: 150.00,
       monthly: 67.00,
       type: "plan",
+      delivery_type: "virtual_instant",
       description: "Apenas Bot Fixo de Regras no WhatsApp (Sem criação de site).",
       features: [
         "Bot Fixo de Regras e Botões",
@@ -31,6 +32,7 @@ async function main() {
       price: 150.00,
       monthly: 97.00,
       type: "plan",
+      delivery_type: "virtual_instant",
       description: "Site Institucional Grátis + Ambos os Bots Inclusos (Regras + IA).",
       features: [
         "Site Institucional 100% Grátis",
@@ -49,6 +51,7 @@ async function main() {
       price: 150.00,
       monthly: 147.00,
       type: "plan",
+      delivery_type: "virtual_instant",
       description: "Solução Completa: Site até 5 páginas + Ambos os Bots (Regras + IA) + CRM + Agendamento.",
       features: [
         "Site Institucional de até 5 páginas",
@@ -68,6 +71,7 @@ async function main() {
       price: 150.00,
       monthly: 497.00,
       type: "plan",
+      delivery_type: "virtual_instant",
       description: "Loja Virtual E-Commerce Completa + Ambos os Bots + Multiatendimento Enterprise.",
       features: [
         "Loja Virtual Completa (E-Commerce sem comissões)",
@@ -78,6 +82,41 @@ async function main() {
         "Gestor de Conta Dedicado"
       ],
       limitations: []
+    }
+  ];
+
+  const officialRulesNodes = [
+    {
+      id: "node_plano_start",
+      title: "Plano Start (R$ 67/mês)",
+      keyword: "Plano Start",
+      productId: "Plano Start",
+      productName: "Plano Start",
+      showInPoll: true,
+    },
+    {
+      id: "node_plano_97",
+      title: "Plano 97 (R$ 97/mês)",
+      keyword: "Plano 97",
+      productId: "Plano 97",
+      productName: "Plano 97",
+      showInPoll: true,
+    },
+    {
+      id: "node_plano_growth",
+      title: "Plano Growth (R$ 147/mês ⭐)",
+      keyword: "Plano Growth",
+      productId: "Plano Growth (Mais Vendido ⭐)",
+      productName: "Plano Growth (Mais Vendido ⭐)",
+      showInPoll: true,
+    },
+    {
+      id: "node_plano_scale",
+      title: "Plano Scale (R$ 497/mês)",
+      keyword: "Plano Scale",
+      productId: "Plano Scale",
+      productName: "Plano Scale",
+      showInPoll: true,
     }
   ];
 
@@ -114,6 +153,8 @@ ORIENTAÇÕES DE ATENDIMENTO:
     } catch (e) {}
 
     settings.products = officialProducts;
+    settings.custom_rules_nodes = officialRulesNodes;
+    settings.welcome_message = "Olá! Seja muito bem-vindo(a) ao nosso atendimento! 💙\n\nEscolha um dos nossos planos oficiais abaixo para começar:";
     settings.ai_prompt = officialPrompt;
 
     await prisma.tenant.update({
@@ -123,7 +164,7 @@ ORIENTAÇÕES DE ATENDIMENTO:
       }
     });
 
-    console.log(`✅ Tenant ${t.name} (${t.id}) atualizado!`);
+    console.log(`✅ Tenant ${t.name} (${t.id}) atualizado com produtos e regras oficiais!`);
   }
 
   console.log("🎉 Todos os tenants sincronizados com sucesso!");

@@ -159,37 +159,28 @@ function resolveProductFromNode(products: any[], node: any): ProductLike | null 
   if (!node) return null;
   return findProductByRef(products, node.productId)
     || findProductByRef(products, node.productName)
-    || findProductByRef(products, node.title);
+    || findProductByRef(products, node.title)
+    || findProductByRef(products, node.keyword);
 }
 
 function getProductDisplayPrice(prod: ProductLike | null): string {
   if (!prod) return "";
-  return (getProductPriceLabel(prod) || "Preço não informado").replace(/^R\$\s?/, "");
-}
-
-function getCatalogIntro(nodeText: string): string {
-  const text = nodeText.trim();
-  const normalized = normalizeTextForLookup(text);
-  if (text && normalized !== "escolha uma opcao") return text;
-  return "🚀 *Escolha a solução ideal para o seu negócio*\n\nAs opções avulsas têm pagamento único. Nos planos mensais, você recebe a estrutura digital grátis, automação com IA, hospedagem e suporte.";
-}
-
-function getProductBenefit(product: ProductLike): string {
-  const benefits: Record<string, string> = {
-    "site institucional": "presença profissional na internet",
-    "plataforma completa": "CRM, vendas e gestão em um só lugar",
-    "e commerce avulso": "loja virtual completa para vender online",
-    "plano site gratis": "site profissional com atendimento por IA",
-    "plano crm gratis": "CRM completo com automação comercial",
-    "plano loja gratis": "loja virtual com IA e automação de vendas",
-  };
-  return benefits[normalizeTextForLookup(product.name || "")] || String(product.description || "").split(".")[0].trim();
+  const monthly = prod.monthly ? Number(prod.monthly) : 0;
+  const price = monthly > 0 ? monthly : (prod.price ? Number(prod.price) : 0);
+  return price > 0 ? price.toFixed(2).replace(".", ",") : "";
 }
 
 function getProductOptionLabel(product: ProductLike): string {
-  const name = String(product.name || "Produto");
-  const benefit = getProductBenefit(product);
-  return `${name}${benefit ? ` • ${benefit}` : ""} • R$ ${getProductDisplayPrice(product)}`;
+  const name = String(product.name || "Produto").trim();
+  const price = getProductDisplayPrice(product);
+  return price ? `${name} - R$ ${price}` : name;
+}
+
+function getCatalogIntro(nodeText: string): string {
+  const text = (nodeText || "").trim();
+  const normalized = normalizeTextForLookup(text);
+  if (text && normalized !== "escolha uma opcao") return text;
+  return "🚀 *Escolha o plano ideal para a sua empresa abaixo:*";
 }
 
 function isSchedulableProduct(prod: ProductLike | null | undefined): boolean {
