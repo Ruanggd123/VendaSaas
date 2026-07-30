@@ -484,29 +484,73 @@ export async function processMessageWithRules(
       : 'https://sandbox.asaas.com/api/v3';
 
     // Verificação de pagamento em tempo real no Asaas / Banco de Dados
-    if (pendingSale.status === "paid") {
-      state = { step: "main_menu", data: {} };
-      await saveState(state);
-      return `🎉 *Pagamento Confirmado com Sucesso!*\n\nSeu pagamento de R$ ${pendingSale.amount.toFixed(2)} para *${pendingSale.product_name}* foi aprovado e ativado com sucesso! 🚀\n\nSeus dados de acesso foram liberados!\n\n${getMainMenuMessage(settings)}`;
-    }
+    const isAlreadyPaid = pendingSale.status === "paid";
+    let isApprovedNow = false;
 
-    if (asaasKey && pendingSale.payment_id) {
+    if (!isAlreadyPaid && asaasKey && pendingSale.payment_id) {
       try {
         const { getPayment } = await import("@/lib/asaas");
         const paymentStatusRes = await getPayment(pendingSale.payment_id, asaasKey, asaasUrl);
-        const payStatus = paymentStatusRes.status;
+        const payStatus = paymentStatusRes?.status;
         if (payStatus === "RECEIVED" || payStatus === "CONFIRMED" || payStatus === "RECEIVED_IN_CASH") {
           await prisma.sale.update({
             where: { id: pendingSale.id },
             data: { status: "paid", paid_at: new Date() },
           });
-          state = { step: "main_menu", data: {} };
-          await saveState(state);
-          return `🎉 *Pagamento Confirmado com Sucesso!*\n\nSeu pagamento de R$ ${pendingSale.amount.toFixed(2)} para *${pendingSale.product_name}* foi confirmado e aprovado com sucesso! 🚀\n\nSeus dados de acesso e pedido já foram ativados!\n\n${getMainMenuMessage(settings)}`;
+          isApprovedNow = true;
         }
       } catch (checkErr) {
         console.error("Erro ao checar status do pagamento no Asaas:", checkErr);
       }
+    }
+
+    if (isAlreadyPaid || isApprovedNow) {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+
+      const { getAppBaseUrl } = await import("@/lib/auth");
+      const appUrl = getAppBaseUrl();
+
+      let clientEmail = "";
+      if (pendingSale.notes) {
+        const matchE = pendingSale.notes.match(/customer_email:([^\s|]+)/);
+        if (matchE && matchE[1]) clientEmail = matchE[1];
+      }
+
+      let accessDetails = "";
+      if (clientEmail) {
+        const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
+        if (existingUser) {
+          accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha:* Sua senha cadastrada anteriormente`;
+        } else {
+          // Provisiona novo usuario de acesso
+          const bcrypt = await import("bcryptjs");
+          const rawPassword = Math.random().toString(36).slice(-8) + "A1!";
+          const hashedPassword = await bcrypt.hash(rawPassword, 10);
+          const newTenant = await prisma.tenant.create({
+            data: {
+              name: `Empresa ${clientEmail.split("@")[0]}`,
+              phone: `${contactNumber}_sub_${Date.now()}`,
+              plan: pendingSale.product_name,
+              subscription_expires_at: new Date(Date.now() + 30 * 86400000),
+            }
+          });
+          await prisma.user.create({
+            data: {
+              tenant_id: newTenant.id,
+              name: clientEmail.split("@")[0],
+              email: clientEmail,
+              password_hash: hashedPassword,
+              role: "admin",
+            }
+          });
+          accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha Provisória:* ${rawPassword}\n\n_(Recomendamos alterar a senha no primeiro acesso!)_`;
+        }
+      } else {
+        accessDetails = `\n\n📋 *Acesso ao Painel:*\n🔗 ${appUrl}/login\nUse o seu e-mail cadastrado para acessar a plataforma.`;
+      }
+
+      return `🎉 *Pagamento Aprovado & Confirmado com Sucesso!*\n\nSeu pagamento de R$ ${pendingSale.amount.toFixed(2).replace(".", ",")} para *${pendingSale.product_name}* foi processado com sucesso! 🚀${accessDetails}\n\nSeu pedido já foi ativado em nosso sistema. Qualquer dúvida, estamos à disposição!\n\n${getMainMenuMessage(settings)}`;
     }
 
     const debtPaymentChoice = resolveChoiceIndex(cleanText, ["Pagar com PIX", "Pagar com Cartão", "Cancelar cobrança"]);

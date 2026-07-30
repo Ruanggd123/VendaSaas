@@ -250,9 +250,21 @@ export async function POST(req: Request) {
           console.log(`🚀 [Entrega Automática] Iniciando provisionamento para a venda ${saleId}`);
           
           try {
-            const clientPhone = sale.lead?.phone || body.payment?.customerPhone || "";
-            const clientName = sale.lead?.name || body.payment?.customerName || "Cliente";
-            const clientEmail = sale.lead?.email || body.payment?.customerEmail || "";
+            let extractedPhone = "";
+            let extractedEmail = "";
+            let extractedName = "";
+            if (sale.notes) {
+              const matchP = sale.notes.match(/customer_phone:([^\s|]+)/);
+              if (matchP && matchP[1]) extractedPhone = matchP[1];
+              const matchE = sale.notes.match(/customer_email:([^\s|]+)/);
+              if (matchE && matchE[1]) extractedEmail = matchE[1];
+              const matchN = sale.notes.match(/customer_name:([^\s|]+)/);
+              if (matchN && matchN[1]) extractedName = matchN[1];
+            }
+
+            const clientPhone = extractedPhone || sale.lead?.phone || body.payment?.customerPhone || body.payment?.mobilePhone || "";
+            const clientName = extractedName || sale.lead?.name || body.payment?.customerName || "Cliente";
+            const clientEmail = extractedEmail || sale.lead?.email || body.payment?.customerEmail || "";
             const productName = sale.product_name?.toLowerCase() || "";
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 10);
