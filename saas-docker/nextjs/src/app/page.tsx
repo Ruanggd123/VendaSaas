@@ -1243,7 +1243,11 @@ export default function Home() {
           {[
             {
               q: "O site é realmente 100% grátis assinando um plano?",
-              a: "Sim! Ao assinar qualquer plano de atendimento mensal, nossa equipe desenvolve o seu site personalizado sem qualquer taxa de criação ou setup (uma economia de até R$ 1.997).",
+              a: "Sim! Ao assinar qualquer plano de atendimento mensal com site incluso, nossa equipe desenvolve o seu site personalizado sem qualquer taxa de criação ou setup (uma economia de até R$ 1.997).",
+            },
+            {
+              q: "Posso ter um site totalmente personalizado para o meu segmento?",
+              a: "Com certeza! Desenvolvemos o seu site sob medida de acordo com a sua necessidade e tipo de negócio (seja para clínicas, advocacia, imobiliárias, barbearias, consultorias, prestação de serviços, infoprodutos ou portais), com as cores, marca, logotipo e conteúdos da sua empresa.",
             },
             {
               q: "Preciso deixar o computador ligado para o robô funcionar?",

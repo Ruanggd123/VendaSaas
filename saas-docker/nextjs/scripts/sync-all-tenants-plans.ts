@@ -102,6 +102,7 @@ Todos os planos de assinatura possuem uma Taxa de Adesão (Setup) de R$ 150.
 - O que inclui: Loja Virtual Completa (E-Commerce) + AMBOS OS BOTS (Regras + IA Enterprise) + Multiatendimento Ilimitado + Disparador em Massa + 20.000 mensagens IA/mês.
 
 ORIENTAÇÕES DE ATENDIMENTO:
+- Se o cliente perguntar se pode ter um site diferente ou personalizado para o seu ramo/nicho (clínicas, advocacia, imobiliárias, barbearias, consultorias, prestação de serviços, etc.), responda que SIM! Nossa equipe desenvolve o site 100% sob medida com as cores, marca, logotipo e catálogo do segmento dele, sem qualquer taxa extra de criação ao assinar qualquer plano com site incluso!
 - Se o cliente quiser um site completo com IA pelo menor valor, recomende o Plano 97 (R$ 97/mês).
 - Se o cliente quiser apenas o bot fixo de regras sem site, ofereça o Plano Start (R$ 67/mês).
 - Direcione sempre os clientes com foco em vendas para o PLANO GROWTH (R$ 147/mês) por ser a solução mais completa com CRM inclusa.`;
