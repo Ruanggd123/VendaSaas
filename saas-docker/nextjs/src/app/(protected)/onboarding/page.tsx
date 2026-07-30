@@ -163,12 +163,12 @@ export default function OnboardingPage() {
       <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none"></div>
       <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[150px] pointer-events-none"></div>
 
-      <div className="w-full max-w-3xl bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-3xl p-8 md:p-10 backdrop-blur-3xl shadow-2xl relative z-10 flex flex-col">
+      <div className="w-full max-w-3xl bg-white/90 dark:bg-zinc-900/90 border border-slate-200/90 dark:border-white/10 rounded-3xl p-8 md:p-10 backdrop-blur-3xl shadow-2xl shadow-slate-300/40 dark:shadow-none relative z-10 flex flex-col">
         
         {/* Step Header / Progress Indicators */}
         <div className="mb-10">
           <div className="flex justify-between items-center relative mb-4">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-slate-100 dark:bg-white/5 -z-10"></div>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-slate-200 dark:bg-white/5 -z-10"></div>
             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[2px] bg-gradient-to-r from-purple-500 to-indigo-500 -z-10 transition-all duration-500" style={{ width: `${((step - 1) / (stepsInfo.length - 1)) * 100}%` }}></div>
             
             {stepsInfo.map((info, index) => {
@@ -180,10 +180,10 @@ export default function OnboardingPage() {
                   onClick={() => setStep(index + 1)}
                   className="flex flex-col items-center gap-2 group cursor-pointer focus:outline-none"
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border ${active ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-900 dark:text-white border-transparent shadow-[0_0_20px_rgba(168,85,247,0.4)]" : "bg-black/40 text-zinc-600 border-slate-100 dark:border-white/5 group-hover:bg-slate-100 dark:bg-white/5 group-hover:text-slate-500 dark:text-zinc-400"} ${current ? "scale-110" : ""}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border ${active ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-transparent shadow-[0_0_20px_rgba(168,85,247,0.4)]" : "bg-slate-100 dark:bg-black/40 text-slate-500 dark:text-zinc-600 border-slate-300 dark:border-white/5 group-hover:bg-slate-200 dark:group-hover:bg-white/5 group-hover:text-slate-800 dark:group-hover:text-zinc-300"} ${current ? "scale-110" : ""}`}>
                     {info.icon}
                   </div>
-                  <span className={`text-[10px] md:text-xs font-semibold ${current ? "text-purple-400" : active ? "text-slate-600 dark:text-zinc-300" : "text-zinc-600 group-hover:text-slate-500 dark:text-zinc-400"}`}>{info.title}</span>
+                  <span className={`text-[10px] md:text-xs font-semibold ${current ? "text-purple-600 dark:text-purple-400" : active ? "text-slate-800 dark:text-zinc-300" : "text-slate-500 dark:text-zinc-400 group-hover:text-slate-900"}`}>{info.title}</span>
                 </button>
               );
             })}
@@ -196,47 +196,47 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div className="animate-in fade-in duration-300 space-y-6">
               <div>
-                <span className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-1.5 mb-2"><Sparkles className="w-3.5 h-3.5" /> Identidade Básica</span>
-                <h1 className="text-3xl font-bold mb-2">Configure sua Empresa</h1>
-                <p className="text-slate-500 dark:text-zinc-400 text-sm">Insira o nome principal e defina o comportamento que a inteligência artificial adotará no atendimento.</p>
+                <span className="text-xs uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-2"><Sparkles className="w-3.5 h-3.5" /> Identidade Básica</span>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Configure sua Empresa</h1>
+                <p className="text-slate-600 dark:text-zinc-400 text-sm">Insira o nome principal e defina o comportamento que a inteligência artificial adotará no atendimento.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Nome da Empresa / Nome da IA</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Nome da Empresa / Nome da IA</label>
                   <input 
                     type="text" 
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Ex: Barber Shop Matriz"
-                    className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-inner"
+                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Personalidade da IA</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Personalidade da IA</label>
                   <select 
                     value={aiPersonality}
                     onChange={(e) => setAiPersonality(e.target.value)}
-                    className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm appearance-none shadow-inner"
+                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium"
                   >
-                    <option value="profissional" className="bg-zinc-900">Profissional & Cortês 👔</option>
-                    <option value="amigavel" className="bg-zinc-900">Amigável & Prestativo 🤗</option>
-                    <option value="descontraido" className="bg-zinc-900">Casual & Jovem ⚡</option>
-                    <option value="formal" className="bg-zinc-900">Muito Formal & Direto 💼</option>
-                    <option value="personalizada" className="bg-zinc-900">Personalizada ✍️</option>
+                    <option value="profissional" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Profissional &amp; Cortês 👔</option>
+                    <option value="amigavel" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Amigável &amp; Prestativo 🤗</option>
+                    <option value="descontraido" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Casual &amp; Jovem ⚡</option>
+                    <option value="formal" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Muito Formal &amp; Direto 💼</option>
+                    <option value="personalizada" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">Personalizada ✍️</option>
                   </select>
                 </div>
               </div>
 
               {aiPersonality === "personalizada" && (
                 <div className="space-y-2 pt-2 animate-in fade-in duration-300">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Instruções Personalizadas da IA</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Instruções Personalizadas da IA</label>
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     placeholder="Escreva como a IA deve agir, qual o tom de voz e o que responder (ex: Você é a atendente Sofia da empresa X. Ajude os clientes de forma rápida...)"
                     rows={4}
-                    className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-inner resize-none"
+                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium resize-none"
                   />
                 </div>
               )}
@@ -247,22 +247,22 @@ export default function OnboardingPage() {
           {step === 2 && (
             <div className="animate-in fade-in duration-300 space-y-6">
               <div>
-                <span className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-1.5 mb-2"><PhoneCall className="w-3.5 h-3.5" /> Canal de Escalonamento</span>
-                <h1 className="text-3xl font-bold mb-2">Contatos e Gerência</h1>
-                <p className="text-slate-500 dark:text-zinc-400 text-sm">Defina o número do administrador. A IA mandará alertas ou pausará o atendimento se o cliente solicitar falar com um gerente.</p>
+                <span className="text-xs uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-2"><PhoneCall className="w-3.5 h-3.5" /> Canal de Escalonamento</span>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Contatos e Gerência</h1>
+                <p className="text-slate-600 dark:text-zinc-400 text-sm">Defina o número do administrador. A IA mandará alertas ou pausará o atendimento se o cliente solicitar falar com um gerente.</p>
               </div>
 
               <div className="space-y-4 pt-4 max-w-md">
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">WhatsApp do Gerente / Dono</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">WhatsApp do Gerente / Dono</label>
                   <input 
                     type="text" 
                     value={managerPhone}
                     onChange={(e) => setManagerPhone(e.target.value)}
                     placeholder="Ex: 5511999998888"
-                    className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-inner"
+                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium"
                   />
-                  <p className="text-[10px] text-zinc-500">Insira com o DDI (55) + DDD (ex: 11) + número, sem espaços ou hifens.</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">Insira com o DDI (55) + DDD (ex: 11) + número, sem espaços ou hifens.</p>
                 </div>
               </div>
             </div>
@@ -272,31 +272,31 @@ export default function OnboardingPage() {
           {step === 3 && (
             <div className="animate-in fade-in duration-300 space-y-6">
               <div>
-                <span className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-1.5 mb-2"><Clock className="w-3.5 h-3.5" /> Cronograma Semanal</span>
-                <h1 className="text-3xl font-bold mb-2">Horário de Atendimento</h1>
-                <p className="text-slate-500 dark:text-zinc-400 text-sm">Configure os dias e horários de funcionamento. Fora deste escopo, a IA enviará a mensagem de ausência.</p>
+                <span className="text-xs uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-2"><Clock className="w-3.5 h-3.5" /> Cronograma Semanal</span>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Horário de Atendimento</h1>
+                <p className="text-slate-600 dark:text-zinc-400 text-sm">Configure os dias e horários de funcionamento. Fora deste escopo, a IA enviará a mensagem de ausência.</p>
               </div>
 
               <div className="space-y-6 pt-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Abertura</label>
-                    <input type="time" value={hoursStart} onChange={(e) => setHoursStart(e.target.value)} className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-inner" />
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Abertura</label>
+                    <input type="time" value={hoursStart} onChange={(e) => setHoursStart(e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium" />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Fechamento</label>
-                    <input type="time" value={hoursEnd} onChange={(e) => setHoursEnd(e.target.value)} className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-inner" />
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Fechamento</label>
+                    <input type="time" value={hoursEnd} onChange={(e) => setHoursEnd(e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors text-sm shadow-sm font-medium" />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Dias de Funcionamento</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Dias de Funcionamento</label>
                   <div className="flex flex-wrap gap-2">
                     {DAYS.map(day => (
                       <button 
                         key={day.id}
                         onClick={() => toggleDay(day.id)}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all border ${businessDays.includes(day.id) ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-900 dark:text-white border-transparent shadow-[0_0_15px_rgba(168,85,247,0.3)]" : "bg-black/40 text-slate-500 dark:text-zinc-400 border-slate-100 dark:border-white/5 hover:bg-slate-100 dark:bg-white/5"}`}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all border ${businessDays.includes(day.id) ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-transparent shadow-md" : "bg-slate-100 dark:bg-black/40 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/5"}`}
                       >
                         {day.label}
                       </button>
@@ -305,11 +305,11 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-600 dark:text-zinc-300">Mensagem para Fora do Horário</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-zinc-300">Mensagem para Fora do Horário</label>
                   <textarea 
                     value={offHoursMessage}
                     onChange={(e) => setOffHoursMessage(e.target.value)}
-                    className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors resize-none h-20 text-sm shadow-inner"
+                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition-colors resize-none h-20 text-sm shadow-sm font-medium"
                   />
                 </div>
               </div>
@@ -320,35 +320,35 @@ export default function OnboardingPage() {
           {step === 4 && (
             <div className="animate-in fade-in duration-300 space-y-6">
               <div>
-                <span className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-1.5 mb-2"><ShieldCheck className="w-3.5 h-3.5" /> Recursos & Permissões</span>
-                <h1 className="text-3xl font-bold mb-2">Módulos e Recursos do Robô</h1>
-                <p className="text-slate-500 dark:text-zinc-400 text-sm">Habilite ou desabilite as funções que a inteligência artificial tem autorização para realizar.</p>
+                <span className="text-xs uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-2"><ShieldCheck className="w-3.5 h-3.5" /> Recursos &amp; Permissões</span>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Módulos e Recursos do Robô</h1>
+                <p className="text-slate-600 dark:text-zinc-400 text-sm">Habilite ou desabilite as funções que a inteligência artificial tem autorização para realizar.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                 <button 
                   onClick={() => setModuleScheduling(!moduleScheduling)}
-                  className={`p-6 rounded-2xl border text-left transition-all flex items-start gap-4 shadow-lg ${moduleScheduling ? "bg-purple-500/10 border-purple-500/30 text-slate-900 dark:text-white shadow-purple-500/5" : "bg-black/40 border-slate-100 dark:border-white/5 text-slate-500 dark:text-zinc-400 hover:bg-white/[0.03]"}`}
+                  className={`p-6 rounded-2xl border text-left transition-all flex items-start gap-4 shadow-md ${moduleScheduling ? "bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-slate-900 dark:text-white" : "bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/5 text-slate-600 dark:text-zinc-400 hover:bg-slate-100"}`}
                 >
-                  <div className={`p-2 rounded-xl border ${moduleScheduling ? "bg-purple-500/20 border-purple-500/30 text-purple-400" : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-zinc-500"}`}>
+                  <div className={`p-2 rounded-xl border ${moduleScheduling ? "bg-purple-100 dark:bg-purple-500/20 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400" : "bg-slate-200 dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-500"}`}>
                     <CalendarDays className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1">Agendamento</h3>
-                    <p className="text-[11px] text-zinc-500 leading-tight">Permite que a IA crie, consulte e reagende horários com base no calendário.</p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">Permite que a IA crie, consulte e reagende horários com base no calendário.</p>
                   </div>
                 </button>
 
                 <button 
                   onClick={() => setModulePayments(!modulePayments)}
-                  className={`p-6 rounded-2xl border text-left transition-all flex items-start gap-4 shadow-lg ${modulePayments ? "bg-purple-500/10 border-purple-500/30 text-slate-900 dark:text-white shadow-purple-500/5" : "bg-black/40 border-slate-100 dark:border-white/5 text-slate-500 dark:text-zinc-400 hover:bg-white/[0.03]"}`}
+                  className={`p-6 rounded-2xl border text-left transition-all flex items-start gap-4 shadow-md ${modulePayments ? "bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-slate-900 dark:text-white" : "bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/5 text-slate-600 dark:text-zinc-400 hover:bg-slate-100"}`}
                 >
-                  <div className={`p-2 rounded-xl border ${modulePayments ? "bg-purple-500/20 border-purple-500/30 text-purple-400" : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-zinc-500"}`}>
+                  <div className={`p-2 rounded-xl border ${modulePayments ? "bg-purple-100 dark:bg-purple-500/20 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400" : "bg-slate-200 dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-500"}`}>
                     <Coins className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1">Pagamentos</h3>
-                    <p className="text-[11px] text-zinc-500 leading-tight">Habilita a IA a consultar cobranças vencidas e enviar links (Pix/Cartão).</p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">Habilita a IA a consultar cobranças vencidas e enviar links (Pix/Cartão).</p>
                   </div>
                 </button>
               </div>
@@ -359,36 +359,36 @@ export default function OnboardingPage() {
           {step === 5 && (
             <div className="animate-in fade-in duration-300 space-y-6">
               <div>
-                <span className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-1.5 mb-2"><ShoppingBag className="w-3.5 h-3.5" /> Portfólio de Ofertas</span>
-                <h1 className="text-3xl font-bold mb-2">Serviços e Produtos</h1>
-                <p className="text-slate-500 dark:text-zinc-400 text-sm">Atualize os produtos ou serviços cadastrados da sua empresa para que a IA possa vendê-los.</p>
+                <span className="text-xs uppercase font-bold tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5 mb-2"><ShoppingBag className="w-3.5 h-3.5" /> Portfólio de Ofertas</span>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Serviços e Produtos</h1>
+                <p className="text-slate-600 dark:text-zinc-400 text-sm">Atualize os produtos ou serviços cadastrados da sua empresa para que a IA possa vendê-los.</p>
               </div>
 
-              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
                 {products.map((prod, i) => (
-                  <div key={i} className="p-4 bg-black/40 border border-slate-100 dark:border-white/5 rounded-2xl relative flex flex-col gap-3 shadow-inner">
+                  <div key={i} className="p-4 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-2xl relative flex flex-col gap-3 shadow-sm">
                     {products.length > 1 && (
-                      <button onClick={() => setProducts(products.filter((_, idx) => idx !== i))} className="absolute top-2 right-3 text-zinc-500 hover:text-red-400 text-xs transition-colors">✕ Remover</button>
+                      <button onClick={() => setProducts(products.filter((_, idx) => idx !== i))} className="absolute top-2 right-3 text-slate-400 hover:text-red-500 text-xs transition-colors">✕ Remover</button>
                     )}
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Nome do Item</label>
-                        <input type="text" value={prod.name} onChange={(e) => { const np = [...products]; np[i].name = e.target.value; setProducts(np); }} placeholder="Ex: Corte Degradê" className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors" />
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">Nome do Item</label>
+                        <input type="text" value={prod.name} onChange={(e) => { const np = [...products]; np[i].name = e.target.value; setProducts(np); }} placeholder="Ex: Corte Degradê" className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors font-medium shadow-sm" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Preço (R$)</label>
-                        <input type="text" value={prod.price} onChange={(e) => { const np = [...products]; np[i].price = e.target.value; setProducts(np); }} placeholder="50.00" className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors" />
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">Preço (R$)</label>
+                        <input type="text" value={prod.price} onChange={(e) => { const np = [...products]; np[i].price = e.target.value; setProducts(np); }} placeholder="50.00" className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors font-medium shadow-sm" />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Descrição para a IA</label>
-                      <input type="text" value={prod.description} onChange={(e) => { const np = [...products]; np[i].description = e.target.value; setProducts(np); }} placeholder="Inclui lavagem e finalização..." className="w-full bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors" />
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">Descrição para a IA</label>
+                      <input type="text" value={prod.description} onChange={(e) => { const np = [...products]; np[i].description = e.target.value; setProducts(np); }} placeholder="Inclui lavagem e finalização..." className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-purple-500 transition-colors font-medium shadow-sm" />
                     </div>
                   </div>
                 ))}
                 
                 {products.length < 10 && (
-                  <button onClick={() => setProducts([...products, { name: "", price: "", description: "" }])} className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-white/5 hover:border-purple-500/40 transition-all text-xs font-semibold shadow-inner">
+                  <button onClick={() => setProducts([...products, { name: "", price: "", description: "" }])} className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 hover:border-purple-500 transition-all text-xs font-bold shadow-sm">
                     + Adicionar outro item ao portfólio
                   </button>
                 )}
@@ -400,7 +400,7 @@ export default function OnboardingPage() {
         {/* Navigation Buttons */}
         <div className="mt-8 flex justify-between pt-6 border-t border-slate-200 dark:border-white/10">
           {step > 1 ? (
-            <button onClick={() => setStep(step - 1)} className="px-5 py-2.5 rounded-xl font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:text-white hover:bg-slate-100 dark:bg-white/5 transition-all flex items-center gap-1.5 text-sm">
+            <button onClick={() => setStep(step - 1)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all flex items-center gap-1.5 text-sm">
               <ChevronLeft className="w-4 h-4" /> Voltar
             </button>
           ) : <div />}
@@ -409,7 +409,7 @@ export default function OnboardingPage() {
             <button 
               onClick={() => setStep(step + 1)} 
               disabled={step === 1 && !companyName}
-              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-slate-900 dark:text-white rounded-xl font-bold shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all flex items-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed ml-auto active:scale-95"
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold shadow-lg shadow-purple-500/20 transition-all flex items-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed ml-auto active:scale-95"
             >
               Próximo <ChevronRight className="w-4 h-4" />
             </button>
@@ -417,7 +417,7 @@ export default function OnboardingPage() {
             <button 
               onClick={handleFinish} 
               disabled={loading}
-              className="px-8 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-slate-900 dark:text-white rounded-xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 text-sm disabled:opacity-50 active:scale-95"
+              className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 text-sm disabled:opacity-50 active:scale-95"
             >
               {loading ? "Finalizando..." : "Finalizar & Configurar ✨"}
             </button>

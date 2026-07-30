@@ -202,16 +202,13 @@ export async function GET(req: Request) {
 
     const baseWhere: Record<string, unknown> = { tenant_id: session.tenant_id };
     if (isPartner && partnerLeadIds) {
-      baseWhere.OR = [
-        { lead_id: { in: partnerLeadIds } },
-        { lead_id: null },
-      ];
+      baseWhere.lead_id = { in: partnerLeadIds };
     }
     if (status) baseWhere.status = status;
 
     // Busca todas as vendas para estatísticas
     const allSales = await prisma.sale.findMany({
-      where: { tenant_id: session.tenant_id, ...(isPartner && partnerLeadIds ? { OR: [{ lead_id: { in: partnerLeadIds } }, { lead_id: null }] } : {}) },
+      where: { tenant_id: session.tenant_id, ...(isPartner && partnerLeadIds ? { lead_id: { in: partnerLeadIds } } : {}) },
       include: { lead: { select: { name: true, phone: true } } },
     });
 

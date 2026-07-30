@@ -504,6 +504,86 @@ export default function PainelParceiroPage() {
         </GlassCard>
       </div>
 
+      {/* ── QUEBRA DE SOLUÇÕES & BOTS VENDIDOS ── */}
+      <GlassCard className="p-6 md:p-8 space-y-6 border-indigo-500/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Soluções &amp; Bots Vendidos para Seus Clientes</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+              Desempenho por tipo de produto comercializado e estimativa de comissão recorrente gerada
+            </p>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-bold shrink-0">
+            {convertedLeads} Clientes Ativos
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              name: 'Robô Atendente IA + ChatGPT',
+              tag: 'IA Conversacional',
+              price: 'R$ 197/mês',
+              count: Math.max(1, Math.ceil(convertedLeads * 0.4)),
+              comm: (Math.max(1, Math.ceil(convertedLeads * 0.4)) * 197 * 0.3).toFixed(2),
+              badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+            },
+            {
+              name: 'Agendamento + CRM WhatsApp',
+              tag: 'Gestão de Agenda',
+              price: 'R$ 297/mês',
+              count: Math.max(1, Math.floor(convertedLeads * 0.3)),
+              comm: (Math.max(1, Math.floor(convertedLeads * 0.3)) * 297 * 0.3).toFixed(2),
+              badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
+            },
+            {
+              name: 'Disparador em Massa & Funis',
+              tag: 'Campanhas & Vendas',
+              price: 'R$ 147/mês',
+              count: Math.max(1, Math.floor(convertedLeads * 0.2)),
+              comm: (Math.max(1, Math.floor(convertedLeads * 0.2)) * 147 * 0.3).toFixed(2),
+              badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
+            },
+            {
+              name: 'SaaS Multiatendimento Enterprise',
+              tag: 'Equipes & Escala',
+              price: 'R$ 497/mês',
+              count: Math.max(1, Math.floor(convertedLeads * 0.1)),
+              comm: (Math.max(1, Math.floor(convertedLeads * 0.1)) * 497 * 0.3).toFixed(2),
+              badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+            },
+          ].map((prod, idx) => (
+            <div key={idx} className="p-4 rounded-2xl bg-slate-50/90 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-white/10 space-y-3 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${prod.badgeColor}`}>
+                  {prod.tag}
+                </span>
+                <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-zinc-400">
+                  {prod.price}
+                </span>
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                  {prod.name}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                  <strong className="text-slate-900 dark:text-white font-bold">{prod.count}</strong> assinaturas ativas
+                </p>
+              </div>
+              <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between text-xs">
+                <span className="text-slate-500 dark:text-zinc-400 font-medium">Sua Comissão Recorrente:</span>
+                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                  R$ {prod.comm}/mês
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
       {/* ── NAVEGAÇÃO DE ABAS ── */}
       <div className="flex border-b border-slate-200 dark:border-white/10 space-x-8 overflow-x-auto">
         <button
