@@ -1330,21 +1330,42 @@ export async function processMessageWithRules(
     return getProductOptionLabel(product);
   }));
 
-  // Match keyword in the active level
+  // Match keyword or poll selection in active level using multi-strategy lookup
   if (activeLevelNodes.length > 0) {
-    const exactMatchedNode = activeLevelNodes.find((node: any) => {
+    const interactiveNodes = activeLevelNodes.filter((n: any) => n.showInPoll !== false);
+
+    // 1. Exact keyword match (e.g. "6", "7", "8", "9")
+    let matchedNode = activeLevelNodes.find((node: any) => {
       const cleanKeyword = normalizeTextForLookup(node.keyword);
-      const cleanTitle = normalizeTextForLookup(node.title);
-      return cleanText === cleanKeyword || cleanText === cleanTitle;
+      return Boolean(cleanKeyword) && cleanText === cleanKeyword;
     });
-    const matchedNode = exactMatchedNode || [...activeLevelNodes]
-      .sort((left: any, right: any) => String(right.keyword || "").length - String(left.keyword || "").length)
-      .find((node: any) => {
-        const cleanKeyword = normalizeTextForLookup(node.keyword);
-        return Boolean(cleanKeyword)
-          && !/^\d+$/.test(cleanKeyword)
-          && cleanText.includes(cleanKeyword);
+
+    // 2. Exact title match (e.g. "agendar horario reuniao", "falar com atendente humano")
+    if (!matchedNode) {
+      matchedNode = activeLevelNodes.find((node: any) => {
+        const cleanTitle = normalizeTextForLookup(node.title);
+        return Boolean(cleanTitle) && cleanText === cleanTitle;
       });
+    }
+
+    // 3. 1-based index matching against displayed interactive poll items (e.g. typing "1", "2", "3", "4" or "1️⃣")
+    if (!matchedNode && /^\d+$/.test(cleanText)) {
+      const numericIndex = Number(cleanText) - 1;
+      if (numericIndex >= 0 && numericIndex < interactiveNodes.length) {
+        matchedNode = interactiveNodes[numericIndex];
+      }
+    }
+
+    // 4. Partial title or keyword match (e.g. typing "agendar", "humano", "atendente", "catalogo", "orcamento", "informacao")
+    if (!matchedNode && cleanText.length >= 3) {
+      matchedNode = activeLevelNodes.find((node: any) => {
+        const cleanTitle = normalizeTextForLookup(node.title);
+        const cleanKeyword = normalizeTextForLookup(node.keyword);
+        if (!cleanTitle && !cleanKeyword) return false;
+        return (cleanTitle && (cleanTitle.includes(cleanText) || cleanText.includes(cleanTitle)))
+            || (cleanKeyword && !/^\d+$/.test(cleanKeyword) && (cleanKeyword.includes(cleanText) || cleanText.includes(cleanKeyword)));
+      });
+    }
 
     if (matchedNode) {
       const hasChildren = customNodes.some((n: any) => n.parentId === matchedNode.id);
