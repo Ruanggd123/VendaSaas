@@ -1054,7 +1054,7 @@ export default function Home() {
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">Preço Mensal</td><td className="p-4 text-center font-black text-slate-700 dark:text-slate-300">R$ 67/mês</td><td className="p-4 text-center font-black text-indigo-600 dark:text-indigo-400">R$ 97/mês</td><td className="p-4 text-center font-black text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">R$ 147/mês</td><td className="p-4 text-center font-black text-emerald-600 dark:text-emerald-400">R$ 497/mês</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🤖 Bot Fixo de Regras</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold bg-amber-50/50 dark:bg-amber-500/5">✅ Incluso</td><td className="p-4 text-center text-emerald-600 font-bold">✅ Incluso</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🧠 Inteligência Artificial (DeepSeek/ChatGPT)</td><td className="p-4 text-center text-slate-400">— (Sem IA)</td><td className="p-4 text-center font-bold text-indigo-600 dark:text-indigo-400">✅ 5.000 msgs/mês</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">✅ 5.000 msgs/mês</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ 20.000 msgs/mês</td></tr>
-                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🌐 Criação de Site Grátis</td><td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300">Single Page</td><td className="p-4 text-center text-slate-400">— (Sem site)</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">Até 5 Páginas</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Loja Virtual E-Commerce</td></tr>
+                      <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🌐 Criação de Site Grátis</td><td className="p-4 text-center text-slate-400">— (Sem site)</td><td className="p-4 text-center font-bold text-indigo-600 dark:text-indigo-400">Site Institucional</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">Até 5 Páginas</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Loja Virtual E-Commerce</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">👥 CRM &amp; Multi-Atendente</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">Até 2 atendentes</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">Equipe Ilimitada</td></tr>
                       <tr><td className="p-4 font-bold text-slate-700 dark:text-slate-300">🎯 Disparo em Massa &amp; Funis</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400">—</td><td className="p-4 text-center text-slate-400 bg-amber-50/50 dark:bg-amber-500/5">—</td><td className="p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">✅ Incluso</td></tr>
                     </tbody>
@@ -1072,36 +1072,37 @@ export default function Home() {
                     id: "plano_start",
                     name: "Plano Start",
                     price: "R$ 67",
-                    tagline: "Presença digital + bot fixo de regras",
-                    desc: "Para quem quer iniciar no digital com economia",
-                    bonus: "🎉 Site Single Page Grátis",
-                    bonusValue: "R$ 297",
+                    tagline: "Bot fixo de regras (apenas automação)",
+                    desc: "Para quem quer apenas automação no WhatsApp sem site",
+                    bonus: "🤖 Bot Fixo no WhatsApp",
+                    bonusValue: "Economia",
                     color: "border-slate-300 dark:border-white/10",
                     features: [
-                      "Site Single Page (Página Única)",
-                      "Bot Starter (Baseado em Regras)",
+                      "Bot Fixo de Regras e Botões",
                       "Conversas Ilimitadas via Regras",
+                      "Atendimento 24 horas no WhatsApp",
                       "Hospedagem & Manutenção Inclusos",
                     ],
-                    limits: ["Sem IA (ChatGPT/DeepSeek)", "Sem CRM de Vendas", "Sem Agendamento IA"],
+                    limits: ["Sem Criação de Site", "Sem IA (ChatGPT/DeepSeek)", "Sem CRM de Vendas"],
                     popular: false,
                   },
                   {
                     id: "so_bot",
-                    name: "Só Bot (Assinatura)",
+                    name: "Plano 97",
                     price: "R$ 97",
-                    tagline: "Ambos os bots inclusos (Regras + IA)",
-                    desc: "Para quem já possui site e quer apenas automação",
-                    bonus: "⚡ AMBOS OS BOTS INCLUSOS (Regras + IA)",
+                    tagline: "Site institucional grátis + Ambos os Bots (Regras + IA)",
+                    desc: "Site completo com bot inteligente de IA",
+                    bonus: "🎉 Site Institucional 100% GRÁTIS",
                     bonusValue: "R$ 497",
                     color: "border-indigo-500/30",
                     features: [
+                      "Site Institucional 100% Grátis",
                       "AMBOS OS BOTS INCLUSOS (Regras + IA)",
                       "Bot Inteligente (DeepSeek / ChatGPT)",
                       "5.000 mensagens IA / mês",
                       "Agendamento & Atendimento 24h",
                     ],
-                    limits: ["Sem Criação de Site", "Sem CRM de Vendas", "Sem Disparo em Massa"],
+                    limits: ["Sem CRM de Vendas", "Sem Disparo em Massa"],
                     popular: false,
                   },
                   {

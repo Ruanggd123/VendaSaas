@@ -559,16 +559,16 @@ export default function PainelParceiroPage() {
               badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
             },
             {
-              name: 'Só Bot (Assinatura)',
-              tag: 'Apenas Bot IA',
+              name: 'Plano 97',
+              tag: 'Site + Ambos os Bots ⭐',
               price: 'R$ 97/mês',
-              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).length,
-              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).reduce((acc, l) => acc + (l.value || 97), 0) * (data.commissionRate / 100)).toFixed(2),
+              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano 97' || l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).length,
+              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano 97' || l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).reduce((acc, l) => acc + (l.value || 97), 0) * (data.commissionRate / 100)).toFixed(2),
               badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
             },
             {
               name: 'Plano Start',
-              tag: 'Bot Regras Fixo',
+              tag: 'Bot Regras (Sem Site)',
               price: 'R$ 67/mês',
               count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Start' || Number(l.value ?? 0) === 67)).length,
               comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Start' || Number(l.value ?? 0) === 67)).reduce((acc, l) => acc + (l.value || 67), 0) * (data.commissionRate / 100)).toFixed(2),
