@@ -22,10 +22,21 @@ export async function GET() {
     }
 
     const now = new Date();
-    const accessExpires = partner.access_expires_at;
+    let accessExpires = partner.access_expires_at;
 
-    // Se access_expires_at for nulo, o parceiro tem acesso ilimitado ao Painel do Parceiro (sem expiracao padrao)
-    const expired = accessExpires ? now >= accessExpires : false;
+    // Se a sessão JWT possui data de expiração mais recente (gerada pelo middleware), sincroniza com o banco
+    if (session.accessExpiresAt) {
+      const sessionExpires = new Date(session.accessExpiresAt);
+      if (!accessExpires || sessionExpires > accessExpires) {
+        accessExpires = sessionExpires;
+        await prisma.partner.update({
+          where: { id: session.id },
+          data: { access_expires_at: accessExpires }
+        }).catch(() => {});
+      }
+    }
+
+    const expired = accessExpires ? now >= accessExpires : true;
     const remainingMs = accessExpires ? Math.max(0, accessExpires.getTime() - now.getTime()) : 0;
     const remainingMinutes = Math.floor(remainingMs / 60000);
     const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);

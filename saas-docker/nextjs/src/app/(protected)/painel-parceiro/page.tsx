@@ -31,16 +31,16 @@ interface PartnerData {
 function Glow() {
   return (
     <>
-      <div className="fixed -top-40 -right-40 w-[700px] h-[700px] bg-indigo-600/15 rounded-full blur-[180px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
-      <div className="fixed top-1/3 -left-60 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[160px] pointer-events-none animate-pulse" style={{ animationDuration: '12s' }} />
-      <div className="fixed -bottom-40 right-1/4 w-[500px] h-[500px] bg-blue-600/8 rounded-full blur-[140px] pointer-events-none animate-pulse" style={{ animationDuration: '10s' }} />
+      <div className="fixed -top-40 -right-40 w-[700px] h-[700px] bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-[180px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
+      <div className="fixed top-1/3 -left-60 w-[600px] h-[600px] bg-purple-500/8 dark:bg-purple-600/10 rounded-full blur-[160px] pointer-events-none animate-pulse" style={{ animationDuration: '12s' }} />
+      <div className="fixed -bottom-40 right-1/4 w-[500px] h-[500px] bg-blue-500/5 dark:bg-blue-600/8 rounded-full blur-[140px] pointer-events-none animate-pulse" style={{ animationDuration: '10s' }} />
     </>
   );
 }
 
 function GlassCard({ children, className = '', hover = false }: { children: React.ReactNode; className?: string; hover?: boolean }) {
   return (
-    <div className={`rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/80 backdrop-blur-2xl shadow-xl ${hover ? 'hover:border-indigo-500/30 hover:-translate-y-0.5 transition-all duration-300' : ''} ${className}`}>
+    <div className={`rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-zinc-900/80 backdrop-blur-2xl shadow-xl shadow-slate-200/40 dark:shadow-none ${hover ? 'hover:border-indigo-500/40 hover:-translate-y-0.5 transition-all duration-300' : ''} ${className}`}>
       {children}
     </div>
   );
@@ -49,8 +49,8 @@ function GlassCard({ children, className = '', hover = false }: { children: Reac
 function GradientIcon({ icon: Icon, gradient = 'from-indigo-500 to-purple-500' }: { icon: React.ElementType; gradient?: string }) {
   return (
     <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} p-[1px]`}>
-      <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center">
-        <Icon className="w-5 h-5 text-white" />
+      <div className="w-full h-full rounded-2xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+        <Icon className="w-5 h-5 text-indigo-600 dark:text-white" />
       </div>
     </div>
   );
@@ -114,6 +114,94 @@ function maskPhone(phone: string | null): string {
     return `(${ddd}) ${start}***-**${end}`;
   }
   return `(**) *****-****`;
+}
+
+function maskPixKey(key: string | null, keyType: string | null): string {
+  if (!key) return "Chave ***";
+  const clean = key.trim();
+  if (keyType === 'phone' || /^\+?\d+$/.test(clean.replace(/\D/g, ''))) {
+    const num = clean.replace(/\D/g, '');
+    if (num.length >= 10) {
+      const ddd = num.slice(-11, -9) || "11";
+      const start = num.slice(-9, -7);
+      const end = num.slice(-2);
+      return `(${ddd}) ${start}***-**${end}`;
+    }
+  }
+  if (keyType === 'email' || clean.includes('@')) {
+    const parts = clean.split('@');
+    const user = parts[0];
+    const maskedUser = user.length > 2 ? `${user.slice(0, 3)}***` : `${user}***`;
+    return `${maskedUser}@${parts[1] || '***.com'}`;
+  }
+  if (keyType === 'cpf' || keyType === 'cnpj' || /^\d[\d.-]+\d$/.test(clean)) {
+    const digits = clean.replace(/\D/g, '');
+    if (digits.length >= 14 || keyType === 'cnpj') {
+      return `${digits.slice(0, 2)}.***.***/0001-**`;
+    }
+    if (digits.length >= 11) {
+      return `${digits.slice(0, 3)}.***.***-${digits.slice(-2)}`;
+    }
+  }
+  if (keyType === 'random' || clean.length > 18) {
+    return `${clean.slice(0, 4)}...${clean.slice(-4)}`;
+  }
+  return `${clean.slice(0, 3)}***${clean.slice(-2)}`;
+}
+
+function RecurrenceChart() {
+  const chartData = [
+    { month: "Ago/26", val: 4560, label: "R$ 4.560" },
+    { month: "Set/26", val: 5120, label: "R$ 5.120" },
+    { month: "Out/26", val: 5980, label: "R$ 5.980" },
+    { month: "Nov/26", val: 6840, label: "R$ 6.840" },
+    { month: "Dez/26", val: 7950, label: "R$ 7.950" },
+  ];
+  const maxVal = 9000;
+
+  return (
+    <div className="pt-2 space-y-3">
+      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
+        Projeção estimada de comissões recorrentes nos próximos meses baseada em seus clientes ativos:
+      </p>
+      
+      <div className="bg-slate-50/80 dark:bg-zinc-950/70 p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 relative overflow-hidden shadow-inner">
+        {/* Linhas de Grade de Fundo */}
+        <div className="absolute inset-x-5 top-5 bottom-12 flex flex-col justify-between pointer-events-none opacity-40">
+          <div className="border-b border-dashed border-slate-300 dark:border-zinc-800 w-full" />
+          <div className="border-b border-dashed border-slate-300 dark:border-zinc-800 w-full" />
+          <div className="border-b border-dashed border-slate-300 dark:border-zinc-800 w-full" />
+        </div>
+
+        <div className="grid grid-cols-5 gap-3 sm:gap-6 items-end h-44 pt-6 relative z-10">
+          {chartData.map((item, idx) => {
+            const heightPercent = Math.round((item.val / maxVal) * 100);
+            return (
+              <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
+                {/* Tooltip de Valor */}
+                <div className="px-2 py-1 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black shadow-md opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all transform -translate-y-1">
+                  {item.label}
+                </div>
+
+                {/* Barra Gradiente Animada */}
+                <div className="w-full bg-slate-200/70 dark:bg-zinc-800/80 rounded-t-xl overflow-hidden h-full flex items-end p-0.5">
+                  <div
+                    className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600 via-purple-500 to-emerald-400 group-hover:brightness-110 transition-all duration-500 shadow-md"
+                    style={{ height: `${heightPercent}%` }}
+                  />
+                </div>
+
+                {/* Rótulo do Mês */}
+                <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  {item.month}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PainelParceiroPage() {
@@ -327,7 +415,7 @@ export default function PainelParceiroPage() {
       </div>
 
       {/* BANNER DE LINK DE INDICAÇÃO */}
-      <GlassCard className="p-6 md:p-8 bg-gradient-to-br from-indigo-900/30 via-zinc-900/80 to-purple-900/20 border-indigo-500/20 relative overflow-hidden">
+      <GlassCard className="p-6 md:p-8 bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-slate-50 dark:from-indigo-900/30 dark:via-zinc-900/80 dark:to-purple-900/20 border-indigo-200/80 dark:border-indigo-500/20 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-2xl">
@@ -338,17 +426,17 @@ export default function PainelParceiroPage() {
               Seu Link Exclusivo de Vendas
             </h2>
             <p className="text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
-              Divulgue seu link em redes sociais, TikTok, Instagram e WhatsApp. Ganhe <strong className="text-emerald-500 dark:text-emerald-400">50% de comissão</strong> na primeira mensalidade + <strong className="text-emerald-500 dark:text-emerald-400">{data.commissionRate}% de recorrência mensal vitalícia</strong> em cada cliente indicado!
+              Divulgue seu link em redes sociais, TikTok, Instagram e WhatsApp. Ganhe <strong className="text-emerald-600 dark:text-emerald-400">50% de comissão</strong> na primeira mensalidade + <strong className="text-emerald-600 dark:text-emerald-400">{data.commissionRate}% de recorrência mensal vitalícia</strong> em cada cliente indicado!
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex-1 bg-slate-100 dark:bg-zinc-950/80 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-indigo-600 dark:text-indigo-300 truncate max-w-md select-all">
+            <div className="flex-1 bg-white dark:bg-zinc-950/80 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-indigo-700 dark:text-indigo-300 truncate max-w-md select-all font-semibold shadow-sm">
               {referralUrl}
             </div>
             <button
               onClick={copyReferralLink}
-              className="px-5 py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all shrink-0"
+              className="px-5 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all shrink-0"
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
               <span>{copiedLink ? 'Link Copiado!' : 'Copiar Link de Afiliado'}</span>
@@ -596,24 +684,7 @@ export default function PainelParceiroPage() {
               </div>
 
               {/* Gráfico de Barras de Projeção Mensal */}
-              <div className="pt-2 space-y-3">
-                <p className="text-xs text-slate-500 dark:text-zinc-400">Projeção estimada de comissões recorrentes nos próximos meses baseada em seus clientes ativos:</p>
-                <div className="grid grid-cols-5 gap-2 pt-2 items-end h-32 bg-slate-100 dark:bg-zinc-950/70 p-4 rounded-xl border border-slate-200 dark:border-white/5">
-                  {[
-                    { month: "Ago/26", val: "R$ 4.560", height: "h-20", bg: "bg-indigo-500" },
-                    { month: "Set/26", val: "R$ 5.120", height: "h-24", bg: "bg-indigo-400" },
-                    { month: "Out/26", val: "R$ 5.980", height: "h-28", bg: "bg-purple-500" },
-                    { month: "Nov/26", val: "R$ 6.840", height: "h-32", bg: "bg-purple-400" },
-                    { month: "Dez/26", val: "R$ 7.950", height: "h-36", bg: "bg-emerald-500" },
-                  ].map((m, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-1.5 h-full justify-end group">
-                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">{m.val}</span>
-                      <div className={`w-full ${m.height} ${m.bg} rounded-t-lg shadow-lg group-hover:brightness-125 transition-all`} />
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">{m.month}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <RecurrenceChart />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-white/5 space-y-1">
@@ -690,20 +761,20 @@ export default function PainelParceiroPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-900/40 to-zinc-900/80 border border-indigo-500/30 space-y-2">
-                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Bônus Imediato (1º Mês - 50%)</span>
-                <div className="text-3xl font-black text-white">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-indigo-900/40 dark:to-zinc-900/80 border border-indigo-200 dark:border-indigo-500/30 space-y-2 shadow-md dark:shadow-none">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Bônus Imediato (1º Mês - 50%)</span>
+                <div className="text-3xl font-black text-slate-900 dark:text-white">
                   R$ {simulatedFirstMonthBonus.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
-                <p className="text-xs text-zinc-400">Recebido instantaneamente assim que os {simulatedClients} clientes assinam.</p>
+                <p className="text-xs text-slate-600 dark:text-zinc-400">Recebido instantaneamente assim que os {simulatedClients} clientes assinam.</p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-900/40 to-zinc-900/80 border border-emerald-500/30 space-y-2">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Renda Passiva Mensal (30% Vitalício)</span>
-                <div className="text-3xl font-black text-emerald-300">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/40 dark:to-zinc-900/80 border border-emerald-200 dark:border-emerald-500/30 space-y-2 shadow-md dark:shadow-none">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Renda Passiva Mensal (30% Vitalício)</span>
+                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-300">
                   R$ {simulatedLifetimeMonthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /mês
                 </div>
-                <p className="text-xs text-zinc-400">Caindo na sua conta todo mês enquanto os clientes mantiverem a assinatura!</p>
+                <p className="text-xs text-slate-600 dark:text-zinc-400">Caindo na sua conta todo mês enquanto os clientes mantiverem a assinatura!</p>
               </div>
             </div>
           </div>
@@ -826,7 +897,7 @@ export default function PainelParceiroPage() {
                         R$ {w.amount.toFixed(2)}
                       </td>
                       <td className="py-3 text-slate-500 dark:text-zinc-400 font-mono">
-                        {w.pixKey} ({w.pixKeyType})
+                        {maskPixKey(w.pixKey, w.pixKeyType)} ({w.pixKeyType})
                       </td>
                       <td className="py-3">
                         <WithdrawalStatusBadge status={w.status} />

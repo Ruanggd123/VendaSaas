@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { decrypt } from '@/lib/auth';
+import { decrypt, encrypt } from '@/lib/auth';
 
 const protectedRoutes = [
   '/whatsapp', '/dashboard', '/admin', '/painel-parceiro',
@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
         return response;
       }
 
-      // --- PARCEIRO: PAINEL PRÓPRIO SEMPRE LIBERADO; CLIENTE SÓ COM SESSÃO ATIVA ---
+      // --- PARCEIRO: PAINEL PRÓPRIO SEMPRE LIBERADO; OUTROS PAINÉIS LIBERADOS POR 1 HORA ---
       if (payload.role === 'partner') {
         if (lowerPathname.startsWith('/painel-parceiro')) {
           return NextResponse.next();
@@ -38,12 +38,31 @@ export async function middleware(request: NextRequest) {
         if (lowerPathname.startsWith('/admin')) {
           return NextResponse.redirect(new URL('/painel-parceiro', request.url));
         }
+
         const accessExpiresAt = payload.accessExpiresAt ? new Date(payload.accessExpiresAt) : null;
         const now = new Date();
-        if (!accessExpiresAt || accessExpiresAt <= now) {
-          return NextResponse.redirect(new URL('/painel-parceiro', request.url));
+
+        // Se ainda tiver contando (não expirou), NÃO reseta e libera o acesso até terminar
+        if (accessExpiresAt && accessExpiresAt > now) {
+          return NextResponse.next();
         }
-        return NextResponse.next();
+
+        // Se expirou ou não estava contando, libera o acesso por mais 1 hora a partir de agora
+        const newAccessExpires = new Date(now.getTime() + 60 * 60 * 1000);
+        const newPayload = {
+          ...payload,
+          accessExpiresAt: newAccessExpires.toISOString(),
+        };
+        const newToken = await encrypt(newPayload);
+        const response = NextResponse.next();
+        response.cookies.set('session', newToken, {
+          expires: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        });
+        return response;
       }
 
       // --- PROTEÇÃO DO SUPER ADMIN ---

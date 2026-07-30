@@ -118,17 +118,17 @@ async function main() {
     });
   }
 
-  // Criar histórico de Saques (Withdrawals) Frequentes via Pix efetuados ao longo de 2026
+  // Criar histórico de Saques (Withdrawals) Frequentes via Pix efetuados ao longo de 2026 com chaves variadas
   const withdrawalsData = [
-    { amount: 599.10, status: "paid", date: "2026-01-30" },
-    { amount: 748.20, status: "paid", date: "2026-02-15" },
-    { amount: 418.20, status: "paid", date: "2026-02-28" },
-    { amount: 1048.20, status: "paid", date: "2026-03-31" },
-    { amount: 568.20, status: "paid", date: "2026-04-30" },
-    { amount: 1199.10, status: "paid", date: "2026-05-31" },
-    { amount: 2698.20, status: "paid", date: "2026-06-30" },
-    { amount: 568.20, status: "paid", date: "2026-07-15" },
-    { amount: 998.90, status: "paid", date: "2026-07-28" },
+    { amount: 599.10, status: "paid", date: "2026-01-30", pixKey: "11987654321", pixKeyType: "phone" },
+    { amount: 748.20, status: "paid", date: "2026-02-15", pixKey: "carlos.financeiro@gmail.com", pixKeyType: "email" },
+    { amount: 418.20, status: "paid", date: "2026-02-28", pixKey: "341.892.108-72", pixKeyType: "cpf" },
+    { amount: 1048.20, status: "paid", date: "2026-03-31", pixKey: "48.192.831/0001-95", pixKeyType: "cnpj" },
+    { amount: 568.20, status: "paid", date: "2026-04-30", pixKey: "c3f8b1a2-9e4d-4c12-8a90-7d6f5e4c3b2a", pixKeyType: "random" },
+    { amount: 1199.10, status: "paid", date: "2026-05-31", pixKey: "11987654321", pixKeyType: "phone" },
+    { amount: 2698.20, status: "paid", date: "2026-06-30", pixKey: "341.892.108-72", pixKeyType: "cpf" },
+    { amount: 568.20, status: "paid", date: "2026-07-15", pixKey: "carlos.eduardo.silva@gmail.com", pixKeyType: "email" },
+    { amount: 998.90, status: "paid", date: "2026-07-28", pixKey: "e9a1b2c3-8f7e-6d5c-4b3a-2f1e0d9c8b7a", pixKeyType: "random" },
   ];
 
   for (const w of withdrawalsData) {
@@ -138,8 +138,8 @@ async function main() {
         partner_id: partner.id,
         amount: w.amount,
         status: w.status,
-        pixKey: email,
-        pixKeyType: "email",
+        pixKey: w.pixKey,
+        pixKeyType: w.pixKeyType,
         created_at: wDate,
         approved_at: wDate,
       },
