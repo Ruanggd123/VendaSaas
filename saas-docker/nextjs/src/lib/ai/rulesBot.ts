@@ -1420,58 +1420,27 @@ export async function processMessageWithRules(
       let response = "";
 
       if (matchedNode.actionType === "catalog") {
-        // Check if catalog node has child product nodes
-        const productNodes = customNodes.filter((n: any) => n.parentId === matchedNode.id && n.actionType === 'product');
-        
-        if (productNodes.length > 0) {
-          response = `${getCatalogIntro(nodeText)}\n\n`;
-          productNodes.forEach((pn: any, idx: number) => {
-            const prod = resolveProductFromNode(settings.products || [], pn);
-            if (prod) {
-              const displayPrice = getProductDisplayPrice(prod);
-              response += `${idx + 1}️⃣ *${prod.name}* - R$ ${displayPrice}\n`;
-              if (prod.description) response += `   _${prod.description}_\n\n`;
-            } else {
-              response += `${idx + 1}️⃣ *${pn.title}*\n\n`;
-            }
-          });
-          response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
-          state.step = "catalog_select_product";
-          state.data._productNodes = productNodes.map((n: any) => n.id);
-          await saveState(state);
-          return appendInteractiveOptions(response, productNodes.flatMap((node: any, idx: number) => {
-            if (node.showInPoll === false) return [];
-            const product = resolveProductFromNode(settings.products || [], node);
-            return [{
-              label: product
-                ? getProductOptionLabel(product)
-                : node.title,
-              value: String(idx + 1),
-            }];
-          }));
-        } else {
-          // Fallback: show all products from settings (original behavior)
-          const productsList = settings.products || [];
-          if (productsList.length === 0) {
-            response = "📋 No momento não temos serviços cadastrados no catálogo.";
-          } else {
-            response = `${getCatalogIntro(nodeText)}\n\n`;
-            productsList.forEach((p: any, idx: number) => {
-              const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
-              response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
-              if (p.description) response += `   _${p.description}_\n\n`;
-              else response += `\n`;
-            });
-            response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
-            state.step = "catalog_select_product";
-            await saveState(state);
-            return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
-              label: getProductOptionLabel(product),
-              value: String(idx + 1),
-            })));
-          }
+        const productsList = settings.products || [];
+        if (productsList.length === 0) {
+          return "📋 No momento não temos serviços cadastrados no catálogo.";
         }
-        return response;
+
+        response = `${getCatalogIntro(nodeText)}\n\n`;
+        productsList.forEach((p: any, idx: number) => {
+          const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+          response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
+          if (p.description) response += `   _${p.description}_\n\n`;
+        });
+        response += "✍️ Se deseja contratar ou comprar algum destes serviços/produtos, responda enviando o número dele (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
+        
+        state.step = "catalog_select_product";
+        state.data._allProductsList = productsList;
+        await saveState(state);
+        
+        return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
+          label: getProductOptionLabel(product),
+          value: String(idx + 1),
+        })));
       }
       else if (matchedNode.actionType === "scheduling") {
         const servicesList = getSchedulableProducts(settings.products || []);
