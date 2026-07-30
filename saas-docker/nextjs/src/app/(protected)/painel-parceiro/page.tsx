@@ -251,6 +251,7 @@ export default function PainelParceiroPage() {
 
   // Controle de Simulador
   const [simulatedClients, setSimulatedClients] = useState(15);
+  const [selectedSimulatedPrice, setSelectedSimulatedPrice] = useState<number>(147);
 
   // Estados para atualização de perfil
   const [profileName, setProfileName] = useState('');
@@ -386,7 +387,7 @@ export default function PainelParceiroPage() {
 
   const referralUrl = `${origin}/?ref=${data.referralCode}`;
   const customUtmUrl = `${referralUrl}&utm_source=${utmSource}`;
-  const convertedLeads = data.leads.filter(l => l.status === 'CONVERTED').length;
+  const convertedLeads = data.leads.filter(l => l.status === 'CONVERTED' || l.status === 'converted' || (l.value && l.value > 0)).length;
 
   const copyReferralLink = () => {
     navigator.clipboard.writeText(referralUrl);
@@ -406,9 +407,9 @@ export default function PainelParceiroPage() {
     setTimeout(() => setCopiedCopy(null), 2500);
   };
 
-  // Cálculo da Calculadora de Simulador
-  const simulatedFirstMonthBonus = simulatedClients * 197 * 0.5; // 50% bônus 1º mês
-  const simulatedLifetimeMonthly = simulatedClients * 197 * 0.3; // 30% recorrente vitalício
+  // Cálculo da Calculadora de Simulador baseado no Plano Selecionado
+  const simulatedFirstMonthBonus = simulatedClients * selectedSimulatedPrice * 0.5; // 50% bônus 1º mês
+  const simulatedLifetimeMonthly = simulatedClients * selectedSimulatedPrice * 0.3; // 30% recorrente vitalício
 
   return (
     <div className="space-y-8 relative">
@@ -550,32 +551,32 @@ export default function PainelParceiroPage() {
               name: 'Plano Growth',
               tag: 'Mais Vendido ⭐',
               price: 'R$ 147/mês',
-              count: data.leads.filter(l => l.interested_product === 'Plano Growth' || !l.interested_product).length || 6,
-              comm: ((data.leads.filter(l => l.interested_product === 'Plano Growth' || !l.interested_product).length || 6) * 147 * 0.3).toFixed(2),
+              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Growth' || Number(l.value ?? 0) === 147 || !l.interested_product)).length,
+              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Growth' || Number(l.value ?? 0) === 147 || !l.interested_product)).reduce((acc, l) => acc + (l.value || 147), 0) * (data.commissionRate / 100)).toFixed(2),
               badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
             },
             {
               name: 'Plano Scale',
               tag: 'Varejo & Loja Virtual',
               price: 'R$ 497/mês',
-              count: data.leads.filter(l => l.interested_product === 'Plano Scale').length || 4,
-              comm: ((data.leads.filter(l => l.interested_product === 'Plano Scale').length || 4) * 497 * 0.3).toFixed(2),
+              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Scale' || Number(l.value ?? 0) === 497)).length,
+              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Scale' || Number(l.value ?? 0) === 497)).reduce((acc, l) => acc + (l.value || 497), 0) * (data.commissionRate / 100)).toFixed(2),
               badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
             },
             {
               name: 'Só Bot (Assinatura)',
               tag: 'Apenas Bot IA',
               price: 'R$ 97/mês',
-              count: data.leads.filter(l => l.interested_product === 'Só Bot (Assinatura)').length || 2,
-              comm: ((data.leads.filter(l => l.interested_product === 'Só Bot (Assinatura)').length || 2) * 97 * 0.3).toFixed(2),
+              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).length,
+              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Só Bot (Assinatura)' || Number(l.value ?? 0) === 97)).reduce((acc, l) => acc + (l.value || 97), 0) * (data.commissionRate / 100)).toFixed(2),
               badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
             },
             {
               name: 'Plano Start',
               tag: 'Bot Regras Fixo',
               price: 'R$ 67/mês',
-              count: data.leads.filter(l => l.interested_product === 'Plano Start').length || 2,
-              comm: ((data.leads.filter(l => l.interested_product === 'Plano Start').length || 2) * 67 * 0.3).toFixed(2),
+              count: data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Start' || Number(l.value ?? 0) === 67)).length,
+              comm: (data.leads.filter(l => (l.status === 'CONVERTED' || l.status === 'converted' || (l.value ?? 0) > 0) && (l.interested_product === 'Plano Start' || Number(l.value ?? 0) === 67)).reduce((acc, l) => acc + (l.value || 67), 0) * (data.commissionRate / 100)).toFixed(2),
               badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
             },
           ].map((prod, idx) => (
@@ -842,10 +843,52 @@ export default function PainelParceiroPage() {
           </div>
 
           <div className="space-y-6">
-            <div>
+            {/* Seletor de Plano para Simulação */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                1. Selecione o Produto / Plano para a Simulação:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { id: 'growth', name: 'Plano Growth', price: 147, badge: 'Mais Vendido ⭐', label: 'R$ 147/mês' },
+                  { id: 'scale', name: 'Plano Scale', price: 497, badge: 'E-Commerce', label: 'R$ 497/mês' },
+                  { id: 'sobot', name: 'Só Bot', price: 97, badge: 'Apenas Bot IA', label: 'R$ 97/mês' },
+                  { id: 'start', name: 'Plano Start', price: 67, badge: 'Bot Regras Fixo', label: 'R$ 67/mês' },
+                ].map((plan) => {
+                  const isSelected = selectedSimulatedPrice === plan.price;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setSelectedSimulatedPrice(plan.price)}
+                      className={`p-3 rounded-2xl border text-left transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/20 ring-2 ring-indigo-400 -translate-y-0.5'
+                          : 'bg-slate-50 dark:bg-zinc-950/80 border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 hover:border-indigo-300 dark:hover:border-indigo-500/30'
+                      }`}
+                    >
+                      <span className={`block text-[9px] font-black uppercase tracking-wider mb-0.5 ${isSelected ? 'text-indigo-200' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                        {plan.badge}
+                      </span>
+                      <span className="block text-xs font-black truncate">{plan.name}</span>
+                      <span className={`block text-[11px] font-bold font-mono mt-0.5 ${isSelected ? 'text-white/90' : 'text-slate-500 dark:text-zinc-400'}`}>
+                        {plan.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Slider de Quantidade de Clientes */}
+            <div className="pt-2">
               <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">Quantos clientes novos você pretende indicar por mês?</label>
-                <span className="text-lg font-black text-indigo-600 dark:text-indigo-400 px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded-xl">{simulatedClients} Clientes</span>
+                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                  2. Quantos clientes novos você pretende indicar por mês?
+                </label>
+                <span className="text-lg font-black text-indigo-600 dark:text-indigo-400 px-3.5 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-xl">
+                  {simulatedClients} Clientes
+                </span>
               </div>
               <input
                 type="range"
@@ -863,13 +906,16 @@ export default function PainelParceiroPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+            {/* Cards de Resultado da Simulação */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
               <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-indigo-900/40 dark:to-zinc-900/80 border border-indigo-200 dark:border-indigo-500/30 space-y-2 shadow-md dark:shadow-none">
                 <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Bônus Imediato (1º Mês - 50%)</span>
                 <div className="text-3xl font-black text-slate-900 dark:text-white">
                   R$ {simulatedFirstMonthBonus.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
-                <p className="text-xs text-slate-600 dark:text-zinc-400">Recebido instantaneamente assim que os {simulatedClients} clientes assinam.</p>
+                <p className="text-xs text-slate-600 dark:text-zinc-400">
+                  Recebido no 1º mês para {simulatedClients} indicação(ões) do produto de R$ {selectedSimulatedPrice}/mês.
+                </p>
               </div>
 
               <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/40 dark:to-zinc-900/80 border border-emerald-200 dark:border-emerald-500/30 space-y-2 shadow-md dark:shadow-none">
@@ -877,7 +923,9 @@ export default function PainelParceiroPage() {
                 <div className="text-3xl font-black text-emerald-600 dark:text-emerald-300">
                   R$ {simulatedLifetimeMonthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /mês
                 </div>
-                <p className="text-xs text-slate-600 dark:text-zinc-400">Caindo na sua conta todo mês enquanto os clientes mantiverem a assinatura!</p>
+                <p className="text-xs text-slate-600 dark:text-zinc-400">
+                  Comissão recorrente mensal pingando na sua conta enquanto os {simulatedClients} clientes mantiverem a assinatura.
+                </p>
               </div>
             </div>
           </div>
