@@ -35,6 +35,7 @@ import {
   Wifi,
   WifiOff,
   X,
+  Zap,
 } from "lucide-react";
 import { MaskedPhone } from "@/components/MaskedPhone";
 import { maskPhone } from "@/lib/phoneUtils";
@@ -428,6 +429,7 @@ export default function ConversasPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [instances, setInstances] = useState<Instance[]>([]);
   const [activeInstance, setActiveInstance] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "canvas">("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -1445,8 +1447,9 @@ export default function ConversasPage() {
     stopRecording();
   };
 
-  const patchConversation = async (kind: ControlKind, patch: Record<string, unknown>) => {
-    if (!selected || controlLoading) return false;
+  const patchConversation = async (kind: ControlKind, patch: Record<string, unknown>, targetId?: string) => {
+    const convId = targetId || selected?.id;
+    if (!convId || controlLoading) return false;
     setControlLoading(kind);
     setMessagesError("");
     setControlError("");
@@ -1454,7 +1457,7 @@ export default function ConversasPage() {
       const response = await fetch("/api/conversations", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selected.id, ...patch }),
+        body: JSON.stringify({ id: convId, ...patch }),
       });
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorFrom(data, "Não foi possível atualizar a conversa."));
@@ -1467,7 +1470,7 @@ export default function ConversasPage() {
             : conversation,
         ),
       );
-      if (kind === "notes") {
+      if (kind === "notes" && selected?.id === updated.id) {
         setNotesDraft(updated.leads?.[0]?.notes || "");
         setNotesDirty(false);
       }
@@ -1693,28 +1696,45 @@ export default function ConversasPage() {
   };
 
   return (
-    <div className="-m-4 flex h-[calc(100dvh-64px-2rem)] overflow-hidden border-b border-slate-200 bg-slate-50 text-slate-900 dark:border-white/10 dark:bg-[#030712] dark:text-white md:-m-8 md:h-[calc(100dvh-4rem)]">
-      <aside
-        className={`${selectedId ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/90 md:w-[350px] md:min-w-[320px] xl:w-[390px]`}
-      >
-        <div className="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-white to-slate-50/50 px-4 dark:border-white/10 dark:from-slate-900 dark:to-slate-900/50">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
-              <MessageSquare className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-black tracking-tight">Conversas</h1>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                {filtered.length} na fila <span className="text-indigo-600 dark:text-indigo-400">• {quickCounts.unread} não lida{quickCounts.unread === 1 ? "" : "s"}</span>
-              </p>
-            </div>
+    <div className="-m-4 flex flex-col h-[calc(100dvh-64px-2rem)] overflow-hidden border-b border-slate-200 bg-slate-50 text-slate-900 dark:border-white/10 dark:bg-[#030712] dark:text-white md:-m-8 md:h-[calc(100dvh-4rem)]">
+      {/* HEADER PRINCIPAL */}
+      <div className="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200/80 bg-gradient-to-r from-white to-slate-50/50 px-4 dark:border-white/10 dark:from-slate-900 dark:to-slate-900/50 shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
+            <MessageSquare className="size-4" />
           </div>
+          <div className="min-w-0">
+            <h1 className="font-black tracking-tight">Conversas</h1>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              {filtered.length} na fila <span className="text-indigo-600 dark:text-indigo-400">• {quickCounts.unread} não lida{quickCounts.unread === 1 ? "" : "s"}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-extrabold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("canvas")}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${viewMode === 'canvas' ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-extrabold' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> Canvas Kanban
+            </button>
+          </div>
+
           {instances.length > 0 && (
             <select
               aria-label="Filtrar por instância"
               value={activeInstance}
               onChange={(event) => setActiveInstance(event.target.value)}
-              className="max-w-32 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+              className="max-w-28 rounded-xl border border-slate-200 bg-slate-100 px-2 py-1.5 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
             >
               <option value="">Todas</option>
               {instances.map((instance) => (
@@ -1722,7 +1742,140 @@ export default function ConversasPage() {
               ))}
             </select>
           )}
+        </div>
       </div>
+
+      {viewMode === 'canvas' ? (
+        <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-slate-50 dark:bg-slate-950/60 min-h-0">
+          <div className="flex gap-6 min-w-max items-start h-full pb-4">
+            {[
+              {
+                id: 'unassigned',
+                title: '📥 Fila Geral (Disponíveis)',
+                subtitle: 'Atendimentos livres para a equipe assumir',
+                color: 'border-blue-500/40 bg-blue-500/5 text-blue-600 dark:text-blue-400',
+                badgeBg: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+                items: filtered.filter(c => !c.assigned_to && c.status !== 'resolved')
+              },
+              {
+                id: 'mine',
+                title: '👤 Meu Atendimento',
+                subtitle: 'Conversas atribuídas a você',
+                color: 'border-indigo-500/40 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400',
+                badgeBg: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/30',
+                items: filtered.filter(c => c.assigned_to === sessionUser?.id && c.status !== 'resolved')
+              },
+              {
+                id: 'team',
+                title: '👥 Atendimento pela Equipe',
+                subtitle: 'Conversas em andamento por colegas',
+                color: 'border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-400',
+                badgeBg: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
+                items: filtered.filter(c => c.assigned_to && c.assigned_to !== sessionUser?.id && c.status !== 'resolved')
+              },
+              {
+                id: 'resolved',
+                title: '✅ Concluídos / Resolvidos',
+                subtitle: 'Atendimentos finalizados com sucesso',
+                color: 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+                badgeBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+                items: filtered.filter(c => c.status === 'resolved')
+              }
+            ].map((column) => (
+              <div key={column.id} className="w-80 flex-shrink-0 flex flex-col h-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">
+                <div className={`p-4 border-b border-slate-200 dark:border-white/10 ${column.color}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-black text-xs tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {column.title}
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-black border ${column.badgeBg}`}>
+                      {column.items.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-medium text-slate-500 dark:text-zinc-400 leading-tight">
+                    {column.subtitle}
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+                  {column.items.length === 0 ? (
+                    <div className="py-12 text-center text-xs font-semibold text-slate-400 dark:text-zinc-500 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl">
+                      Nenhuma conversa nesta coluna
+                    </div>
+                  ) : (
+                    column.items.map((conv) => {
+                      const lastMsg = conv.messages?.[conv.messages.length - 1];
+                      return (
+                        <div key={conv.id} className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-white/10 space-y-3 hover:border-indigo-500/50 hover:shadow-md transition-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                                {conv.contact_name || conv.contact_number}
+                              </h4>
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
+                                {maskPhone(conv.contact_number)}
+                              </p>
+                            </div>
+                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0 truncate max-w-[100px]">
+                              {conv.assignee?.name || (conv.assigned_to ? "Equipe" : "Fila Geral")}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-600 dark:text-zinc-300 line-clamp-2 bg-white dark:bg-zinc-900/90 p-2.5 rounded-lg border border-slate-200/60 dark:border-white/5 font-medium leading-relaxed">
+                            {lastMsg?.content || "Sem mensagens recentes..."}
+                          </p>
+
+                          <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 flex flex-col gap-1.5">
+                            {column.id === 'unassigned' && (
+                              <button
+                                onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id }, conv.id)}
+                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-amber-300" /> Assumir Conversa
+                              </button>
+                            )}
+
+                            {column.id === 'mine' && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => void patchConversation("metadata", { service_status: "resolved" }, conv.id)}
+                                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95"
+                                >
+                                  ✅ Concluir
+                                </button>
+                                <button
+                                  onClick={() => void patchConversation("assignment", { assigned_to: null }, conv.id)}
+                                  className="flex-1 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 text-slate-700 dark:text-zinc-300 font-bold text-[11px] rounded-lg active:scale-95"
+                                >
+                                  ↩️ Devolver
+                                </button>
+                              </div>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                setSelectedId(conv.id);
+                                setViewMode("list");
+                              }}
+                              className="w-full py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold text-[11px] rounded-lg flex items-center justify-center gap-1 transition-all"
+                            >
+                              💬 Abrir Chat Detalhado
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <aside
+            className={`${selectedId ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/90 md:w-[350px] md:min-w-[320px] xl:w-[390px]`}
+          >
 
         <div className="space-y-2.5 border-b border-slate-200/80 px-3 pb-3 pt-2 dark:border-white/10">
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6" aria-label="Filtros rápidos">
@@ -2481,6 +2634,8 @@ export default function ConversasPage() {
           </>
         )}
       </main>
+    </div>
+  )}
       {selected && managementOpen && (
         <>
           <button

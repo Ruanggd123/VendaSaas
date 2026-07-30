@@ -636,7 +636,7 @@ export default function DashboardPage() {
             { href: "/conversas", label: "Conversas", desc: "Ver inbox", icon: MessageSquare, color: "indigo" },
             { href: "/agenda", label: "Agenda", desc: "Ver compromissos", icon: Calendar, color: "purple" },
             { href: "/vendas", label: "Vendas", desc: "Cobranças e receitas", icon: ShoppingCart, color: "emerald" },
-            { href: "/autovendas", label: "AutoVendas", desc: "Pipeline automático", icon: Rocket, color: "amber" },
+            { href: "/whatsapp", label: "WhatsApp", desc: "Status & Conexão", icon: Smartphone, color: "amber" },
             { href: "/settings", label: "Configurações", desc: "IA, blacklist e mais", icon: Settings, color: "sky" },
           ].map((action) => {
             const Icon = action.icon;

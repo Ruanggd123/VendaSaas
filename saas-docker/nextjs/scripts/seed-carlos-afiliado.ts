@@ -54,23 +54,23 @@ async function main() {
 
   console.log(`✅ Parceiro configurado: ${partner.name} (ID: ${partner.id})`);
 
-  // Criar histórico de Leads e Vendas/Comissões de 2026 com bots variados
+  // Criar histórico de Leads e Vendas/Comissões de 2026 com produtos oficiais da loja
   const dummyClients = [
-    { name: "Marcos Oliveira (Empresa Tech)", phone: "5511988881111", product: "SaaS Multiatendimento Enterprise", amount: 497, date: "2026-01-12" },
-    { name: "Patrícia Souza (Clínica Estética)", phone: "5511988882222", product: "Agendamento + CRM WhatsApp", amount: 297, date: "2026-01-25" },
-    { name: "Luciana Lima (Advocacia)", phone: "5521977773333", product: "Robô Atendente IA + ChatGPT", amount: 197, date: "2026-02-08" },
-    { name: "Roberto Santos (Autopeças)", phone: "5531966664444", product: "Disparador em Massa & Funis", amount: 147, date: "2026-02-19" },
-    { name: "Fernanda Costa (Imobiliária)", phone: "5541955555555", product: "SaaS Multiatendimento Enterprise", amount: 497, date: "2026-03-05" },
-    { name: "Academia Forma Top", phone: "5511944446666", product: "Agendamento + CRM WhatsApp", amount: 297, date: "2026-03-22" },
-    { name: "Restaurante Sabor Real", phone: "5511933337777", product: "Robô Atendente IA + ChatGPT", amount: 197, date: "2026-04-10" },
-    { name: "Bruno Castro (Consultoria)", phone: "5521922228888", product: "Agendamento + CRM WhatsApp", amount: 297, date: "2026-04-28" },
-    { name: "Camila Ribeiro (E-commerce)", phone: "5531911119999", product: "Disparador em Massa & Funis", amount: 147, date: "2026-05-15" },
-    { name: "Drogaria Central", phone: "5541900001111", product: "Robô Atendente IA + ChatGPT", amount: 197, date: "2026-05-29" },
-    { name: "Agência Digital X", phone: "5511999992222", product: "SaaS Multiatendimento Enterprise", amount: 497, date: "2026-06-12" },
-    { name: "Construtora Horizonte", phone: "5521988883333", product: "SaaS Multiatendimento Enterprise", amount: 497, date: "2026-06-27" },
-    { name: "Dr. Marcelo Santos", phone: "5531977774444", product: "Agendamento + CRM WhatsApp", amount: 297, date: "2026-07-08" },
-    { name: "Studio Beleza VIP", phone: "5541966665555", product: "Robô Atendente IA + ChatGPT", amount: 197, date: "2026-07-19" },
-    { name: "Eduardo Fonseca (SaaS)", phone: "5511955556666", product: "Disparador em Massa & Funis", amount: 147, date: "2026-07-26" },
+    { name: "Marcos Oliveira (Empresa Tech)", phone: "5511988881111", product: "Plano Scale", amount: 497, date: "2026-01-12" },
+    { name: "Patrícia Souza (Clínica Estética)", phone: "5511988882222", product: "Plano Growth", amount: 147, date: "2026-01-25" },
+    { name: "Luciana Lima (Advocacia)", phone: "5521977773333", product: "Plano Growth", amount: 147, date: "2026-02-08" },
+    { name: "Roberto Santos (Autopeças)", phone: "5531966664444", product: "Plano Start", amount: 67, date: "2026-02-19" },
+    { name: "Fernanda Costa (Imobiliária)", phone: "5541955555555", product: "Plano Scale", amount: 497, date: "2026-03-05" },
+    { name: "Academia Forma Top", phone: "5511944446666", product: "Plano Growth", amount: 147, date: "2026-03-22" },
+    { name: "Restaurante Sabor Real", phone: "5511933337777", product: "Só Bot (Assinatura)", amount: 97, date: "2026-04-10" },
+    { name: "Bruno Castro (Consultoria)", phone: "5521922228888", product: "Plano Growth", amount: 147, date: "2026-04-28" },
+    { name: "Camila Ribeiro (E-commerce)", phone: "5531911119999", product: "Plano Scale", amount: 497, date: "2026-05-15" },
+    { name: "Drogaria Central", phone: "5541900001111", product: "Plano Growth", amount: 147, date: "2026-05-29" },
+    { name: "Agência Digital X", phone: "5511999992222", product: "Plano Scale", amount: 497, date: "2026-06-12" },
+    { name: "Construtora Horizonte", phone: "5521988883333", product: "Plano Growth", amount: 147, date: "2026-06-27" },
+    { name: "Dr. Marcelo Santos", phone: "5531977774444", product: "Só Bot (Assinatura)", amount: 97, date: "2026-07-08" },
+    { name: "Studio Beleza VIP", phone: "5541966665555", product: "Plano Start", amount: 67, date: "2026-07-19" },
+    { name: "Eduardo Fonseca (SaaS)", phone: "5511955556666", product: "Plano Growth", amount: 147, date: "2026-07-26" },
   ];
 
   for (const c of dummyClients) {

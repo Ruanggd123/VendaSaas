@@ -524,35 +524,35 @@ export default function PainelParceiroPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
-              name: 'Robô Atendente IA + ChatGPT',
-              tag: 'IA Conversacional',
-              price: 'R$ 197/mês',
-              count: Math.max(1, Math.ceil(convertedLeads * 0.4)),
-              comm: (Math.max(1, Math.ceil(convertedLeads * 0.4)) * 197 * 0.3).toFixed(2),
+              name: 'Plano Growth',
+              tag: 'Mais Vendido ⭐',
+              price: 'R$ 147/mês',
+              count: data.leads.filter(l => l.interested_product === 'Plano Growth' || !l.interested_product).length || 6,
+              comm: ((data.leads.filter(l => l.interested_product === 'Plano Growth' || !l.interested_product).length || 6) * 147 * 0.3).toFixed(2),
               badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
             },
             {
-              name: 'Agendamento + CRM WhatsApp',
-              tag: 'Gestão de Agenda',
-              price: 'R$ 297/mês',
-              count: Math.max(1, Math.floor(convertedLeads * 0.3)),
-              comm: (Math.max(1, Math.floor(convertedLeads * 0.3)) * 297 * 0.3).toFixed(2),
+              name: 'Plano Scale',
+              tag: 'Varejo & Loja Virtual',
+              price: 'R$ 497/mês',
+              count: data.leads.filter(l => l.interested_product === 'Plano Scale').length || 4,
+              comm: ((data.leads.filter(l => l.interested_product === 'Plano Scale').length || 4) * 497 * 0.3).toFixed(2),
               badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
             },
             {
-              name: 'Disparador em Massa & Funis',
-              tag: 'Campanhas & Vendas',
-              price: 'R$ 147/mês',
-              count: Math.max(1, Math.floor(convertedLeads * 0.2)),
-              comm: (Math.max(1, Math.floor(convertedLeads * 0.2)) * 147 * 0.3).toFixed(2),
+              name: 'Só Bot (Assinatura)',
+              tag: 'Apenas Bot IA',
+              price: 'R$ 97/mês',
+              count: data.leads.filter(l => l.interested_product === 'Só Bot (Assinatura)').length || 2,
+              comm: ((data.leads.filter(l => l.interested_product === 'Só Bot (Assinatura)').length || 2) * 97 * 0.3).toFixed(2),
               badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
             },
             {
-              name: 'SaaS Multiatendimento Enterprise',
-              tag: 'Equipes & Escala',
-              price: 'R$ 497/mês',
-              count: Math.max(1, Math.floor(convertedLeads * 0.1)),
-              comm: (Math.max(1, Math.floor(convertedLeads * 0.1)) * 497 * 0.3).toFixed(2),
+              name: 'Plano Start',
+              tag: 'Bot Regras Fixo',
+              price: 'R$ 67/mês',
+              count: data.leads.filter(l => l.interested_product === 'Plano Start').length || 2,
+              comm: ((data.leads.filter(l => l.interested_product === 'Plano Start').length || 2) * 67 * 0.3).toFixed(2),
               badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
             },
           ].map((prod, idx) => (
