@@ -3,115 +3,145 @@ export type Plan = {
   name: string;
   tagline: string;
   price: number;
+  monthlyPrice: number;
+  setupFee: number;
   maxUsers: number;
   maxWhatsappInstances: number;
   maxConversations: number | null;
-  bonus: string;
-  bonusValue: string;
-  idealFor: string;
+  hasSite: boolean;
+  hasAI: boolean;
+  hasCRM: boolean;
+  hasEcommerce: boolean;
+  hasMassDispatch: boolean;
   features: string[];
   limits: string[];
 };
 
 export const PLANS: Record<string, Plan> = {
-  site_gratis: {
-    id: 'site_gratis',
-    name: 'Site Grátis',
-    tagline: 'Site institucional grátis + atendimento IA',
-    price: 97,
+  start: {
+    id: 'start',
+    name: 'Plano Start',
+    tagline: 'Apenas Bot Fixo de Regras no WhatsApp (Sem site)',
+    price: 67,
+    monthlyPrice: 67,
+    setupFee: 150,
     maxUsers: 1,
     maxWhatsappInstances: 1,
     maxConversations: 1000,
-    bonus: 'Site Institucional Grátis',
-    bonusValue: 'R$ 497',
-    idealFor: 'Autônomos, MEI e profissionais liberais',
+    hasSite: false,
+    hasAI: false,
+    hasCRM: false,
+    hasEcommerce: false,
+    hasMassDispatch: false,
     features: [
-      'Site Institucional 100% GRÁTIS (economia de R$ 497)',
-      '1 Número de WhatsApp',
-      'Até 1.000 atendimentos/mês',
-      'Bot Inteligente (IA + Regras)',
-      'Respostas com Áudio de Voz',
-      'Catálogo de Produtos',
-      'Agendamento de Horários',
-      'Suporte via WhatsApp',
+      'Bot Fixo de Regras e Botões',
+      'Conversas Ilimitadas via Regras',
+      'Atendimento Automático 24/7',
+      'Hospedagem & Suporte Inclusos',
     ],
     limits: [
-      '❌ Sem CRM / Painel de Vendas',
-      '❌ Sem Multi-Atendente',
-      '❌ Sem E-commerce / Loja Virtual',
-      '❌ Limitado a 1.000 atendimentos/mês',
+      '❌ NÃO inclui criação de site',
+      '❌ NÃO inclui Inteligência Artificial',
+      '❌ NÃO inclui CRM de Vendas',
     ],
   },
-  crm_gratis: {
-    id: 'crm_gratis',
-    name: 'CRM Grátis',
-    tagline: 'CRM grátis (gestão de clientes) + atendimento ilimitado',
-    price: 197,
-    maxUsers: 5,
+  plano_97: {
+    id: 'plano_97',
+    name: 'Plano 97',
+    tagline: 'Site Institucional Grátis + Ambos os Bots (Regras + IA)',
+    price: 97,
+    monthlyPrice: 97,
+    setupFee: 150,
+    maxUsers: 1,
     maxWhatsappInstances: 1,
-    maxConversations: null,
-    bonus: 'Plataforma + CRM Grátis',
-    bonusValue: 'R$ 997',
-    idealFor: 'Pequenas empresas e equipes de vendas',
+    maxConversations: 5000,
+    hasSite: true,
+    hasAI: true,
+    hasCRM: false,
+    hasEcommerce: false,
+    hasMassDispatch: false,
     features: [
-      'Plataforma Web + CRM 100% GRÁTIS (economia de R$ 997)',
-      '1 Número de WhatsApp',
-      'Atendimentos ILIMITADOS',
-      'Multi-Atendente (até 2 atendentes humanos)',
-      'Painel de Vendas completo',
-      'Envio de Pix no Chat',
-      'Catálogo de Produtos',
-      'Notificações de Vendas em Tempo Real',
+      'Site Institucional 100% GRÁTIS',
+      'AMBOS OS BOTS (Bot de Regras + Bot de IA)',
+      'Inteligência Artificial (DeepSeek / ChatGPT)',
+      'Limite de 5.000 mensagens IA/mês',
+      'Agendamento de Horários Automático',
+    ],
+    limits: [
+      '❌ Sem CRM Multiatendente',
+      '❌ Sem Disparos em Massa',
+    ],
+  },
+  growth: {
+    id: 'growth',
+    name: 'Plano Growth ⭐',
+    tagline: 'Solução Completa: Site 5 Páginas + Ambos os Bots + CRM + Agendamento',
+    price: 147,
+    monthlyPrice: 147,
+    setupFee: 150,
+    maxUsers: 2,
+    maxWhatsappInstances: 1,
+    maxConversations: 5000,
+    hasSite: true,
+    hasAI: true,
+    hasCRM: true,
+    hasEcommerce: false,
+    hasMassDispatch: false,
+    features: [
+      'Site Institucional de até 5 páginas',
+      'AMBOS OS BOTS (Regras + IA 5k msgs/mês)',
+      'CRM de Gestão de Clientes e Vendas',
+      'Agendamento Automático de Horários',
       'Suporte Prioritário VIP',
     ],
     limits: [
-      '❌ Sem Loja Virtual / E-commerce',
-      '❌ Sem Disparo em Massa',
-      '❌ Limitado a 1 WhatsApp',
-      '✅ Atendimento ILIMITADO',
+      'Limite de até 2 atendentes no CRM',
+      '❌ Sem Loja Virtual E-Commerce',
     ],
   },
-  loja_gratis: {
-    id: 'loja_gratis',
-    name: 'Loja Grátis',
-    tagline: 'Loja virtual grátis + 3 WhatsApp + disparo em massa',
-    price: 397,
+  scale: {
+    id: 'scale',
+    name: 'Plano Scale',
+    tagline: 'Loja Virtual E-Commerce + Ambos os Bots + Multiatendimento + Disparo em Massa',
+    price: 497,
+    monthlyPrice: 497,
+    setupFee: 150,
     maxUsers: 999,
     maxWhatsappInstances: 3,
     maxConversations: null,
-    bonus: 'Loja Virtual Grátis',
-    bonusValue: 'R$ 1.997',
-    idealFor: 'Marcas, e-commerces e operações em crescimento',
+    hasSite: true,
+    hasAI: true,
+    hasCRM: true,
+    hasEcommerce: true,
+    hasMassDispatch: true,
     features: [
-      'Loja Virtual E-Commerce 100% GRÁTIS (economia de R$ 1.997)',
-      'Até 3 Números de WhatsApp',
-      'Atendimentos ILIMITADOS',
-      'Multi-Atendente ILIMITADO',
-      'Disparo em Massa (Campanhas)',
-      'Base de Conhecimento (RAG)',
-      'Catálogo Ilimitado + Pix',
-      'Gestão de Estoque em Tempo Real',
-      'Sem Comissões por Venda',
-      'API Dedicada',
-      'Gerente de Contas',
+      'Loja Virtual Completa (E-Commerce sem comissões)',
+      'AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mês)',
+      'Multiatendimento Ilimitado para Equipes',
+      'Disparador em Massa + Funis de Vendas',
+      'Gestor de Conta Dedicado',
     ],
     limits: [
-      '✅ TUDO incluso',
-      '✅ 3 WhatsApp',
-      '✅ Atendimento ILIMITADO',
-      '✅ Disparo em Massa',
+      '✅ TUDO INCLUSO ILIMITADO',
     ],
   },
 };
 
 export const getPlanDetails = (planId: string): Plan => {
-  const aliases: Record<string, string> = {
-    solo: "site_gratis",
-    pro: "crm_gratis",
-    equipe: "crm_gratis",
-    business: "loja_gratis",
-    enterprise: "loja_gratis",
-    corporativo: "loja_gratis",
-  };
-  return PLANS[planId] || PLANS[aliases[planId]] || PLANS['site_gratis'];
+  const normalized = (planId || "").toLowerCase().trim();
+
+  if (normalized.includes("start") || normalized.includes("67") || normalized.includes("solo") || normalized.includes("fixo")) {
+    return PLANS.start;
+  }
+  if (normalized.includes("97") || normalized.includes("site_gratis") || (normalized.includes("site") && !normalized.includes("growth") && !normalized.includes("scale"))) {
+    return PLANS.plano_97;
+  }
+  if (normalized.includes("growth") || normalized.includes("147") || normalized.includes("crm_gratis") || normalized.includes("pro") || normalized.includes("equipe")) {
+    return PLANS.growth;
+  }
+  if (normalized.includes("scale") || normalized.includes("497") || normalized.includes("loja_gratis") || normalized.includes("loja") || normalized.includes("business") || normalized.includes("enterprise")) {
+    return PLANS.scale;
+  }
+
+  return PLANS.growth;
 };
