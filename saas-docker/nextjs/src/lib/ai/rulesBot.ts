@@ -331,7 +331,8 @@ export async function processMessageWithRules(
 
   const customNodes = settings.custom_rules_nodes || [];
 
-  if (["reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"].includes(cleanText)) {
+  const isGreetingOrReset = ["oi", "ola", "olá", "menu", "0", "voltar", "inicio", "início", "reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"].includes(cleanText);
+  if (isGreetingOrReset) {
     state = { step: "main_menu", data: { menu_sent: true } };
     await saveState(state);
     return getMainMenuMessage(settings);
