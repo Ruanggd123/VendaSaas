@@ -1051,7 +1051,7 @@ export async function POST(req: Request) {
                   .replace(/\n{3,}/g, "\n\n");
               };
               const sendAndStoreResponse = async (text: string) => {
-                let cleanedText = normalizeText(text);
+                const cleanedText = normalizeText(text);
                 if (!cleanedText) return;
 
                 let mainText = cleanedText;
