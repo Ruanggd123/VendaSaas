@@ -2385,7 +2385,7 @@ async function processarFinalizacaoPedidoRulesBot(
             throw new Error(errMsg);
           }
 
-          const idempotencyKey = `rules_pix_${createHash("sha256").update(`${stateKey}:${chosenService.id || chosenService.name}:${customerEmail}`).digest("hex")}`;
+          const idempotencyKey = `rules_pix_${order.id}`;
           let operation = await prisma.paymentOperation.findUnique({ where: { idempotency_key: idempotencyKey } });
           if (operation?.status === "completed" && operation.result) return operation.result;
           if (!operation) {
