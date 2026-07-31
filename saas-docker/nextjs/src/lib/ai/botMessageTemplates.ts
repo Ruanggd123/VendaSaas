@@ -128,7 +128,11 @@ export const botMessageTemplates = {
       const name = args.product?.name || "Produto";
       const value = formatMoney(args.product?.price);
       const address = args.address;
-      return `🛒 *${name}* - R$ ${value}\n📍 ${address}\n\n✅ Pedido registrado! O pagamento será combinado na entrega/retirada.`;
+      let text = `🛒 *${name}*`;
+      if (value && value !== "0,00") text += ` - R$ ${value}`;
+      if (address) text += `\n📍 ${address}`;
+      text += `\n\n✅ *Solicitação registrada com sucesso!*\nEm breve nossa equipe entrará em contato para os próximos passos. 🚀`;
+      return text;
     },
   },
 

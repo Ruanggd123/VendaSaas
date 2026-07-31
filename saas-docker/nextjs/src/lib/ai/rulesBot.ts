@@ -2222,7 +2222,8 @@ async function processarFinalizacaoPedidoRulesBot(
       extraNotes = " | Dados Coletados: " + Object.entries(collectedData).map(([k, v]) => `${k}=${v}`).join(", ");
     }
 
-    const requiresPayment = chosenService.requires_payment !== false && chosenService.requires_payment !== "false";
+    const reqPayVal = chosenService?.requires_payment;
+    const requiresPayment = reqPayVal !== false && reqPayVal !== "false" && reqPayVal !== 0 && reqPayVal !== "0" && reqPayVal !== null;
 
     if (requiresPayment) {
       const productBillingType = (chosenService.billing_type || '').toUpperCase();

@@ -262,7 +262,7 @@ function AITab() {
       price: "",
       description: "",
       duration_min: 30,
-      requires_payment: false,
+      requires_payment: true,
       image_url: "",
       send_photo: true,
     };
