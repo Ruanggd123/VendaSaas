@@ -155,7 +155,7 @@ export async function POST(req: Request) {
       cleanName = conversation?.contact_name?.trim() || "";
     }
     if (!cleanName) {
-      return NextResponse.json({ error: "Informe o nome do contato" }, { status: 400 });
+      cleanName = "Contato Bloqueado";
     }
     if (existing) {
       existing.name = cleanName;

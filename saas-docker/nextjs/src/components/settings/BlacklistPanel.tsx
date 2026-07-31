@@ -197,8 +197,7 @@ export function BlacklistPanel({ isOpen, onClose }: BlacklistPanelProps) {
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                required
-                placeholder="Nome do contato"
+                placeholder="Nome do contato (opcional)"
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200/90 dark:border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-all font-medium"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
