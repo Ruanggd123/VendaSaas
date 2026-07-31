@@ -798,10 +798,12 @@ export async function processMessageWithRules(
 
         state.step = "scheduling_select_date";
         const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
+        const reqPay = chosenService.requires_payment !== false && chosenService.requires_payment !== "false" && String(chosenService.requires_payment ?? "") !== "0" && chosenService.requires_payment !== null;
         state.data = {
           serviceName: chosenService.name,
           servicePrice: chosenService.price,
           servicePriceLabel: getProductPriceLabel(chosenService),
+          requiresPayment: reqPay,
           duration: chosenService.duration_min || 60,
           availableDates: availableDates.map(d => d.toISOString()),
           availableDateLabels,
@@ -1238,10 +1240,12 @@ export async function processMessageWithRules(
 
     state.step = "scheduling_select_date";
     const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
+    const reqPay = chosenService.requires_payment !== false && chosenService.requires_payment !== "false" && String(chosenService.requires_payment ?? "") !== "0" && chosenService.requires_payment !== null;
     state.data = {
       serviceName: chosenService.name,
       servicePrice: chosenService.price,
       servicePriceLabel: getProductPriceLabel(chosenService),
+      requiresPayment: reqPay,
       duration: chosenService.duration_min || 60,
       availableDates: availableDates.map(d => d.toISOString()),
       availableDateLabels,
@@ -1463,12 +1467,32 @@ export async function processMessageWithRules(
           }
         });
 
+        const finalNumPrice = Number(state.data.servicePrice || 0);
+        if (state.data.requiresPayment && finalNumPrice > 0) {
+          await prisma.appointment.create({
+            data: {
+              tenant_id: tenantId,
+              lead_id: lead.id,
+              service_name: state.data.serviceName,
+              service_price: finalNumPrice,
+              duration_min: durationMin,
+              scheduled_at: startDateTime,
+              status: "pending_payment",
+              notes: `customer_phone:${normalizedContact || contactNumber} | RulesBot Booking (Aguardando Pagamento)${extraNotes}`
+            }
+          });
+          await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+          const { getAppBaseUrl } = await import("@/lib/auth");
+          const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${encodeURIComponent(state.data.serviceName)}&phone=${encodeURIComponent(contactNumber)}`;
+          return `✅ *Agendamento Pré-Reservado!*\n\nSeu horário para *${state.data.serviceName}* está reservado para o dia *${state.data.date}* às *${state.data.time}*.\n💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice)}\n\n⚠️ Este serviço requer **pagamento antecipado** para confirmação definitiva.\n\n🔗 Clique no link abaixo para realizar o pagamento via PIX ou Cartão:\n👉 ${checkoutUrl}\n\nAssim que o pagamento for aprovado, seu agendamento será confirmado automaticamente!`;
+        }
+
         await prisma.appointment.create({
           data: {
             tenant_id: tenantId,
             lead_id: lead.id,
             service_name: state.data.serviceName,
-            service_price: Number(state.data.servicePrice) || null,
+            service_price: finalNumPrice || null,
             duration_min: durationMin,
             scheduled_at: startDateTime,
             status: "scheduled",
@@ -1476,7 +1500,6 @@ export async function processMessageWithRules(
           }
         });
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-      const finalNumPrice = Number(state.data.servicePrice || 0);
       const priceText = finalNumPrice > 0
         ? `\n💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice)}`
         : "";
