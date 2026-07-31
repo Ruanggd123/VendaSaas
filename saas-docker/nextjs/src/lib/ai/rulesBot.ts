@@ -2198,8 +2198,18 @@ async function getAvailableSlots(tenantId: string, date: Date, durationMin: numb
     },
   });
 
-  const startHourStr = settings.business_hours_start || "08:00";
-  const endHourStr = settings.business_hours_end || "18:00";
+  const businessDaysMap: Record<number, string> = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+  const dayOfWeek = date.getUTCDay();
+  const dayStr = businessDaysMap[dayOfWeek];
+  const schedulePerDay = settings?.schedule_per_day || {};
+  const dayConfig = schedulePerDay[dayStr];
+
+  if (dayConfig && dayConfig.enabled === false) {
+    return [];
+  }
+
+  const startHourStr = dayConfig?.start || settings.business_hours_start || "08:00";
+  const endHourStr = dayConfig?.end || settings.business_hours_end || "18:00";
 
   const [startH, startM] = startHourStr.split(":").map(Number);
   const [endH, endM] = endHourStr.split(":").map(Number);
@@ -2564,7 +2574,11 @@ async function obterProximosDiasDisponiveis(tenantId: string, settings: any, dur
     const dayStr = businessDaysMap[dayOfWeek];
     const dateISO = current.toISOString().split("T")[0];
     
-    const isDayEnabled = enabledDays.includes(dayStr);
+    const schedulePerDay = settings?.schedule_per_day || {};
+    const dayConfig = schedulePerDay[dayStr];
+    const isDayEnabled = dayConfig
+      ? dayConfig.enabled !== false
+      : enabledDays.includes(dayStr);
     const isBlocked = blockedDates.includes(dateISO);
     
     // Evita agendar para o passado no próprio dia atual se a hora limite já passou
