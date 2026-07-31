@@ -10,9 +10,11 @@ async function main() {
   const officialProducts = [
     {
       name: "Plano Start",
-      price: 150.00,
+      price: 67.00,
       monthly: 67.00,
       type: "plan",
+      requires_payment: true,
+      is_subscription: true,
       delivery_type: "virtual_instant",
       description: "Apenas Bot Fixo de Regras no WhatsApp (Sem criação de site).",
       features: [
@@ -29,9 +31,11 @@ async function main() {
     },
     {
       name: "Plano 97",
-      price: 150.00,
+      price: 97.00,
       monthly: 97.00,
       type: "plan",
+      requires_payment: true,
+      is_subscription: true,
       delivery_type: "virtual_instant",
       description: "Site Institucional Grátis + Ambos os Bots Inclusos (Regras + IA).",
       features: [
@@ -48,9 +52,11 @@ async function main() {
     },
     {
       name: "Plano Growth (Mais Vendido ⭐)",
-      price: 150.00,
+      price: 147.00,
       monthly: 147.00,
       type: "plan",
+      requires_payment: true,
+      is_subscription: true,
       delivery_type: "virtual_instant",
       description: "Solução Completa: Site até 5 páginas + Ambos os Bots (Regras + IA) + CRM + Agendamento.",
       features: [
@@ -68,9 +74,11 @@ async function main() {
     },
     {
       name: "Plano Scale",
-      price: 150.00,
+      price: 497.00,
       monthly: 497.00,
       type: "plan",
+      requires_payment: true,
+      is_subscription: true,
       delivery_type: "virtual_instant",
       description: "Loja Virtual E-Commerce Completa + Ambos os Bots + Multiatendimento Enterprise.",
       features: [
