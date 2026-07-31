@@ -838,18 +838,35 @@ export async function POST(req: Request) {
           // Se a última mensagem que mandamos não está marcada como ai_generated (ou seja, você digitou no celular/PC)
           // E o texto não for igual a algo que a IA acabou de mandar...
           // Pausamos a IA para não interromper você.
-          if (!lastMsg?.ai_generated) {
+          const isHybridEnabled = (connectionSettings?.modules?.module_hybrid_mode !== false) &&
+                                  (connectionSettings?.module_hybrid_mode !== false) &&
+                                  (accountSettings?.modules?.module_hybrid_mode !== false) &&
+                                  (accountSettings?.module_hybrid_mode !== false);
+          if (isHybridEnabled && !lastMsg?.ai_generated) {
             await prisma.conversation.updateMany({
               where: { id: conversation.id, tenant_id: tenantId },
               data: { ai_paused: true }
             });
-            console.log(`⏸️ IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
+            console.log(`⏸️ Modo Híbrido: IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
           }
         } else {
-          // Se a IA está pausada, NÃO reativa automaticamente.
-          // Só um humano pode reativar manualmente pelo painel.
+          const isHybridEnabled = (connectionSettings?.modules?.module_hybrid_mode !== false) &&
+                                  (connectionSettings?.module_hybrid_mode !== false) &&
+                                  (accountSettings?.modules?.module_hybrid_mode !== false) &&
+                                  (accountSettings?.module_hybrid_mode !== false);
           if (conversation.ai_paused) {
-            console.log(`🤚 IA permanece pausada para ${contactNumber}: aguardando reativação manual.`);
+            const lastActive = conversation.last_message_at || conversation.created_at;
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            if (isHybridEnabled && lastActive && lastActive.getTime() < oneDayAgo.getTime()) {
+              await prisma.conversation.updateMany({
+                where: { id: conversation.id, tenant_id: tenantId },
+                data: { ai_paused: false }
+              });
+              conversation.ai_paused = false;
+              console.log(`▶️ Modo Híbrido: IA reativada automaticamente para ${contactNumber} após 24h de inatividade.`);
+            } else {
+              console.log(`🤚 IA permanece pausada para ${contactNumber}: aguardando reativação manual.`);
+            }
           }
 
           // =========== ANTI-BOT-LOOP ===========
