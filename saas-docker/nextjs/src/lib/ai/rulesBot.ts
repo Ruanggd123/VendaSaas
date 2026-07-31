@@ -1248,8 +1248,9 @@ export async function processMessageWithRules(
     };
     await saveState(state);
 
-    const selectedServicePrice = getProductPriceLabel(chosenService) || "Preço não informado";
-    let response = `Você selecionou *${chosenService.name}* (${selectedServicePrice}).\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
+    const chosenPriceNum = Number(chosenService.price || 0);
+    const selectedServicePrice = chosenPriceNum > 0 ? ` (${getProductPriceLabel(chosenService)})` : "";
+    let response = `Você selecionou *${chosenService.name}*${selectedServicePrice}.\n\n📅 Escolha um dos dias disponíveis abaixo:\n\n`;
     const dateOptions: Array<{ label: string; value: string }> = [];
     availableDates.forEach((d, idx) => {
       const label = availableDateLabels[idx];
@@ -1369,7 +1370,10 @@ export async function processMessageWithRules(
     
     let confirmMsg = `✍️ *Por favor, confirme seus dados:*\n\n`;
     confirmMsg += `🛠 *Serviço:* ${state.data.serviceName}\n`;
-    confirmMsg += `💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice) || "Preço não informado"}\n`;
+    const numPrice = Number(state.data.servicePrice || 0);
+    if (numPrice > 0) {
+      confirmMsg += `💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice)}\n`;
+    }
     confirmMsg += `📅 *Data:* ${state.data.date}\n`;
     confirmMsg += `🕒 *Horário:* ${state.data.time}\n\n`;
     confirmMsg += `---BUTTONS---\nConfirmar|1\nCancelar|2`;
@@ -1472,7 +1476,11 @@ export async function processMessageWithRules(
           }
         });
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-      return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.\n💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice) || "Preço não informado"}\n\nObrigado!`;
+      const finalNumPrice = Number(state.data.servicePrice || 0);
+      const priceText = finalNumPrice > 0
+        ? `\n💰 *Valor:* ${state.data.servicePriceLabel || formatBRL(state.data.servicePrice)}`
+        : "";
+      return `🎉 *Agendamento confirmado com sucesso!*\n\nSeu horário para *${state.data.serviceName}* está marcado para o dia *${state.data.date}* às *${state.data.time}*.${priceText}\n\nObrigado!`;
     }
     state = { step: "main_menu", data: {} };
     await saveState(state);

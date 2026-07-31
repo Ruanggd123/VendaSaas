@@ -5,7 +5,9 @@ export const templates = {
   
   appointment_scheduled: (data: string, hora: string, servico: string, prestador: string, valor?: string) => {
     let msg = `📅 *Agendamento Confirmado!*\n\nServiço: ${servico}\nData: ${data}\nHora: ${hora}\nProfissional: ${prestador}`;
-    if (valor) msg += `\nValor estimado: ${valor}`;
+    if (valor && !valor.includes("0,00") && !valor.includes("Preço não informado")) {
+      msg += `\nValor estimado: ${valor}`;
+    }
     return msg;
   },
 
