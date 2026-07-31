@@ -4,7 +4,7 @@ import { botMessageTemplates } from "./botMessageTemplates";
 import { cancelPayment, createCustomer, createPayment, getPixQrCode, updatePayment } from "@/lib/asaas";
 import { getBusinessDayRange, getZonedDateTimeParts, zonedDateTimeToUtc } from "@/lib/dateTime";
 import { createHash } from "crypto";
-import { formatBRL, getProductPriceLabel } from "@/lib/currency";
+import { formatBRL, getProductPrice, getProductPriceLabel } from "@/lib/currency";
 
 const prisma = new PrismaClient();
 
@@ -2305,14 +2305,16 @@ async function processarFinalizacaoPedidoRulesBot(
       const customerEmail = collectedData?.email || '';
       const cleanDigits = contactNumber.replace(/\D/g, "");
 
+      const effectivePrice = getProductPrice(chosenService);
+
       const order = await prisma.retailOrder.create({
         data: {
           tenant_id: tenantId,
-          total_amount: parseFloat(chosenService.price),
+          total_amount: effectivePrice,
           shipping_address: address,
           status: "cart",
           items: {
-            create: [{ product_name: chosenService.name, unit_price: parseFloat(chosenService.price), quantity: 1 }]
+            create: [{ product_name: chosenService.name, unit_price: effectivePrice, quantity: 1 }]
           }
         }
       });
@@ -2398,7 +2400,7 @@ async function processarFinalizacaoPedidoRulesBot(
                 data: {
                   tenant_id: tenantId,
                   product_name: chosenService.name,
-                  amount: parseFloat(chosenService.price),
+                  amount: effectivePrice,
                   status: "pending",
                   notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp${extraNotes}`,
                   due_date: new Date(Date.now() + 7 * 86400000),
@@ -2413,7 +2415,7 @@ async function processarFinalizacaoPedidoRulesBot(
           const pay = await createPayment({
             customer: customer.id,
             billingType: 'PIX',
-            value: parseFloat(chosenService.price),
+            value: effectivePrice,
             dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
             description: cleanDescription(chosenService.name),
             externalReference: `${tenantId}_${sale.id}`,
@@ -2465,12 +2467,7 @@ async function processarFinalizacaoPedidoRulesBot(
             create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
           });
 
-          const numericPrice = parseFloat(chosenService.price || "0");
-          const monthlyPrice = chosenService.monthly ? parseFloat(chosenService.monthly) : 0;
-          const isSub = chosenService.is_subscription === true || chosenService.is_subscription === "true" || chosenService.type === "plan" || monthlyPrice > 0;
-          const displayPriceStr = (monthlyPrice > 0 && numericPrice > 0 && numericPrice !== monthlyPrice)
-            ? `R$ ${monthlyPrice.toFixed(2).replace(".", ",")}/mês (+ R$ ${numericPrice.toFixed(2).replace(".", ",")} Adesão)`
-            : isSub ? `R$ ${numericPrice.toFixed(2).replace(".", ",")}/mês` : `R$ ${numericPrice.toFixed(2).replace(".", ",")}`;
+          const displayPriceStr = getProductPriceLabel(chosenService) || `R$ ${effectivePrice.toFixed(2).replace(".", ",")}`;
 
           let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* ${displayPriceStr}\n📍 *Entrega:* ${address}`;
 
@@ -2536,7 +2533,7 @@ async function processarFinalizacaoPedidoRulesBot(
         data: {
           tenant_id: tenantId,
           product_name: chosenService.name,
-          amount: parseFloat(chosenService.price),
+          amount: getProductPrice(chosenService),
           status: "pending",
           notes: `customer_phone:${contactNumber} | presencial | address:${address}${extraNotes}`,
           due_date: new Date(Date.now() + 24 * 60 * 60 * 1000)

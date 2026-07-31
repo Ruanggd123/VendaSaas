@@ -10,9 +10,17 @@ export function formatBRL(value: unknown) {
   return parsed === null ? null : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parsed);
 }
 
+export function getProductPrice(product: { price?: unknown; monthly?: unknown; type?: string } | null | undefined): number {
+  if (!product) return 0;
+  const recurring = (product.monthly !== undefined && product.monthly !== null && product.monthly !== "")
+    || product.type === "plan";
+  const value = recurring ? (product.monthly ?? product.price) : product.price;
+  return parseMoney(value) ?? 0;
+}
+
 export function getProductPriceLabel(product: { price?: unknown; monthly?: unknown; type?: string } | null | undefined) {
   if (!product) return null;
-  const recurring = product.monthly !== undefined && product.monthly !== null && product.monthly !== ""
+  const recurring = (product.monthly !== undefined && product.monthly !== null && product.monthly !== "")
     || product.type === "plan";
   const value = recurring ? (product.monthly ?? product.price) : product.price;
   const formatted = formatBRL(value);
