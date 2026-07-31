@@ -160,3 +160,44 @@ export const createSubscription = async (
 export const getSubscriptionPayments = async (subscriptionId: string, apiKey?: string, apiUrl?: string) => {
   return await asaasFetch(`/subscriptions/${subscriptionId}/payments`, { method: 'GET' }, apiKey, apiUrl);
 };
+
+export async function autoConfigureAsaasWebhook(apiKey: string, environment: string = "sandbox", userEmail?: string) {
+  try {
+    if (!apiKey) return false;
+    const { getAppBaseUrl } = await import("@/lib/auth");
+    const baseUrl = getAppBaseUrl();
+    const webhookUrl = `${baseUrl}/api/webhooks/asaas`;
+    const asaasUrl = environment === "production"
+      ? "https://asaas.com/api/v3"
+      : "https://sandbox.asaas.com/api/v3";
+
+    const res = await fetch(`${asaasUrl}/webhook`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "access_token": apiKey.trim(),
+        "User-Agent": "NexusSaaS/1.0"
+      },
+      body: JSON.stringify({
+        url: webhookUrl,
+        email: userEmail || "financeiro@nexussaas.com",
+        enabled: true,
+        interrupted: false,
+        apiVersion: 3,
+        sendType: "SEQUENTIALLY"
+      })
+    });
+
+    if (res.ok) {
+      console.log(`✅ [Asaas Webhook Auto-Setup] Webhook registrado com sucesso no Asaas (${environment}) -> ${webhookUrl}`);
+      return true;
+    } else {
+      const errText = await res.text().catch(() => "");
+      console.warn(`⚠️ [Asaas Webhook Auto-Setup] Aviso ao registrar webhook (${res.status}):`, errText);
+      return false;
+    }
+  } catch (err: any) {
+    console.error("❌ Erro no auto-setup do Webhook Asaas:", err);
+    return false;
+  }
+}

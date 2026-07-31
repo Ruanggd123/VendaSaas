@@ -54,38 +54,8 @@ export async function POST(req: Request) {
     const balanceData = await balanceRes.json();
     console.log("[Asaas Setup] Saldo atual:", balanceData.balance);
 
-    const { getAppBaseUrl } = await import("@/lib/auth");
-    const baseUrl = getAppBaseUrl();
-    const webhookUrl = `${baseUrl}/api/webhooks/asaas`;
-
-    const webhookRes = await fetch(`${asaasUrl}/webhooks`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "access_token": apiKey,
-        "User-Agent": "NexusSaaS/1.0"
-      },
-      body: JSON.stringify({
-        name: "Nexus Integracao",
-        url: webhookUrl,
-        email: "financeiro@nexussaas.com",
-        enabled: true,
-        interrupted: false,
-        apiVersion: 3,
-        sendType: "SEQUENTIALLY",
-        events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE"]
-      })
-    });
-
-    const webhookOk = webhookRes.ok;
-    let webhookMsg = "";
-    if (!webhookRes.ok) {
-      const wErr = await webhookRes.text();
-      console.warn("[Asaas Setup] Aviso ao criar webhook (pode já existir):", wErr);
-      webhookMsg = " (Webhook já configurado ou ignorado — verifique no painel Asaas se necessário)";
-    } else {
-      console.log("[Asaas Setup] Webhook criado com sucesso!");
-    }
+    const { autoConfigureAsaasWebhook } = await import("@/lib/asaas");
+    await autoConfigureAsaasWebhook(apiKey, environment, session.email);
 
     // 3. Salvar no Banco de Dados (Supabase via Prisma)
     const tenant = await prisma.tenant.findUnique({ where: { id: targetTenantId } });
@@ -101,7 +71,6 @@ export async function POST(req: Request) {
       asaasApiKeyMode: environment,
       asaasEnvironment: environment,
       asaasWebhookConfigured: true,
-      asaasWebhookUrl: webhookUrl,
       asaasConnectedAt: new Date().toISOString(),
       ...(environment === 'production'
         ? { asaas_api_key: apiKey }
@@ -114,7 +83,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Integração com Asaas (${environment === "production" ? "Produção" : "Sandbox"}) configurada! Webhook ativado em ${webhookUrl}.${webhookMsg}`,
+      message: `Integração com Asaas (${environment === "production" ? "Produção" : "Sandbox"}) configurada com Webhook ativado!`,
       balance: balanceData.balance ?? null
     });
 

@@ -168,6 +168,13 @@ export async function PUT(req: Request) {
       data: { settings: JSON.stringify(newSettings) },
     });
 
+    const apiKeyToSetup = newSettings.asaasApiKey || newSettings.asaas_api_key || newSettings.asaas_test_api_key;
+    const environment = newSettings.asaasEnvironment || newSettings.asaas_mode || "sandbox";
+    if (apiKeyToSetup) {
+      const { autoConfigureAsaasWebhook } = await import("@/lib/asaas");
+      void autoConfigureAsaasWebhook(String(apiKeyToSetup), String(environment), session.email);
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("PUT /api/settings/whatsapp:", err);
