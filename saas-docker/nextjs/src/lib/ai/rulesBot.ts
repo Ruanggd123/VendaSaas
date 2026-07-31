@@ -2480,7 +2480,10 @@ async function processarFinalizacaoPedidoRulesBot(
 
           msg += `\n\n💳 *Pagamento via PIX*`;
 
-          if (pixCopy) msg += `\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\n---PIX-COPY---\n${pixCopy}`;
+          if (pixCopy) {
+            msg += `\n\n🔑 O código Pix Copia e Cola será enviado na próxima mensagem para facilitar a cópia.`;
+          }
+
           // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback
           if (!pixCopy && !pixQr && pay.invoiceUrl) {
             msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;
@@ -2490,6 +2493,9 @@ async function processarFinalizacaoPedidoRulesBot(
 
           msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
           msg += `\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
+          if (pixCopy) {
+            msg += `\n\n---PIX-COPY---\n${pixCopy.trim()}`;
+          }
           if (pixQr) {
             msg += `\n\n---IMAGE---\n${pixQr.replace(/^data:image\/[^;]+;base64,/, "")}`;
           }
