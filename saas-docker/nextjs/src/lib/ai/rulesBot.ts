@@ -2415,9 +2415,10 @@ async function processarFinalizacaoPedidoRulesBot(
 
           const numericPrice = parseFloat(chosenService.price || "0");
           const monthlyPrice = chosenService.monthly ? parseFloat(chosenService.monthly) : 0;
+          const isSub = chosenService.is_subscription === true || chosenService.is_subscription === "true" || chosenService.type === "plan" || monthlyPrice > 0;
           const displayPriceStr = (monthlyPrice > 0 && numericPrice > 0 && numericPrice !== monthlyPrice)
             ? `R$ ${monthlyPrice.toFixed(2).replace(".", ",")}/mês (+ R$ ${numericPrice.toFixed(2).replace(".", ",")} Adesão)`
-            : `R$ ${numericPrice.toFixed(2).replace(".", ",")}`;
+            : isSub ? `R$ ${numericPrice.toFixed(2).replace(".", ",")}/mês` : `R$ ${numericPrice.toFixed(2).replace(".", ",")}`;
 
           let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* ${displayPriceStr}\n📍 *Entrega:* ${address}`;
 

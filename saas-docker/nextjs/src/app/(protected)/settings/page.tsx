@@ -263,6 +263,7 @@ function AITab() {
       description: "",
       duration_min: 30,
       requires_payment: true,
+      is_subscription: true,
       image_url: "",
       send_photo: true,
     };
