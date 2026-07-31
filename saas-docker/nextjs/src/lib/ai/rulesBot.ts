@@ -968,7 +968,17 @@ export async function processMessageWithRules(
       await saveState(state);
       return getMainMenuMessage(settings);
     }
-    let optionIdx = /^\d+$/.test(cleanText) ? Number(cleanText) - 1 : -1;
+    const currentProds = state.data._allProductsList || settings.products || [];
+    let optionIdx = resolveChoiceIndex(
+      cleanText,
+      currentProds.map((p: any) => getProductOptionLabel(p))
+    );
+    if (optionIdx < 0) {
+      optionIdx = resolveChoiceIndex(
+        cleanText,
+        currentProds.map((p: any) => String(p?.name || ""))
+      );
+    }
 
     // Check if catalog used product nodes from workflow
     const productNodeIds = state.data._productNodes as string[] | undefined;
