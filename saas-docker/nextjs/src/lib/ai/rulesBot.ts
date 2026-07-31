@@ -202,7 +202,7 @@ function getSchedulableProducts(products: any[]): ProductLike[] {
     return explicit as ProductLike[];
   }
 
-  return products.filter((p) => String(p?.name || "").trim().length > 0) as ProductLike[];
+  return [];
 }
 
 function isValidNode(node: any) {
