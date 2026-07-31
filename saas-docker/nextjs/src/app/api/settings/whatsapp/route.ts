@@ -156,6 +156,11 @@ export async function PUT(req: Request) {
       }
     }
 
+    // Preserva ignored_numbers se não enviado no body para evitar zerar a lista negra
+    if (!("ignored_numbers" in body) && (currentSettings as any).ignored_numbers) {
+      body.ignored_numbers = (currentSettings as any).ignored_numbers;
+    }
+
     const newSettings = { ...currentSettings, ...body };
 
     await prisma.tenant.update({

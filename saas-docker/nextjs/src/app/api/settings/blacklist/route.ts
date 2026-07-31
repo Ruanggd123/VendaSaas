@@ -87,6 +87,21 @@ export async function GET(req: Request) {
     if (!scoped) return NextResponse.json({ error: "Conta ou número não encontrado" }, { status: 404 });
 
     const entries = parseBlacklist(scoped.settings.ignored_numbers);
+    if (!instanceName) {
+      const allInstances = await prisma.whatsappInstance.findMany({
+        where: { tenant_id: session.tenant_id },
+        select: { settings: true },
+      });
+      for (const inst of allInstances) {
+        const instSettings = parseSettings(inst.settings);
+        const instEntries = parseBlacklist(instSettings.ignored_numbers);
+        for (const e of instEntries) {
+          if (!entries.some((x) => x.number === e.number)) {
+            entries.push(e);
+          }
+        }
+      }
+    }
     const nameMap = new Map(entries.map((entry) => [entry.number, entry.name || null]));
     if (entries.length > 0) {
       const conversations = await prisma.conversation.findMany({
