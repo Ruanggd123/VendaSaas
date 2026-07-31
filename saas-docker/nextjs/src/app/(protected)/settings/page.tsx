@@ -560,6 +560,58 @@ function AITab() {
             className="w-full rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-950 p-4 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
           />
         </div>
+
+        <div className="pt-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            Feriados & Datas Bloqueadas (Sem agendamentos nestes dias)
+          </label>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {(settings.blocked_dates || []).length === 0 && (
+              <span className="text-xs text-slate-400 italic">Nenhum feriado ou data bloqueada cadastrada.</span>
+            )}
+            {(settings.blocked_dates || []).map((dateStr, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-xs font-mono font-bold text-red-600 dark:text-red-400"
+              >
+                📅 {dateStr}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = (settings.blocked_dates || []).filter((_, i) => i !== idx);
+                    update("blocked_dates", next);
+                  }}
+                  className="hover:text-red-800 dark:hover:text-red-200 font-bold ml-1"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              id="new_blocked_date_input"
+              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white font-bold"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const input = document.getElementById("new_blocked_date_input") as HTMLInputElement;
+                if (input && input.value) {
+                  const val = input.value;
+                  if (!settings.blocked_dates?.includes(val)) {
+                    update("blocked_dates", [...(settings.blocked_dates || []), val]);
+                  }
+                  input.value = "";
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm"
+            >
+              + Bloquear Feriado/Data
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* ── 3. TELEFONE DO GERENTE & NOTIFICAÇÕES ── */}
