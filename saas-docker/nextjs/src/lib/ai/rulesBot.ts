@@ -725,9 +725,14 @@ export async function processMessageWithRules(
       const currentNode = customNodes.find((n: any) => n.id === nodeId);
       return sanitizeMessageWhitespace(`✅ Registrado!\n\n${getSubmenuMessage(currentNode, customNodes)}`);
     } else {
-      state.step = "main_menu";
-      await saveState(state);
-      return "✅ Registrado com sucesso! Suas informações foram salvas.";
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+      return "✅ Registrado com sucesso! Suas informações foram enviadas para nossa equipe e um atendente responderá em breve.";
     }
   }
 

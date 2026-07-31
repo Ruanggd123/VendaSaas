@@ -866,6 +866,7 @@ export async function POST(req: Request) {
               console.log(`▶️ Modo Híbrido: IA reativada automaticamente para ${contactNumber} após 24h de inatividade.`);
             } else {
               console.log(`🤚 IA permanece pausada para ${contactNumber}: aguardando reativação manual.`);
+              return NextResponse.json({ success: true, ignored: "IA Pausada para Atendimento Humano" });
             }
           }
 
