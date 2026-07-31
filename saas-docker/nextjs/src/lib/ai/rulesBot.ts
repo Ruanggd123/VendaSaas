@@ -769,18 +769,135 @@ export async function processMessageWithRules(
     return getMainMenuMessage(settings);
   }
 
-  // Handle "atendente" transition natively
-  const hasConfiguredOptionFour = customNodes.some((node: any) => !node.parentId && String(node.keyword || "").trim() === "4")
-    || (settings.products || []).length >= 4;
-  if (["atendente", "falar com atendente", "humano", "suporte", "chamar atendente"].includes(cleanText)
-    || (cleanText === "4" && state.step === "main_menu" && !hasConfiguredOptionFour)) {
-    await prisma.conversation.updateMany({
-      where: conversationId
-        ? { id: conversationId, tenant_id: tenantId }
-        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
-      data: { ai_paused: true }
-    });
-    return "Aguarde um momento, estou transferindo você para um de nossos especialistas. Logo você será atendido! 🧑‍💻";
+  // Native Intent Handler for Main Menu Options (Agendar, Atendente, Catálogo, Orçamento)
+  if (state.step === "main_menu") {
+    // 1. Agendar Horário / Reunião
+    const isSchedulingIntent = (
+      cleanText.includes("agendar") ||
+      cleanText.includes("reuniao") ||
+      cleanText.includes("reuniao") ||
+      cleanText.includes("horario") ||
+      cleanText === "1"
+    ) && !cleanText.includes("ver agendamentos") && !cleanText.includes("meus agendamentos");
+
+    if (isSchedulingIntent) {
+      let servicesList = getSchedulableProducts(settings.products || []);
+      if (servicesList.length === 0) {
+        servicesList = [{
+          name: "Reunião de Atendimento / Consultoria",
+          price: "0",
+          duration_min: 30,
+          delivery_type: "service",
+          type: "service"
+        }];
+      }
+
+      if (servicesList.length === 1) {
+        const chosenService = servicesList[0];
+        const availableDates = await obterProximosDiasDisponiveis(tenantId, settings, chosenService.duration_min || 60);
+
+        state.step = "scheduling_select_date";
+        const availableDateLabels = availableDates.map(formatSchedulingDateLabel);
+        state.data = {
+          serviceName: chosenService.name,
+          servicePrice: chosenService.price,
+          servicePriceLabel: getProductPriceLabel(chosenService),
+          duration: chosenService.duration_min || 60,
+          availableDates: availableDates.map(d => d.toISOString()),
+          availableDateLabels,
+        };
+        await saveState(state);
+
+        let response = `📅 *Agendamento de ${chosenService.name}*\n\nEscolha um dos dias disponíveis abaixo:\n\n`;
+        const dateOptions: Array<{ label: string; value: string }> = [];
+        availableDates.forEach((d, idx) => {
+          const label = availableDateLabels[idx];
+          response += `${idx + 1}️⃣ ${label}\n`;
+          dateOptions.push({ label, value: String(idx + 1) });
+        });
+        response += `\nDigite o número correspondente (1-${availableDates.length}) ou *0* para voltar:`;
+        return appendInteractiveOptions(response, dateOptions);
+      }
+
+      const response = "📅 *Agende seu horário*\n\nEscolha o serviço desejado:";
+      state.step = "scheduling_select_service";
+      await saveState(state);
+      return appendInteractiveOptions(response, servicesList.map((service: any, idx: number) => ({
+        label: getProductOptionLabel(service),
+        value: String(idx + 1),
+      })));
+    }
+
+    // 2. Falar com Atendente Humano
+    const isHumanIntent = (
+      cleanText.includes("atendente") ||
+      cleanText.includes("humano") ||
+      cleanText.includes("suporte") ||
+      cleanText.includes("falar") ||
+      cleanText === "2"
+    );
+
+    if (isHumanIntent) {
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+      return "Aguarde um momento, estou transferindo você para um de nossos especialistas. Logo você será atendido! 🧑‍💻";
+    }
+
+    // 3. Catálogo Completo de Serviços
+    const isCatalogIntent = (
+      cleanText.includes("catalogo") ||
+      cleanText.includes("servicos") ||
+      cleanText.includes("planos") ||
+      cleanText.includes("produtos") ||
+      cleanText === "3"
+    );
+
+    if (isCatalogIntent) {
+      const productsList = settings.products || [];
+      if (productsList.length === 0) {
+        return "📋 No momento não temos serviços cadastrados no catálogo. Digite *0* para voltar.";
+      }
+
+      let response = "📋 *Catálogo Oficial de Planos & Soluções*\n\nConheça nossas soluções completas:\n\n";
+      productsList.forEach((p: any, idx: number) => {
+        const displayPrice = p.type === 'plan' || p.monthly ? `${p.monthly || p.price}/mês` : `${p.price}`;
+        response += `${idx + 1}️⃣ *${p.name}* - R$ ${displayPrice}\n`;
+        if (p.description) response += `   _${p.description}_\n\n`;
+      });
+      response += "✍️ Responda enviando o número do plano que deseja contratar (ex: *1* ou *2*).\n\nDigite *0* ou *voltar* para retornar ao menu principal.";
+
+      state.step = "catalog_select_product";
+      state.data._allProductsList = productsList;
+      await saveState(state);
+
+      return appendInteractiveOptions(response, productsList.map((product: any, idx: number) => ({
+        label: getProductOptionLabel(product),
+        value: String(idx + 1),
+      })));
+    }
+
+    // 4. Solicitar Informação / Orçamento
+    const isQuoteIntent = (
+      cleanText.includes("orcamento") ||
+      cleanText.includes("informacao") ||
+      cleanText.includes("duvida") ||
+      cleanText.includes("solicitar") ||
+      cleanText === "4"
+    );
+
+    if (isQuoteIntent) {
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+      return "📝 *Solicitação de Informação / Orçamento*\n\nPor favor, digite qual informação ou orçamento você precisa. Um de nossos especialistas irá analisar e responder o mais rápido possível! 🧑‍💻";
+    }
   }
 
   // Handle viewing appointments natively
