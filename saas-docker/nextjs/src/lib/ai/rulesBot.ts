@@ -186,12 +186,8 @@ function getCatalogIntro(nodeText: string): string {
 function isSchedulableProduct(prod: ProductLike | null | undefined): boolean {
   if (!prod) return false;
   const deliveryType = String(prod.delivery_type || "").trim().toLowerCase();
-  if (deliveryType) {
-    return deliveryType === "service";
-  }
-
   const type = String(prod.type || "").trim().toLowerCase();
-  return type === "service";
+  return deliveryType === "service" || type === "service";
 }
 
 function getSchedulableProducts(products: any[]): ProductLike[] {
