@@ -1009,8 +1009,8 @@ export async function processMessageWithRules(
         const prod = resolveProductFromNode(settings.products || [], selectedProductNode);
         let msg = `Você selecionou: *${selectedProductNode.title}*\n\n`;
         if (prod) {
-          if (prod.description) msg += `${prod.description}\n\n`;
-          msg += `Valor: R$ ${prod.price}\n\n`;
+          const displayPrice = getProductPriceLabel(prod) || `R$ ${prod.price}`;
+          msg += `Valor: ${displayPrice}\n\n`;
           if (prod.image_url && prod.send_photo !== false) msg += `${prod.image_url}\n\n`;
         }
         msg += getSubmenuMessage(selectedProductNode, customNodes);
@@ -1083,8 +1083,8 @@ export async function processMessageWithRules(
     await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
     let response = `Você selecionou: *${chosenService.name}*\n`;
-    if (chosenService.description) response += `${chosenService.description}\n\n`;
-    response += `Valor: R$ ${chosenService.price}\n\n`;
+    const displayPrice = getProductPriceLabel(chosenService) || `R$ ${chosenService.price}`;
+    response += `Valor: ${displayPrice}\n\n`;
     
     // Adicionar imagem, se existir e estiver habilitada, para que o queue processor envie como mídia
     if (chosenService.image_url && chosenService.send_photo !== false) {
