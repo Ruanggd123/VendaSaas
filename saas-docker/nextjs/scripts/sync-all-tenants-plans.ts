@@ -169,8 +169,8 @@ async function main() {
       productId: "Plano Start",
       productName: "Plano Start (R$ 67/mês)",
       productPrice: "67",
-      productDescription: "📌 Plano Start (R$ 67/mês + R$ 150 adesão)\n• Bot Fixo de Regras e Botões no WhatsApp\n• Atendimento Automático 24 horas\n• Respostas Ilimitadas via Menu\n(NÃO inclui criação de site nem IA)",
-      textContent: "Você selecionou o *Plano Start (R$ 67/mês + R$ 150 adesão)*:\n\n✨ *O que está incluso:*\n• Bot Fixo de Regras/Botões no WhatsApp\n• Atendimento 24h automático\n• Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
+      productDescription: "📌 Plano Start (R$ 67/mês)\n• Bot Fixo de Regras e Botões no WhatsApp\n• Atendimento Automático 24 horas\n• Respostas Ilimitadas via Menu\n(NÃO inclui criação de site nem IA)",
+      textContent: "Você selecionou o *Plano Start (R$ 67/mês)*:\n\n✨ *O que está incluso:*\n• Bot Fixo de Regras/Botões no WhatsApp\n• Atendimento 24h automático\n• Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -183,8 +183,8 @@ async function main() {
       productId: "Plano 97",
       productName: "Plano 97 (R$ 97/mês)",
       productPrice: "97",
-      productDescription: "📌 Plano 97 (R$ 97/mês + R$ 150 adesão)\n• Site Institucional 100% GRÁTIS Incluso\n• Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mês)\n• Agendamento Automático de Atendimentos",
-      textContent: "Você selecionou o *Plano 97 (R$ 97/mês + R$ 150 adesão)*:\n\n✨ *O que está incluso:*\n• Site Institucional 100% GRÁTIS\n• AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mês)\n• Agendamento de Horários\n\nEscolha a forma de pagamento:",
+      productDescription: "📌 Plano 97 (R$ 97/mês)\n• Site Institucional 100% GRÁTIS Incluso\n• Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mês)\n• Agendamento Automático de Atendimentos",
+      textContent: "Você selecionou o *Plano 97 (R$ 97/mês)*:\n\n✨ *O que está incluso:*\n• Site Institucional 100% GRÁTIS\n• AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mês)\n• Agendamento de Horários\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
     },
@@ -211,7 +211,7 @@ async function main() {
       productId: "Plano Scale",
       productName: "Plano Scale (R$ 497/mês)",
       productPrice: "497",
-      productDescription: "📌 Plano Scale (R$ 497/mês + R$ 150 adesão)\n• Loja Virtual E-Commerce Completa\n• Ambos os Bots (Regras + IA 20k msgs/mês)\n• Multiatendimento Ilimitado para Equipes\n• Disparos em Massa + Gestor Dedicado",
+      productDescription: "📌 Plano Scale (R$ 497/mês)\n• Loja Virtual E-Commerce Completa\n• Ambos os Bots (Regras + IA 20k msgs/mês)\n• Multiatendimento Ilimitado para Equipes\n• Disparos em Massa + Gestor Dedicado",
       textContent: "Você selecionou o *Plano Scale (R$ 497/mês)*:\n\n✨ *O que está incluso:*\n• Loja Virtual E-Commerce Completa (sem taxas por venda)\n• AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mês)\n• Multiatendimento Ilimitado para Atendentes\n• Disparos em Massa + Funis de Vendas\n\nEscolha a forma de pagamento:",
       paymentMode: "both",
       showInPoll: true,
@@ -286,21 +286,20 @@ async function main() {
   const officialPrompt = `Você é um Consultor Especialista de Vendas da VendasSAAS. Seu objetivo é apresentar nossos planos e soluções de forma altamente profissional, persuasiva e transparente.
 
 NOSSOS PLANOS E VALORES DE ASSINATURA:
-Todos os planos de assinatura possuem uma Taxa de Adesão (Setup) de R$ 150.
 
-1. PLANO START — R$ 67/mês (Adesão R$ 150)
+1. PLANO START — R$ 67/mês
 - O que inclui: Bot Fixo de Regras/Botões no WhatsApp (Apenas automação).
 - LIMITAÇÃO: NÃO inclui criação de site e NÃO possui Inteligência Artificial (sem DeepSeek/ChatGPT).
 
-2. PLANO 97 — R$ 97/mês (Adesão R$ 150)
+2. PLANO 97 — R$ 97/mês
 - O que inclui: Site Institucional 100% GRÁTIS + AMBOS OS BOTS INCLUSOS (Bot de Regras Fixo + Bot Inteligente com IA DeepSeek/ChatGPT) com limite de 5.000 mensagens IA/mês.
 - LIMITAÇÃO: Não inclui CRM nem disparos em massa.
 
-3. PLANO GROWTH (O MAIS VENDIDO ⭐) — R$ 147/mês (Adesão R$ 150)
+3. PLANO GROWTH (O MAIS VENDIDO ⭐) — R$ 147/mês
 - O que inclui: Site Institucional de até 5 páginas + AMBOS OS BOTS (Bot de Regras + Bot de IA) + CRM de Gestão de Clientes + Agendamento de Horários + 5.000 mensagens IA/mês.
 - LIMITAÇÃO: Suporta até 2 atendentes no CRM.
 
-4. PLANO SCALE — R$ 497/mês (Adesão R$ 150)
+4. PLANO SCALE — R$ 497/mês
 - O que inclui: Loja Virtual Completa (E-Commerce) + AMBOS OS BOTS (Regras + IA Enterprise) + Multiatendimento Ilimitado + Disparador em Massa + 20.000 mensagens IA/mês.
 
 ORIENTAÇÕES DE ATENDIMENTO:

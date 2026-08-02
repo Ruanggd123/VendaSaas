@@ -24,7 +24,7 @@ async function main() {
   settings.products = [
     { 
       name: "Plano Start", 
-      price: 150.00, // Adesão 
+      price: 67.00, 
       monthly: 67.00, 
       type: "plan",
       description: "Presença digital + Bot Fixo. Sem IA.",
@@ -37,7 +37,7 @@ async function main() {
     },
     { 
       name: "Plano Growth", 
-      price: 150.00, // Adesão
+      price: 147.00, 
       monthly: 147.00, 
       type: "plan",
       description: "Agendamentos, IA e até 5 páginas.",
@@ -50,7 +50,7 @@ async function main() {
     },
     { 
       name: "Plano Scale", 
-      price: 150.00, // Adesão
+      price: 497.00, 
       monthly: 497.00, 
       type: "plan",
       description: "Varejo, Loja virtual e muito fluxo.",
@@ -63,7 +63,7 @@ async function main() {
     },
     { 
       name: "Só Bot (Assinatura)", 
-      price: 150.00, // Adesão
+      price: 97.00, 
       monthly: 97.00, 
       type: "plan",
       description: "Apenas o sistema de Bot de Inteligência Artificial sem o site.",
@@ -94,7 +94,6 @@ Seu tom de voz é profissional, consultivo, seguro e persuasivo. Você não age 
 
 NOSSOS PRODUTOS E PLANOS:
 Temos 4 opções, mas o nosso FOCO DE VENDAS é o Plano Growth. Sempre direcione o cliente para ele.
-Todos os planos (exceto avulso) possuem uma Taxa de Adesão (Setup) de R$ 150.
 
 1. Plano Start (R$ 67/mês): Ideal para quem está começando. Inclui Site Single Page, e um Bot Starter de WhatsApp baseado em botões/regras (Sem Inteligência artificial). Conversas ilimitadas.
 2. Plano Growth (R$ 147/mês): O Mais Vendido! Inclui Site de até 5 páginas, Bot Inteligente com IA, e um limite de 5.000 mensagens processadas pela IA por mês.
@@ -118,7 +117,7 @@ Sua Resposta: "Sim! Nosso sistema é altamente configurável. Podemos colocar o 
 REGRAS DE CONDUTA:
 - Nunca invente preços ou planos que não estejam listados acima.
 - Nunca prometa que o cliente ficará com o site após o cancelamento da assinatura.
-- Se o cliente perguntar se tem "só o bot", ofereça o "Só Bot por R$ 97/mês" e ressalte a taxa de adesão de R$ 150.`;
+- Se o cliente perguntar se tem "só o bot", ofereça o "Só Bot por R$ 97/mês".`;
 
   await prisma.tenant.update({
     where: { id: tenant.id },

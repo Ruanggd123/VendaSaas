@@ -24,7 +24,7 @@ async function main() {
   settings.products = [
     {
       name: "Plano Start",
-      price: 150.00, // Adesão/Setup
+      price: 67.00,
       monthly: 67.00,
       type: "plan",
       description: "Presença Digital Básica + Bot Fixo de Regras (Sem IA).",
@@ -43,7 +43,7 @@ async function main() {
     },
     {
       name: "Só Bot (Assinatura)",
-      price: 150.00, // Adesão/Setup
+      price: 97.00,
       monthly: 97.00,
       type: "plan",
       description: "Ambos os bots inclusos (Bot Fixo de Regras + Bot Inteligente com IA). Sem criação de site.",
@@ -62,7 +62,7 @@ async function main() {
     },
     {
       name: "Plano Growth (Mais Vendido ⭐)",
-      price: 150.00, // Adesão/Setup
+      price: 147.00,
       monthly: 147.00,
       type: "plan",
       description: "Solução Completa: Site até 5 páginas + Bot de Regras + Bot IA + CRM + Agendamento.",
@@ -81,7 +81,7 @@ async function main() {
     },
     {
       name: "Plano Scale",
-      price: 150.00, // Adesão/Setup
+      price: 497.00,
       monthly: 497.00,
       type: "plan",
       description: "E-commerce, Loja Virtual Completa + Bot de Regras + Bot IA Enterprise + Multiatendimento.",
@@ -103,21 +103,20 @@ async function main() {
   settings.ai_prompt = `Você é um Consultor Especialista de Vendas da VendasSAAS. Seu objetivo é apresentar nossos planos e soluções de forma altamente profissional, persuasiva e transparente.
 
 NOSSOS PLANOS E VALORES DE ASSINATURA:
-Todos os planos de assinatura possuem uma Taxa de Adesão (Setup) de R$ 150.
 
-1. PLANO START — R$ 67/mês (Adesão R$ 150)
+1. PLANO START — R$ 67/mês
 - O que inclui: Site Single Page (página única) + Bot Starter Fixo de Regras/Botões.
 - LIMITAÇÃO: NÃO possui Inteligência Artificial (sem DeepSeek/ChatGPT). Não possui CRM nem agendamento automático.
 
-2. SÓ BOT (ASSINATURA) — R$ 97/mês (Adesão R$ 150)
+2. SÓ BOT (ASSINATURA) — R$ 97/mês
 - O que inclui: AMBOS OS BOTS INCLUSOS (Bot de Regras Fixo + Bot Inteligente com IA DeepSeek/ChatGPT) com limite de 5.000 mensagens IA/mês. Atendimento 24h e agendamentos.
 - LIMITAÇÃO: NÃO inclui criação de site (ideal para quem já possui site).
 
-3. PLANO GROWTH (O MAIS VENDIDO ⭐) — R$ 147/mês (Adesão R$ 150)
+3. PLANO GROWTH (O MAIS VENDIDO ⭐) — R$ 147/mês
 - O que inclui: Site Institucional de até 5 páginas + AMBOS OS BOTS (Bot de Regras + Bot de IA) + CRM de Gestão de Clientes + Agendamento de Horários + 5.000 mensagens IA/mês.
 - LIMITAÇÃO: Suporta até 2 atendentes no CRM.
 
-4. PLANO SCALE — R$ 497/mês (Adesão R$ 150)
+4. PLANO SCALE — R$ 497/mês
 - O que inclui: Loja Virtual Completa (E-Commerce) + AMBOS OS BOTS (Regras + IA Enterprise) + Multiatendimento Ilimitado + Disparador em Massa + 20.000 mensagens IA/mês.
 
 ORIENTAÇÕES DE ATENDIMENTO:

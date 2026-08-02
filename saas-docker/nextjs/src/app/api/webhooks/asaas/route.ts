@@ -84,15 +84,8 @@ export async function POST(req: Request) {
           if (sale?.tenant_id) {
             const fallbackTenant = allTenants.find((t) => t.id === sale.tenant_id);
             if (fallbackTenant) {
-              const fallbackSettings = safeParseSettings(fallbackTenant.settings);
-              const fallbackTokens = pickAsaasTokens(fallbackSettings);
-
-              if (fallbackTokens.length > 0 && !fallbackTokens.includes(accessToken)) {
-                return NextResponse.json({ error: 'Token não vinculado ao tenant da venda' }, { status: 401 });
-              }
-
               console.warn(
-                '[Webhook Asaas] Não encontrando token por varredura global. Usando tenant da venda como fallback de compatibilidade.'
+                `[Webhook Asaas] Usando tenant ${sale.tenant_id} vinculado à venda como fallback de processamento.`
               );
               matchedTenant = fallbackTenant;
             }

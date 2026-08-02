@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createCustomer, createPayment, createSubscription, getSubscriptionPayments } from '@/lib/asaas';
 import { createPreference } from '@/lib/mercadopago';
+import { getProductPrice } from '@/lib/currency';
 
 const prisma = new PrismaClient();
 
@@ -99,12 +100,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
           const baseName = String(item.name || "").replace(/\s+-\s+(Mensal|Setup)$/i, "");
           const product = configuredProducts.find((candidate: any) => String(candidate.name || "") === baseName);
           if (!product) return Number.NaN;
-          const value = item.type === "subscription" ? Number(product.monthly ?? product.price) : Number(product.price);
+          const value = getProductPrice(product);
           return sum + value * Number(item.qty || 1);
         }, 0)
       : (() => {
           const product = configuredProducts.find((candidate: any) => productName.startsWith(String(candidate.name || "")));
-          return product ? Number(isSubscription ? (product.monthly ?? product.price) : product.price) : Number.NaN;
+          return product ? getProductPrice(product) : Number.NaN;
         })();
     if (!Number.isFinite(authoritativeAmount) || Math.abs(authoritativeAmount - parsedAmount) > 0.01) {
       return NextResponse.json({ error: "O valor do produto mudou. Atualize a página e tente novamente." }, { status: 409 });

@@ -155,6 +155,16 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       return await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
     }
 
+    if (!isDemoIA && settings.bot_type === "hibrido") {
+      const { processMessageWithRules } = await import("./rulesBot");
+      const cleanMsg = sanitizedMessage.toLowerCase().trim();
+      const isDirectMenuChoice = /^\d+$/.test(cleanMsg) || ["menu", "voltar", "0", "opções", "opcoes", "inicio", "início", "ajuda", "produtos", "agendar", "catalogo", "catálogo"].includes(cleanMsg);
+      if (isDirectMenuChoice) {
+        const rulesResp = await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
+        if (rulesResp) return rulesResp;
+      }
+    }
+
     interface ProviderConfig {
       name: string;
       apiKey: string;

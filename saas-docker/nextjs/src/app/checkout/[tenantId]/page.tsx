@@ -11,6 +11,7 @@ import {
   ChevronDown, Clock, Headphones, Smartphone,
   BarChart3, Palette, FileText, MessageSquare
 } from 'lucide-react';
+import { getProductPrice } from '@/lib/currency';
 
 interface Product {
   name: string;
@@ -207,29 +208,13 @@ export default function CheckoutPage() {
     if (!product) return [];
 
     const cart: CartItem[] = [];
+    const effectivePrice = getProductPrice(product);
+    const isSub = (product as any).is_subscription !== false && (product.type === 'plan' || hasValue(product.monthly));
 
-    // One-time purchase product (has price, no monthly)
-    if (hasValue(product.price) && !hasValue(product.monthly)) {
-      cart.push({ name: product.name, price: parseFloat(product.price!), monthly: 0, qty: 1, type: 'one_time', isBonus: false });
-      return cart;
-    }
-
-    // Subscription product
-    if (hasValue(product.monthly)) {
-      const monthlyVal = parseFloat(product.monthly!);
-      const priceVal = hasValue(product.price) ? parseFloat(product.price!) : 0;
-
-      // If price is different from monthly, it's a setup fee
-      if (priceVal > 0 && Math.abs(priceVal - monthlyVal) > 0.01) {
-        cart.push({ name: product.name, price: priceVal, monthly: 0, qty: 1, type: 'one_time', isBonus: false });
-      }
-      cart.push({ name: product.name, price: 0, monthly: monthlyVal, qty: 1, type: 'subscription', isBonus: false });
-      return cart;
-    }
-
-    // Price-only fallback
-    if (hasValue(product.price)) {
-      cart.push({ name: product.name, price: parseFloat(product.price!), monthly: 0, qty: 1, type: 'one_time', isBonus: false });
+    if (isSub) {
+      cart.push({ name: product.name, price: 0, monthly: effectivePrice, qty: 1, type: 'subscription', isBonus: false });
+    } else {
+      cart.push({ name: product.name, price: effectivePrice, monthly: 0, qty: 1, type: 'one_time', isBonus: false });
     }
     return cart;
   };

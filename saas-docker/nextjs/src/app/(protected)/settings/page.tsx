@@ -55,6 +55,8 @@ interface Product {
   id?: string;
   name: string;
   price: string;
+  monthly?: any;
+  type?: string;
   description: string;
   duration_min: number;
   requires_payment: boolean;
@@ -236,22 +238,40 @@ function AIIdentityTab({ settings, update, userRole, saving, onSave }: any) {
         {/* Seleção do Tipo de Bot */}
         <div className="space-y-3">
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Tipo de Atendente Automático</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               type="button"
               onClick={() => update("bot_type", "ia")}
               className={`p-5 rounded-2xl border text-left transition-all ${
-                settings.bot_type !== "regras"
+                settings.bot_type === "ia" || (!settings.bot_type)
                   ? "bg-indigo-50/80 dark:bg-indigo-500/15 border-2 border-indigo-500 shadow-sm"
                   : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-white/10 hover:border-indigo-300"
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <Bot className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <span className="font-extrabold text-slate-900 dark:text-white text-sm">Atendente Inteligência Artificial (IA)</span>
+                <span className="font-extrabold text-slate-900 dark:text-white text-sm">Modo IA (100% IA)</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                Conversa livre, natural, tira dúvidas do catálogo, qualifica leads e agenda horários automaticamente.
+                Conversa livre, humanizada e persuasiva. Tira dúvidas do catálogo, qualifica leads e agenda horários automaticamente.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => update("bot_type", "hibrido")}
+              className={`p-5 rounded-2xl border text-left transition-all ${
+                settings.bot_type === "hibrido"
+                  ? "bg-indigo-50/80 dark:bg-indigo-500/15 border-2 border-indigo-500 shadow-sm"
+                  : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-white/10 hover:border-indigo-300"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <span className="font-extrabold text-slate-900 dark:text-white text-sm">Modo Híbrido ⭐ (Recomendado)</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+                Menus e botões rápidos na recepção + IA inteligente para responder dúvidas livres do cliente.
               </p>
             </button>
 
@@ -266,10 +286,10 @@ function AIIdentityTab({ settings, update, userRole, saving, onSave }: any) {
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <span className="font-extrabold text-slate-900 dark:text-white text-sm">Atendente de Regras / Menu (Sem IA)</span>
+                <span className="font-extrabold text-slate-900 dark:text-white text-sm">Modo Regras (Sem IA)</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                Menu passo-a-passo numérico (opções 1, 2, 3). Respostas pré-definidas e fluxo de agendamento guiado.
+                Menu estritamente numérico e botões fixos. Respostas pré-definidas sem acionar chave de IA.
               </p>
             </button>
           </div>
@@ -958,7 +978,22 @@ export default function SettingsPage() {
 
   const updateProduct = (idx: number, field: keyof Product, value: any) => {
     const prods = [...(settings.products || [])];
-    prods[idx] = { ...prods[idx], [field]: value };
+    const updated = { ...prods[idx], [field]: value };
+    if (field === "price") {
+      if (updated.is_subscription !== false) {
+        updated.monthly = value;
+      } else {
+        delete updated.monthly;
+      }
+    }
+    if (field === "is_subscription") {
+      if (value) {
+        updated.monthly = updated.price;
+      } else {
+        delete updated.monthly;
+      }
+    }
+    prods[idx] = updated;
     update("products", prods);
   };
 
