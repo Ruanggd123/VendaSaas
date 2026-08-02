@@ -99,7 +99,10 @@ export default function DashboardLayout({
   const [partnerTrial, setPartnerTrial] = useState<{ expired: boolean; remainingMinutes: number; remainingSeconds: number } | null>(null);
   const [activatingTrial, setActivatingTrial] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     fetch('/api/auth/session')
       .then(r => r.json())
       .then(data => {
@@ -248,7 +251,7 @@ export default function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 py-3 px-2 space-y-5 overflow-y-auto overflow-x-hidden">
-          {!isSessionLoaded ? (
+          {!mounted || !isSessionLoaded ? (
             <div className="space-y-4 px-2 py-4 animate-pulse">
               <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-20 mb-3" />
               <div className="h-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
