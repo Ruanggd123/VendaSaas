@@ -30,25 +30,34 @@ export async function GET(request: Request) {
     }
 
     // Buscar status em tempo real na Evolution API
-    const res = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
-      headers: { 
-        'apikey': evolutionKey,
-        'ngrok-skip-browser-warning': 'true'
-      },
-      cache: 'no-store'
-    });
-
     let evolutionInstances: any[] = [];
-    if (res.ok) {
-      evolutionInstances = await res.json();
+    try {
+      const res = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
+        headers: { 
+          'apikey': evolutionKey,
+          'ngrok-skip-browser-warning': 'true'
+        },
+        cache: 'no-store'
+      });
+
+      if (res.ok) {
+        const rawJson = await res.json().catch(() => null);
+        evolutionInstances = Array.isArray(rawJson)
+          ? rawJson
+          : Array.isArray(rawJson?.instances)
+          ? rawJson.instances
+          : [];
+      }
+    } catch (e) {
+      console.warn("⚠️ Não foi possível consultar status na Evolution API:", e);
     }
 
     // Verificar cada instância
     for (const dbInst of dbInstances) {
       const evoInst = evolutionInstances.find(
-        (ei: any) => ei?.instance?.instanceName === dbInst.name || ei?.name === dbInst.name
+        (ei: any) => ei?.instance?.instanceName === dbInst.name || ei?.name === dbInst.name || ei?.instanceName === dbInst.name
       );
-      const realStatus = evoInst?.connectionStatus || evoInst?.instance?.state || evoInst?.state || "disconnected";
+      const realStatus = evoInst?.connectionStatus || evoInst?.instance?.state || evoInst?.state || dbInst.status || "disconnected";
 
       if (realStatus === "open") {
         // Atualiza banco se necessário
@@ -56,7 +65,7 @@ export async function GET(request: Request) {
           await prisma.whatsappInstance.update({
             where: { id: dbInst.id },
             data: { status: "open" }
-          });
+          }).catch(() => {});
         }
         return NextResponse.json({ status: "open", instanceName: dbInst.name });
       }
@@ -66,6 +75,6 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error("Erro na rota /api/whatsapp/status:", error);
-    return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro interno no servidor" }, { status: 500 });
   }
 }

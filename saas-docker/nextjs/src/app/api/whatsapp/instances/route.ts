@@ -31,31 +31,42 @@ export async function GET(request: Request) {
     }
 
     // Buscar status em tempo real na Evolution API
-    const res = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
-      headers: { 
-        'apikey': evolutionKey || '',
-        'ngrok-skip-browser-warning': 'true'
-      },
-      cache: 'no-store'
-    });
+    let evolutionInstances: any[] = [];
+    try {
+      const res = await fetch(`${evolutionUrl}/instance/fetchInstances`, {
+        headers: { 
+          'apikey': evolutionKey || '',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        cache: 'no-store'
+      });
 
-    let evolutionInstances = [];
-    if (res.ok) {
-      evolutionInstances = await res.json();
+      if (res.ok) {
+        const rawJson = await res.json().catch(() => null);
+        evolutionInstances = Array.isArray(rawJson)
+          ? rawJson
+          : Array.isArray(rawJson?.instances)
+          ? rawJson.instances
+          : [];
+      }
+    } catch (e) {
+      console.warn("⚠️ Não foi possível consultar instâncias na Evolution API:", e);
     }
 
     // Mesclar os dados
     const instances = await Promise.all(dbInstances.map(async (dbInst) => {
-      const evoInst = evolutionInstances.find((ei: any) => ei?.instance?.instanceName === dbInst.name || ei?.name === dbInst.name);
-      const realStatus = evoInst?.connectionStatus || evoInst?.instance?.state || evoInst?.state || "disconnected";
+      const evoInst = evolutionInstances.find((ei: any) => 
+        ei?.instance?.instanceName === dbInst.name || 
+        ei?.name === dbInst.name ||
+        ei?.instanceName === dbInst.name
+      );
+      const realStatus = evoInst?.connectionStatus || evoInst?.instance?.state || evoInst?.state || dbInst.status || "disconnected";
       const realPhoneNumber = String(evoInst?.ownerJid || evoInst?.instance?.ownerJid || "").replace(/\D/g, "") || null;
       
-      let mappedStatus = "disconnected";
+      let mappedStatus = dbInst.status || "disconnected";
       if (realStatus === "open") {
         mappedStatus = "open";
       } else if (realStatus === "connecting" || (realStatus === "close" && dbInst.status === "connecting")) {
-        // A Evolution API pode retornar 'close' para instâncias recém-criadas aguardando QR Code.
-        // Se localmente está connecting, mantemos connecting para o UI mostrar o QR.
         mappedStatus = "connecting";
       }
 
@@ -67,7 +78,7 @@ export async function GET(request: Request) {
             status: mappedStatus,
             ...(realPhoneNumber ? { phone_number: realPhoneNumber } : {}),
           }
-        });
+        }).catch(() => {});
       }
 
       return {
@@ -82,6 +93,6 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error("Erro na rota /api/whatsapp/instances:", error);
-    return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro interno no servidor" }, { status: 500 });
   }
 }
