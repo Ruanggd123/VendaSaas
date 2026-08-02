@@ -73,6 +73,11 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
       conversation.messages.reverse();
     }
 
+    if (conversation?.ai_paused) {
+      console.log(`[AI Engine] Conversa em Atendimento Humano (ai_paused=true) para ${contactNumber}. Retornando null.`);
+      return null;
+    }
+
     const lowerMessage = sanitizedMessage.toLowerCase().trim();
     
     // --- MODO DE DEMONSTRAÇÃO UNIVERSAL (NEXUS AI SAAS) ---

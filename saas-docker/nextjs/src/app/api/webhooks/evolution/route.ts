@@ -1226,15 +1226,8 @@ export async function POST(req: Request) {
                   console.error("[Webhook] Erro ao enviar resposta da IA pela Evolution:", e);
                 });
               } else {
-                if (conversation.ai_paused) {
-                  await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "no_response", reasonCode: "ai_paused" });
-                  console.log(`[Webhook] IA pausada para ${contactNumber}, não enviando fallback automático.`);
-                } else {
-                  const fallbackResponse = "Desculpe, no momento não consegui responder. Pode enviar novamente em alguns instantes?";
-                  await sendAndStoreResponse(fallbackResponse).catch((e) => {
-                    console.error("[Webhook] Erro ao enviar resposta de fallback da IA:", e);
-                  });
-                }
+                await recordDiagnostic({ tenantId, instanceName: instance.name, providerEventId: providerMessageId, category: "no_response", reasonCode: conversation.ai_paused ? "ai_paused" : "no_bot_match" });
+                console.log(`[Webhook] Nenhuma resposta de automação para ${contactNumber} (ai_paused=${conversation.ai_paused}). Permanecendo em silêncio para atendimento humano.`);
               }
             }
           } catch (aiErr) {

@@ -284,7 +284,7 @@ export async function processMessageWithRules(
   userMessage: string,
   settings: any,
   isMessageToMyself: boolean = false
-): Promise<string> {
+): Promise<string | null> {
 
   // --- MODO DE DEMONSTRAÇÃO (UNIVERSAL LOGIN DO PARCEIRO) ---
   if (settings.isDemoRegras) {
@@ -353,8 +353,12 @@ export async function processMessageWithRules(
       where: conversationId
         ? { id: conversationId, tenant_id: tenantId }
         : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
-      select: { contact_name: true }
+      select: { contact_name: true, ai_paused: true }
     });
+    if (conv?.ai_paused) {
+      console.log(`[RulesBot] Conversa em Atendimento Humano (ai_paused=true) para ${contactNumber}. Retornando null.`);
+      return null;
+    }
     if (conv?.contact_name) contactName = conv.contact_name;
   } catch {}
 
@@ -479,10 +483,31 @@ export async function processMessageWithRules(
       + `\n\nEscolha como deseja continuar:\n\n1️⃣ *Pagar com PIX* — código no próprio WhatsApp\n2️⃣ *Pagar com Cartão* — checkout seguro\n3️⃣ *Cancelar cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
     : "";
 
-  if (pendingSale && state.step !== "debt_payment_method" && state.step !== "debt_paying") {
-    state.step = "debt_payment_method";
-    await saveState(state);
-    return pendingPaymentPrompt;
+  if (pendingSale) {
+    const isCancelIntent = cleanText.includes("cancele") || cleanText.includes("cancelar") || cleanText.includes("cancela") || cleanText.includes("desistir") || cleanText === "3";
+    if (isCancelIntent) {
+      await prisma.sale.update({
+        where: { id: pendingSale.id },
+        data: { status: "cancelled" }
+      }).catch(() => {});
+
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return "✅ Cobrança cancelada com sucesso! Transfiri o seu atendimento para a nossa equipe humana. Como podemos te ajudar?";
+    }
+
+    if (state.step !== "debt_payment_method" && state.step !== "debt_paying") {
+      state.step = "debt_payment_method";
+      await saveState(state);
+      return pendingPaymentPrompt;
+    }
   }
 
   // Converte conversas iniciadas pela versão anterior para a escolha de método.
