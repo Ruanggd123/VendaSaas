@@ -35,10 +35,11 @@ export async function POST(req: Request) {
     const { instanceName: requestedInstanceName, connectionName } = await req.json();
 
     const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
-    const evolutionKey = process.env.EVOLUTION_API_KEY;
+    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "";
 
     if (!evolutionKey) {
-      return NextResponse.json({ error: "EVOLUTION_API_KEY não configurada no servidor." }, { status: 500 });
+      console.warn("⚠️ EVOLUTION_API_KEY não configurada na Vercel.");
+      return NextResponse.json({ error: "EVOLUTION_API_KEY não configurada nas Variáveis de Ambiente da Vercel." }, { status: 400 });
     }
 
     const headers = {
@@ -103,7 +104,9 @@ export async function POST(req: Request) {
       }
 
       if (!connectRes.ok) {
-        return NextResponse.json({ error: "Erro ao gerar novo QR Code na Evolution API" }, { status: 500 });
+        const errorText = await connectRes.text().catch(() => "");
+        console.error(`Falha ao conectar instância ${instanceName}: ${connectRes.status} - ${errorText}`);
+        return NextResponse.json({ error: `Erro ao conectar na Evolution API (${connectRes.status}): ${errorText || 'Falha na requisição'}` }, { status: connectRes.status || 500 });
       }
 
       const connectData = await connectRes.json();
@@ -163,7 +166,9 @@ export async function POST(req: Request) {
       });
 
       if (!createRes.ok) {
-        return NextResponse.json({ error: "Erro ao criar instância no Evolution API" }, { status: 500 });
+        const errorText = await createRes.text().catch(() => "");
+        console.error(`Falha ao criar instância ${instanceName}: ${createRes.status} - ${errorText}`);
+        return NextResponse.json({ error: `Erro ao criar instância na Evolution API (${createRes.status}): ${errorText || 'Falha na requisição'}` }, { status: createRes.status || 500 });
       }
 
       const createData = await createRes.json();
@@ -200,6 +205,6 @@ export async function POST(req: Request) {
     }
   } catch (error: any) {
     console.error("Erro na rota /api/whatsapp/connect:", error);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro interno ao conectar WhatsApp" }, { status: 500 });
   }
 }
