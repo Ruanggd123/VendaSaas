@@ -7,19 +7,17 @@ const prisma = new PrismaClient();
 // Validate superadmin access and API key
 const validateSuperAdmin = async (request: Request) => {
   const session = await getSession();
-  if (!session || session.role !== 'superadmin') {
-    return false;
+  if (session && session.role === 'superadmin') {
+    return true;
   }
 
-  // Additional check for API key in production
-  if (process.env.NODE_ENV === 'production') {
-    const apiKey = request.headers.get('x-api-key');
-    if (apiKey !== process.env.SUPERADMIN_API_KEY) {
-      return false;
-    }
+  // Fallback para scripts externos via API key se configurada
+  const apiKey = request.headers.get('x-api-key');
+  if (process.env.SUPERADMIN_API_KEY && apiKey === process.env.SUPERADMIN_API_KEY) {
+    return true;
   }
 
-  return true;
+  return false;
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
