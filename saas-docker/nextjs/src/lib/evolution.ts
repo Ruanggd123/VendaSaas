@@ -1,8 +1,5 @@
-const EVOLUTION_API_URL = process.env.EVOLUTION_URL;
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
-if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-  console.warn("⚠️  EVOLUTION_URL ou EVOLUTION_API_KEY não configurados. Mensagens WhatsApp não funcionarão.");
-}
+const EVOLUTION_API_URL = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df";
 
 export type WhatsAppMessageKey = {
   id: string;

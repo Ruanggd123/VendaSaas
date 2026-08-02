@@ -31,11 +31,7 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
-    const evolutionKey = process.env.EVOLUTION_API_KEY;
-
-    if (!evolutionKey) {
-      return NextResponse.json({ error: "EVOLUTION_API_KEY não configurada no servidor." }, { status: 500 });
-    }
+    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df";
 
     const headers = {
       apikey: evolutionKey,

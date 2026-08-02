@@ -35,12 +35,7 @@ export async function POST(req: Request) {
     const { instanceName: requestedInstanceName, connectionName } = await req.json();
 
     const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
-    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "";
-
-    if (!evolutionKey) {
-      console.warn("⚠️ EVOLUTION_API_KEY não configurada na Vercel.");
-      return NextResponse.json({ error: "EVOLUTION_API_KEY não configurada nas Variáveis de Ambiente da Vercel." }, { status: 400 });
-    }
+    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df";
 
     const headers = {
       apikey: evolutionKey,

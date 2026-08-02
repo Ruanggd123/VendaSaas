@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'https://evolution-api-03xi.onrender.com';
-const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
+const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || 'ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df';
 
 const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 

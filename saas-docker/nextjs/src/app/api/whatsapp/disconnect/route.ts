@@ -19,11 +19,7 @@ export async function POST(request: Request) {
     }
 
     const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
-    const evolutionKey = process.env.EVOLUTION_API_KEY;
-
-    if (!evolutionKey) {
-      throw new Error("EVOLUTION_API_KEY não configurada no servidor");
-    }
+    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df";
 
     // Verificar se pertence ao tenant (parceiro só na própria)
     const dbInstance = await prisma.whatsappInstance.findUnique({
