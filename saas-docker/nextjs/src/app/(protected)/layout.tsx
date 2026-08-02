@@ -84,15 +84,17 @@ export default function DashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [userAccount, setUserAccount] = useState({
-    name: "Ruan Gomes",
-    email: "fraruann159@gmail.com",
-    role: "superadmin",
-    tenantName: "Nexus Admin",
-    tenantPlan: "Enterprise",
+    name: "",
+    email: "",
+    role: "",
+    tenantName: "",
+    tenantPlan: "",
     tenantId: "",
     userId: "",
-    referralCode: ""
+    referralCode: "",
+    partnerType: ""
   });
+  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
 
   const [partnerTrial, setPartnerTrial] = useState<{ expired: boolean; remainingMinutes: number; remainingSeconds: number } | null>(null);
   const [activatingTrial, setActivatingTrial] = useState(false);
@@ -111,11 +113,13 @@ export default function DashboardLayout({
             tenantPlan: u.tenant_plan || "",
             tenantId: u.tenant_id || "",
             userId: u.id || u.userId || "",
-            referralCode: u.referral_code || ""
+            referralCode: u.referral_code || "",
+            partnerType: u.partner_type || ""
           });
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setIsSessionLoaded(true));
 
     const val = localStorage.getItem("sidebar_collapsed");
     if (val === "true") setIsCollapsed(true);
@@ -228,7 +232,15 @@ export default function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 py-3 px-2 space-y-5 overflow-y-auto overflow-x-hidden">
-          {navItems.map((group) => {
+          {!isSessionLoaded ? (
+            <div className="space-y-4 px-2 py-4 animate-pulse">
+              <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-20 mb-3" />
+              <div className="h-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
+              <div className="h-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
+              <div className="h-9 bg-slate-200 dark:bg-white/10 rounded-xl" />
+            </div>
+          ) : (
+            navItems.map((group) => {
             if (group.managerOnly && !showInfraestrutura) return null;
             if (group.partnerOnly && !isPartner) return null;
             return (
@@ -272,7 +284,8 @@ export default function DashboardLayout({
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </nav>
 
         {/* Footer */}
