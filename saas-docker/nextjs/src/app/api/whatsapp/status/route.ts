@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const evolutionUrl = process.env.EVOLUTION_URL || "http://evolution:8080";
+    const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
     const evolutionKey = process.env.EVOLUTION_API_KEY;
 
     if (!evolutionKey) {

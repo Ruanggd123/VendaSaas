@@ -1286,7 +1286,7 @@ export async function POST(req: Request) {
       });
 
       if (body.data?.state === "open" && body.sender) {
-        const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
+        const EVOLUTION_URL = process.env.EVOLUTION_URL || 'https://evolution-api-03xi.onrender.com';
         const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
         const headers = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
