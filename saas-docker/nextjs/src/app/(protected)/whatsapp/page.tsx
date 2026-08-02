@@ -370,7 +370,12 @@ export default function NativeWhatsAppDashboard() {
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden ring-2 ring-slate-200 dark:ring-zinc-800/50 flex items-center justify-center">
                         {instance.profilePic ? (
-                          <img src={instance.profilePic} alt="Perfil" className="h-full w-full object-cover" />
+                          <img 
+                            src={instance.profilePic} 
+                            alt="Perfil" 
+                            className="h-full w-full object-cover" 
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
                         ) : (
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-zinc-500" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
