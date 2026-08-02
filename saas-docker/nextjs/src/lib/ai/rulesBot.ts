@@ -53,6 +53,7 @@ interface BotState {
   step: string;
   data: Record<string, any>;
   errorCount?: number;
+  updatedAt?: number;
 }
 
 function normalizePhone(value: any): string {
@@ -325,21 +326,29 @@ export async function processMessageWithRules(
     console.error("Erro ao buscar state do rulesBot no DB:", e);
   }
 
-  let state: BotState = { step: "main_menu", data: {} };
+  let state: BotState = { step: "main_menu", data: {}, updatedAt: Date.now() };
   
   if (rawState) {
     try {
-      state = JSON.parse(rawState);
+      const parsed = JSON.parse(rawState);
+      const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos de inatividade
+      if (parsed.updatedAt && (Date.now() - Number(parsed.updatedAt) > SESSION_TIMEOUT_MS)) {
+        console.log(`[RulesBot] Sessão expirada para ${contactNumber} (> 30min de inatividade). Resetando estado.`);
+        state = { step: "main_menu", data: {}, updatedAt: Date.now() };
+      } else {
+        state = parsed;
+      }
     } catch {}
   }
 
   // Helper para salvar o estado
   const saveState = async (newState: BotState) => {
     try {
+      const stateToSave = { ...newState, updatedAt: Date.now() };
       await prisma.systemConfig.upsert({
         where: { key: stateKey },
-        update: { value: JSON.stringify(newState) },
-        create: { key: stateKey, value: JSON.stringify(newState) }
+        update: { value: JSON.stringify(stateToSave) },
+        create: { key: stateKey, value: JSON.stringify(stateToSave) }
       });
     } catch (e) {
       console.error("Erro ao salvar state do rulesBot no DB:", e);
@@ -482,6 +491,29 @@ export async function processMessageWithRules(
     ? `Olá! Existe um pagamento pendente para *${pendingSale.product_name}* no valor de *R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}*.`
       + `\n\nEscolha como deseja continuar:\n\n1️⃣ *Pagar com PIX* — código no próprio WhatsApp\n2️⃣ *Pagar com Cartão* — checkout seguro\n3️⃣ *Cancelar cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
     : "";
+
+  const isAlreadyPaidIntent = cleanText.includes("paguei") || cleanText.includes("ja paguei") || cleanText.includes("ja tenho o plano") || cleanText.includes("ja tenho plano") || cleanText.includes("verificar") || cleanText.includes("verifique");
+
+  if (isAlreadyPaidIntent) {
+    const paidSale = await prisma.sale.findFirst({
+      where: {
+        tenant_id: tenantId,
+        status: "paid",
+        OR: phoneFormats.map(pf => ({
+          notes: { contains: `customer_phone:${pf}` }
+        }))
+      },
+      orderBy: { paid_at: "desc" }
+    });
+
+    if (paidSale) {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return `🎉 *Pagamento Confirmado!*\n\nIdentificamos o seu pagamento para *${paidSale.product_name}* (R$ ${paidSale.amount.toFixed(2).replace(".", ",")}). Sua assinatura está 100% ativa! Como podemos te ajudar agora?`;
+    } else {
+      return `🔎 Não identifiquei nenhum pagamento aprovado recente para este número de WhatsApp. Se você concluiu o pagamento via PIX ou Cartão há poucos instantes, aguarde até 2 minutos para a compensação automática ou fale com nosso suporte humano!`;
+    }
+  }
 
   if (pendingSale) {
     const isCancelIntent = cleanText.includes("cancele") || cleanText.includes("cancelar") || cleanText.includes("cancela") || cleanText.includes("desistir") || cleanText === "3";
