@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { calculatePartnerTier } from '@/lib/partners';
 
 const prisma = new PrismaClient();
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ export async function GET() {
     });
 
     const convertedLeads = await prisma.lead.count({
-      where: { partner_id: partnerId, tenant_id: tenantId, status: 'CONVERTED' }
+      where: { partner_id: partnerId, tenant_id: tenantId, status: { in: ['CONVERTED', 'won'] } }
     });
 
     const commissions = await prisma.partnerCommission.aggregate({
@@ -47,8 +48,8 @@ export async function GET() {
       _sum: { amount: true },
     });
 
-    const daysOld = (Date.now() - new Date(partner.created_at).getTime()) / (1000 * 60 * 60 * 24);
-    const effRate = (daysOld < 30 && partner.type !== 'dev') ? 50 : partner.commissionRate;
+    const activeClientsCount = convertedLeads;
+    const tierInfo = calculatePartnerTier(activeClientsCount);
 
     const leadsWithProjectStatus = leads.map(l => {
       let projectStatus = 'pendente';
@@ -70,13 +71,17 @@ export async function GET() {
       leads: leadsWithProjectStatus,
       totalLeads,
       convertedLeads,
+      activeClientsCount,
+      tierInfo,
       pendingCommissions: (commissions._sum.amount || 0) - (paidCommissions._sum.amount || 0),
       paidCommissions: paidCommissions._sum.amount || 0,
       totalCommissions: commissions._sum.amount || 0,
-      commissionRate: effRate,
+      commissionRate: tierInfo.recurringRate,
+      firstMonthRate: tierInfo.firstMonthRate,
       type: partner.type || 'vendedor',
     });
   } catch (error: any) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
+

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from 'bcryptjs';
 import { sendWhatsAppMessage } from '@/lib/evolution';
+import { calculateCommissionForSale } from '@/lib/partners';
 
 const prisma = new PrismaClient();
 
@@ -208,19 +209,16 @@ export async function POST(req: Request) {
               commissionAmount = productName.includes("avulso") ? (sale.amount * partner.commissionRate) / 100 : 200.00;
               commissionType = partner.type === 'dev' ? `repasse (${partner.commissionRate}%)` : "fixed";
             } else {
-              if (partner.type === 'dev') {
-                commissionAmount = (sale.amount * partner.commissionRate) / 100;
-                commissionType = `repasse (${partner.commissionRate}%)`;
-              } else if (isFirstPayment) {
-                commissionAmount = (sale.amount * 50) / 100;
-                commissionType = "activation_bonus (50%)";
-              } else {
-                commissionAmount = (sale.amount * partner.commissionRate) / 100;
-                commissionType = `recurring (${partner.commissionRate}%)`;
-              }
+              const activeClientsCount = await prisma.lead.count({
+                where: { partner_id: partner.id, status: { in: ['CONVERTED', 'won'] } }
+              });
+              const commInfo = calculateCommissionForSale(sale.amount, isFirstPayment, activeClientsCount);
+              commissionAmount = commInfo.commissionAmount;
+              commissionType = isFirstPayment ? "activation_bonus (50%)" : `recurring (${commInfo.rate}% - Nível ${commInfo.tierName})`;
             }
 
-            console.log(`💰 [Comissão] ${productName} | Parceiro: ${partner.name} | Tipo: ${commissionType} | R$ ${commissionAmount.toFixed(2)}`);
+            console.log(`💰 [Comissão Gamificada] ${productName} | Parceiro: ${partner.name} | Tipo: ${commissionType} | R$ ${commissionAmount.toFixed(2)}`);
+
 
             try {
               await prisma.partnerCommission.create({

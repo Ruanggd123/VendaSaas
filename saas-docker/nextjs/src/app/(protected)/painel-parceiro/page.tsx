@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PARTNER_TIERS, calculatePartnerTier, PartnerTierInfo } from '@/lib/partners';
 import {
   Users, DollarSign, TrendingUp, Clock, Phone, Bot, Calendar, MessageSquare, Smartphone, Settings,
   LogOut, Target, CheckCircle2, Wallet, Link2, Copy, Check, Share2,
@@ -24,7 +25,9 @@ interface Withdrawal {
 interface PartnerData {
   tenantId: string; name: string; referralCode: string; leads: PartnerLead[];
   paidCommissions: number; totalCommissions: number; commissionRate: number; type?: string;
+  activeClientsCount?: number; tierInfo?: PartnerTierInfo; firstMonthRate?: number;
 }
+
 
 // ─── Componentes de Design Premium ───
 
@@ -402,9 +405,10 @@ export default function PainelParceiroPage() {
     setTimeout(() => setCopiedCopy(null), 2500);
   };
 
-  // Cálculo da Calculadora de Simulador baseado no Plano Selecionado
+  // Cálculo da Calculadora de Simulador baseado no Plano Selecionado e Nível Gamificado
+  const simulatedTier = calculatePartnerTier(simulatedClients);
   const simulatedFirstMonthBonus = simulatedClients * selectedSimulatedPrice * 0.5; // 50% bônus 1º mês
-  const simulatedLifetimeMonthly = simulatedClients * selectedSimulatedPrice * 0.3; // 30% recorrente vitalício
+  const simulatedLifetimeMonthly = simulatedClients * selectedSimulatedPrice * (simulatedTier.recurringRate / 100);
 
   return (
     <div className="space-y-8 relative">
@@ -413,14 +417,21 @@ export default function PainelParceiroPage() {
       {/* HEADER PRINCIPAL DO PAINEL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               Painel do Afiliado Parceiro
             </h1>
-            <span className="px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs font-bold flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Nível Ouro (Afiliado Destaque)
-            </span>
+            {(() => {
+              const currentTier = data.tierInfo || calculatePartnerTier(convertedLeads);
+              return (
+                <span className={`px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border shadow-sm ${currentTier.badgeBg}`}>
+                  <span className="text-base">{currentTier.icon}</span>
+                  <span>{currentTier.badgeText}</span>
+                </span>
+              );
+            })()}
           </div>
+
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Gerencie suas indicações, saques via PIX, links de vendas e materiais de divulgação em um só lugar.
           </p>
@@ -509,19 +520,158 @@ export default function PainelParceiroPage() {
         </GlassCard>
 
         {/* Card 4: Taxa de Comissão & Nível */}
-        <GlassCard hover className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase">Sua Comissão (Ouro)</span>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">
-            {data.commissionRate}%
-          </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400">50% bônus 1º mês + {data.commissionRate}% recorrente</p>
-        </GlassCard>
+        {(() => {
+          const currentTier = data.tierInfo || calculatePartnerTier(convertedLeads);
+          return (
+            <GlassCard hover className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase flex items-center gap-1">
+                  <span>{currentTier.icon}</span>
+                  <span>{currentTier.name}</span>
+                </span>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-lg">
+                  {currentTier.icon}
+                </div>
+              </div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">
+                {currentTier.recurringRate}%
+              </div>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">50% no 1º mês + {currentTier.recurringRate}% recorrente</p>
+            </GlassCard>
+          );
+        })()}
       </div>
+
+      {/* ── BARRA DE PROGRESSO GAMIFICADA DE NÍVEL DE PARCEIRO ── */}
+      {(() => {
+        const currentTier = data.tierInfo || calculatePartnerTier(convertedLeads);
+        return (
+          <GlassCard className="p-6 md:p-8 space-y-6 border-indigo-500/30 bg-gradient-to-r from-slate-900/90 via-indigo-950/80 to-purple-950/90 text-white relative overflow-hidden shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 p-[2px] shadow-xl shadow-amber-500/20 shrink-0">
+                  <div className="w-full h-full rounded-[14px] bg-slate-900 flex items-center justify-center text-3xl">
+                    {currentTier.icon}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 text-xs font-extrabold rounded-full border ${currentTier.badgeBg}`}>
+                      {currentTier.badgeText}
+                    </span>
+                    <span className="text-xs text-indigo-200 font-medium">
+                      🔥 {convertedLeads} Clientes Ativos na Carteira
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white mt-1">
+                    {currentTier.recurringRate}% de Comissão Recorrente + 50% no 1º Mês
+                  </h3>
+                </div>
+              </div>
+
+              {currentTier.nextTierName && (
+                <div className="px-4 py-3 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-md text-right shrink-0">
+                  <p className="text-[11px] text-indigo-200 font-semibold">Próximo Nível:</p>
+                  <p className="text-sm font-extrabold text-amber-300">
+                    Nível {currentTier.nextTierName} ({PARTNER_TIERS[currentTier.nextTierName].recurringRate}%)
+                  </p>
+                  <p className="text-[10px] text-white/80 mt-0.5">
+                    Faltam apenas <strong className="text-white font-bold">{currentTier.clientsNeededForNext}</strong> vendas ativas!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Barra de Progresso Animada */}
+            {currentTier.nextTierName && (
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between text-xs font-bold text-indigo-200">
+                  <span>Progresso para {currentTier.nextTierName}</span>
+                  <span>{currentTier.progressPercent}%</span>
+                </div>
+                <div className="w-full h-3 rounded-full bg-slate-800 border border-white/10 overflow-hidden p-0.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-400 transition-all duration-700 shadow-md shadow-amber-500/30"
+                    style={{ width: `${currentTier.progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </GlassCard>
+        );
+      })()}
+
+      {/* ── TABELA EXPLICATIVA DOS 4 NÍVEIS GAMIFICADOS ── */}
+      {(() => {
+        const currentTier = data.tierInfo || calculatePartnerTier(convertedLeads);
+        return (
+          <GlassCard className="p-6 md:p-8 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <span>Tabela Oficial de Níveis &amp; Comissões Gamificadas</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                  No 1º mês de cada cliente você recebe <strong>50% fixo de bônus</strong>. Do 2º mês em diante você recebe a porcentagem do seu nível:
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400 font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Nível</th>
+                    <th className="py-3 px-4">Clientes Ativos</th>
+                    <th className="py-3 px-4">1º Mês (Ativação)</th>
+                    <th className="py-3 px-4">Mês 2+ (Recorrência)</th>
+                    <th className="py-3 px-4">Exemplo no Growth (R$ 147)</th>
+                    <th className="py-3 px-4 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {Object.values(PARTNER_TIERS).map((t) => {
+                    const isCurrent = currentTier.name === t.name;
+                    return (
+                      <tr key={t.name} className={`transition-colors ${isCurrent ? 'bg-indigo-500/10 dark:bg-indigo-500/15 font-bold' : 'hover:bg-slate-50 dark:hover:bg-zinc-900/50'}`}>
+                        <td className="py-3.5 px-4 flex items-center gap-2 font-extrabold text-slate-900 dark:text-white">
+                          <span className="text-lg">{t.icon}</span>
+                          <span>{t.name}</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 dark:text-zinc-300">
+                          {t.minClients} a {t.maxClients || '∞'} clientes
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-purple-600 dark:text-purple-400">
+                          50% no 1º mês
+                        </td>
+                        <td className="py-3.5 px-4 font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {t.recurringRate}% /mês
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 dark:text-zinc-400 font-mono">
+                          R$ {((147 * t.recurringRate) / 100).toFixed(2)}/mês
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {isCurrent ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-500 text-white shadow-sm">
+                              <CheckCircle2 className="w-3 h-3" /> Seu Nível Atual
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
+                              {t.minClients > convertedLeads ? 'Bloqueado' : 'Concluído'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
+        );
+      })()}
+
 
       {/* ── QUEBRA DE SOLUÇÕES & BOTS VENDIDOS ── */}
       <GlassCard className="p-6 md:p-8 space-y-6 border-indigo-500/20">
@@ -914,14 +1064,18 @@ export default function PainelParceiroPage() {
               </div>
 
               <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/40 dark:to-zinc-900/80 border border-emerald-200 dark:border-emerald-500/30 space-y-2 shadow-md dark:shadow-none">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Renda Passiva Mensal (30% Vitalício)</span>
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>{simulatedTier.icon}</span>
+                  <span>Renda Passiva Mensal (Nível {simulatedTier.name} — {simulatedTier.recurringRate}%)</span>
+                </span>
                 <div className="text-3xl font-black text-emerald-600 dark:text-emerald-300">
                   R$ {simulatedLifetimeMonthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /mês
                 </div>
                 <p className="text-xs text-slate-600 dark:text-zinc-400">
-                  Comissão recorrente mensal pingando na sua conta enquanto os {simulatedClients} clientes mantiverem a assinatura.
+                  Comissão recorrente mensal na sua conta mantendo {simulatedClients} clientes ativos no plano de R$ {selectedSimulatedPrice}/mês.
                 </p>
               </div>
+
             </div>
           </div>
         </GlassCard>
