@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     const { instanceName: requestedInstanceName, connectionName } = await req.json();
 
-    const evolutionUrl = process.env.EVOLUTION_URL || "http://evolution:8080";
+    const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
     const evolutionKey = process.env.EVOLUTION_API_KEY;
 
     if (!evolutionKey) {

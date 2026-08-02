@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { getPlanDetails } from '@/lib/plans';
 
 const prisma = new PrismaClient();
-const EVOLUTION_URL = process.env.EVOLUTION_URL || 'http://evolution:8080';
+const EVOLUTION_URL = process.env.EVOLUTION_URL || 'https://evolution-api-03xi.onrender.com';
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || '';
 
 // This acts as a reverse proxy between the Official Evolution Manager and the Evolution API.

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nome da instância não fornecido" }, { status: 400 });
     }
 
-    const evolutionUrl = process.env.EVOLUTION_URL || "http://evolution:8080";
+    const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
     const evolutionKey = process.env.EVOLUTION_API_KEY;
 
     if (!evolutionKey) {
