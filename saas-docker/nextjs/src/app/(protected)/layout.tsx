@@ -205,19 +205,35 @@ export default function DashboardLayout({
         {/* Logo Header */}
         <div className={`h-16 flex items-center border-b border-slate-200 dark:border-white/[0.06] overflow-hidden ${isCollapsed ? "justify-center px-2" : "px-4 justify-between"}`}>
           {!isCollapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0 overflow-hidden">
-                <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-0.5" />
+            <Link href="/dashboard" className="group flex items-center gap-3 min-w-0 py-1 transition-all">
+              <div className="relative shrink-0">
+                <div className="absolute -inset-0.5 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-xl blur-[3px] opacity-75 group-hover:opacity-100 transition-opacity" />
+                <div className="relative w-9 h-9 rounded-xl bg-slate-950 p-1 border border-white/20 flex items-center justify-center shadow-md overflow-hidden">
+                  <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300" />
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">Nexus SaaS</p>
-                <p className="text-[10px] text-indigo-500 dark:text-indigo-400 font-semibold truncate">{roleLabel}</p>
+
+              <div className="min-w-0 flex flex-col justify-center">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="text-base font-black tracking-tight text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
+                    NEXUS
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 rounded-md text-[9px] font-black uppercase tracking-wider">
+                    SAAS
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-1 truncate">
+                  SISTEMAS &amp; ATENDIMENTO
+                </span>
               </div>
             </Link>
           )}
           {isCollapsed && (
-            <Link href="/dashboard" className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20 overflow-hidden">
-              <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain p-0.5" />
+            <Link href="/dashboard" className="group relative w-9 h-9 shrink-0 flex items-center justify-center">
+              <div className="absolute -inset-0.5 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-xl blur-[3px] opacity-75 group-hover:opacity-100 transition-opacity" />
+              <div className="relative w-9 h-9 rounded-xl bg-slate-950 p-1 border border-white/20 flex items-center justify-center shadow-md overflow-hidden">
+                <img src="/nexus-logo.png" alt="Nexus" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300" />
+              </div>
             </Link>
           )}
           {!isCollapsed && (
