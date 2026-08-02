@@ -660,18 +660,18 @@ export async function POST(req: Request) {
             }
           }
 
-          // Fallback: compara com o conteúdo da última mensagem de saída gerada pela IA
-          const lastAiMsg = await prisma.message.findFirst({
+          // Fallback: compara com o conteúdo de mensagens recentes de saída do bot (IA ou Regras)
+          const lastOutboundMsg = await prisma.message.findFirst({
             where: {
               conversation_id: conversation.id,
               direction: "outbound",
-              ai_generated: true,
+              created_at: { gte: new Date(Date.now() - 5 * 60 * 1000) }
             },
             orderBy: { created_at: 'desc' }
           });
-          if (lastAiMsg && lastAiMsg.content.trim() === msgContent.trim()) {
-            console.log(`[Webhook] Ignorando eco da IA (fromMe, conteúdo) para ${contactNumber}`);
-            return NextResponse.json({ success: true, ignored: "Echo da IA (conteúdo)" });
+          if (lastOutboundMsg && (lastOutboundMsg.content.trim() === msgContent.trim() || (msgContent.includes("checkout") && lastOutboundMsg.content.includes("checkout")))) {
+            console.log(`[Webhook] Ignorando eco da mensagem enviada pelo bot para ${contactNumber}`);
+            return NextResponse.json({ success: true, ignored: "Eco do bot" });
           }
         }
 
@@ -849,6 +849,7 @@ export async function POST(req: Request) {
             });
             console.log(`⏸️ Modo Híbrido: IA pausada para o contato ${contactNumber} pois um humano assumiu o atendimento.`);
           }
+          return NextResponse.json({ success: true, ignored: "Outbound enviado pelo operador ou sistema" });
         } else {
           const isHybridEnabled = (connectionSettings?.modules?.module_hybrid_mode !== false) &&
                                   (connectionSettings?.module_hybrid_mode !== false) &&
