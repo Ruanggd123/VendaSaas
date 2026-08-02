@@ -13,7 +13,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const evolutionUrl = process.env.EVOLUTION_URL || "https://evolution-api-03xi.onrender.com";
+    const rawUrl = (process.env.EVOLUTION_URL || "").trim();
+    const evolutionUrl = (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) ? rawUrl.replace(/\/$/, "") : "https://evolution-api-03xi.onrender.com";
     const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.NEXT_PUBLIC_EVOLUTION_API_KEY || "ba1add1dc7fbe706bfcb9afb78154402bd1e30813abe36d8c22c62532a50b3df";
 
     // Buscar instâncias (parceiro vê só as próprias)
