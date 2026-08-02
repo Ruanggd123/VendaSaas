@@ -268,6 +268,29 @@ export default function ProjectStatusPage() {
           )}
         </div>
 
+        {/* ── SEÇÃO DE BRIEFING DO CLIENTE ── */}
+        {(() => {
+          let initialBriefing: any = null;
+          try {
+            initialBriefing = typeof project.briefing === 'string' ? JSON.parse(project.briefing) : project.briefing;
+          } catch {}
+
+          return (
+            <ClientBriefingSection
+              projectId={project.id}
+              projectTitle={project.title}
+              savedBriefing={initialBriefing}
+              onSaved={(updatedBriefing) => {
+                setProject((prev: any) => ({
+                  ...prev,
+                  briefing: updatedBriefing,
+                  status: prev.status === 'OPEN' ? 'IN_PROGRESS' : prev.status
+                }));
+              }}
+            />
+          );
+        })()}
+
         {/* Falar com o Desenvolvedor Responsável */}
         <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-200/90 dark:border-white/10 p-6 text-center space-y-3 shadow-xl">
           <h4 className="text-sm font-black text-slate-900 dark:text-white">Precisa de informações sobre seu projeto?</h4>
@@ -289,3 +312,239 @@ export default function ProjectStatusPage() {
     </div>
   );
 }
+
+function ClientBriefingSection({
+  projectId,
+  projectTitle,
+  savedBriefing,
+  onSaved
+}: {
+  projectId: string;
+  projectTitle: string;
+  savedBriefing: any;
+  onSaved: (briefing: any) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(!savedBriefing);
+  const [saving, setSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const [form, setForm] = useState({
+    project_type: savedBriefing?.project_type || 'Site Institucional Complet',
+    company_name: savedBriefing?.company_name || '',
+    slogan: savedBriefing?.slogan || '',
+    preferred_colors: savedBriefing?.preferred_colors || '',
+    main_services: savedBriefing?.main_services || '',
+    whatsapp_button: savedBriefing?.whatsapp_button || '',
+    inspiration_links: savedBriefing?.inspiration_links || '',
+    additional_notes: savedBriefing?.additional_notes || '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: projectId,
+          briefing: form,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMsg('📋 Briefing salvo e enviado com sucesso ao desenvolvedor!');
+        setIsEditing(false);
+        onSaved(form);
+      } else {
+        setErrorMsg(data.error || 'Erro ao salvar briefing');
+      }
+    } catch {
+      setErrorMsg('Erro de conexão ao salvar briefing');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isEditing && savedBriefing) {
+    return (
+      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-indigo-500/30 p-6 sm:p-8 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Briefing do Projeto Enviado</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Seus dados e requisitos foram recebidos pelo desenvolvedor</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-xs rounded-xl border border-slate-200 dark:border-white/10 transition-all shrink-0"
+          >
+            ✏️ Editar Requisitos
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa / Marca:</span>
+            <p className="font-extrabold text-slate-900 dark:text-white">{savedBriefing.company_name || 'Não informado'}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tipo do Projeto:</span>
+            <p className="font-extrabold text-slate-900 dark:text-white">{savedBriefing.project_type || 'Site'}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cores &amp; Estilo Visual:</span>
+            <p className="font-bold text-indigo-600 dark:text-indigo-400">{savedBriefing.preferred_colors || 'A critério do designer'}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">WhatsApp no Botão do Site:</span>
+            <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{savedBriefing.whatsapp_button || 'Não informado'}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1 sm:col-span-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Serviços &amp; Produtos a Destacar:</span>
+            <p className="font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{savedBriefing.main_services || 'Não informado'}</p>
+          </div>
+          {savedBriefing.inspiration_links && (
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/5 space-y-1 sm:col-span-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Links / Inspirações / Redes:</span>
+              <p className="font-medium text-indigo-500 underline break-all">{savedBriefing.inspiration_links}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-indigo-500/30 p-6 sm:p-8 shadow-xl space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/10">
+        <div>
+          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-indigo-500" />
+            <span>Formulário de Briefing — Requisitos do seu Site</span>
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Preencha os detalhes essenciais para que nossa equipe desenvolva o site perfeito para o seu negócio!
+          </p>
+        </div>
+      </div>
+
+      {successMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+          {successMsg}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold">
+          {errorMsg}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 dark:text-slate-300">1. Nome da sua Empresa / Marca (*):</label>
+            <input
+              type="text"
+              required
+              value={form.company_name}
+              onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+              placeholder="Ex: Marmoraria Silva"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 dark:text-slate-300">2. Tipo de Projeto:</label>
+            <select
+              value={form.project_type}
+              onChange={(e) => setForm({ ...form, project_type: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            >
+              <option value="Site Institucional Completo">Site Institucional Completo</option>
+              <option value="Landing Page de Alta Conversão">Landing Page de Alta Conversão</option>
+              <option value="Loja Virtual E-Commerce">Loja Virtual E-Commerce</option>
+              <option value="Plataforma SaaS / Sistema Web">Plataforma SaaS / Sistema Web</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 dark:text-slate-300">3. Slogan ou Frase Principal:</label>
+            <input
+              type="text"
+              value={form.slogan}
+              onChange={(e) => setForm({ ...form, slogan: e.target.value })}
+              placeholder="Ex: Sofisticação e qualidade em mármores"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 dark:text-slate-300">4. Cores Preferidas / Estilo Visual:</label>
+            <input
+              type="text"
+              value={form.preferred_colors}
+              onChange={(e) => setForm({ ...form, preferred_colors: e.target.value })}
+              placeholder="Ex: Dourado e preto, estilo luxuoso clean"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label className="font-bold text-slate-700 dark:text-slate-300">5. WhatsApp para colocar no botão do site (*):</label>
+            <input
+              type="text"
+              required
+              value={form.whatsapp_button}
+              onChange={(e) => setForm({ ...form, whatsapp_button: e.target.value })}
+              placeholder="Ex: (88) 98188-5499"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label className="font-bold text-slate-700 dark:text-slate-300">6. Principais Serviços / Produtos a destacar no site (*):</label>
+            <textarea
+              required
+              rows={3}
+              value={form.main_services}
+              onChange={(e) => setForm({ ...form, main_services: e.target.value })}
+              placeholder="Ex: Bancadas de cozinha, pias de banheiro, soleiras, lavatórios e pisos de granito."
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500 resize-none"
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label className="font-bold text-slate-700 dark:text-slate-300">7. Links de inspiração / Redes Sociais / Exemplos de sites que você gosta:</label>
+            <input
+              type="text"
+              value={form.inspiration_links}
+              onChange={(e) => setForm({ ...form, inspiration_links: e.target.value })}
+              placeholder="Ex: instagram.com/minhamarca, exemplo1.com, exemplo2.com"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-black text-xs rounded-2xl shadow-xl shadow-indigo-600/20 uppercase tracking-wider transition-all disabled:opacity-50"
+        >
+          {saving ? 'Salvando Briefing...' : '🚀 Salvar e Enviar Briefing ao Desenvolvedor'}
+        </button>
+      </form>
+    </div>
+  );
+}
+

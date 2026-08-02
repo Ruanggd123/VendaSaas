@@ -50,7 +50,7 @@ const navItems = [
       { href: "/agenda", label: "Agenda", icon: Calendar },
       { href: "/vendas", label: "Vendas & Cobranças", icon: DollarSign },
       { href: "/autovendas", label: "Afiliados & Saques", icon: Wallet, superAdminOnly: true },
-      { href: "/projetos", label: "Projetos", icon: Rocket },
+      { href: "/projetos", label: "Projetos", icon: Rocket, devOrAdminOnly: true },
     ],
   },
   {
@@ -240,6 +240,7 @@ export default function DashboardLayout({
                 <div className="space-y-0.5">
                   {group.items.map((item: any) => {
                     if (item.superAdminOnly && role !== "superadmin") return null;
+                    if (item.devOrAdminOnly && role !== "superadmin" && role !== "manager" && !(role === "partner" && (userAccount as any).partnerType === "dev")) return null;
                     const active = isActive(item.href);
                     const Icon = item.icon;
                     return (

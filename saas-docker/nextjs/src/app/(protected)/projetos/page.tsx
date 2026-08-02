@@ -454,31 +454,110 @@ export default function AdminProjectsPage() {
               </button>
             </div>
 
-            {/* Link de Tracking Rápidamente Copiável */}
-            <div className="p-4 bg-indigo-50/70 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
-                  <ExternalLink className="w-4 h-4" /> Link de Acompanhamento do Cliente:
-                </span>
-                <button
-                  onClick={() => copyTrackingLink(selectedProject.id)}
-                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
-                >
-                  {copiedId === selectedProject.id ? (
-                    <>
-                      <Check className="w-3 h-3" /> Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" /> Copiar Link
-                    </>
-                  )}
-                </button>
+            {/* Link de Tracking & Botão de Contato no WhatsApp */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-4 bg-indigo-50/70 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+                    <ExternalLink className="w-4 h-4" /> Link de Tracking do Cliente:
+                  </span>
+                  <button
+                    onClick={() => copyTrackingLink(selectedProject.id)}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                  >
+                    {copiedId === selectedProject.id ? (
+                      <>
+                        <Check className="w-3 h-3" /> Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" /> Copiar Link
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] font-mono text-indigo-900 dark:text-indigo-300 truncate">
+                  {typeof window !== "undefined" && `${window.location.origin}/projeto/${selectedProject.id}`}
+                </p>
               </div>
-              <p className="text-[11px] font-mono text-indigo-900 dark:text-indigo-300 truncate">
-                {typeof window !== "undefined" && `${window.location.origin}/projeto/${selectedProject.id}`}
-              </p>
+
+              <div className="p-4 bg-emerald-50/70 dark:bg-emerald-500/10 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 space-y-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-emerald-600" /> Contato Direto com Cliente:
+                  </span>
+                </div>
+                <a
+                  href={`https://wa.me/55${selectedProject.client_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `Olá ${selectedProject.client_name}! Sou o desenvolvedor responsável pelo seu projeto (${selectedProject.title}). Estou entrando em contato para conversarmos sobre o andamento e requisitos!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Falar no WhatsApp do Cliente
+                </a>
+              </div>
             </div>
+
+            {/* Visualizador do Briefing Enviado pelo Cliente */}
+            {(() => {
+              let parsedBriefing: any = null;
+              try {
+                parsedBriefing = typeof selectedProject.briefing === 'string' ? JSON.parse(selectedProject.briefing) : selectedProject.briefing;
+              } catch {}
+
+              return (
+                <div className="p-5 bg-slate-50 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-white/10 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-white/10 pb-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-500" /> Requisitos &amp; Briefing Preenchido pelo Cliente
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      {parsedBriefing ? 'Briefing Recebido ✅' : 'Aguardando Cliente ⏳'}
+                    </span>
+                  </div>
+
+                  {parsedBriefing ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Empresa / Marca:</span>
+                        <p className="font-extrabold text-slate-900 dark:text-white">{parsedBriefing.company_name || 'Não informado'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Tipo do Projeto:</span>
+                        <p className="font-extrabold text-indigo-600 dark:text-indigo-400">{parsedBriefing.project_type || 'Site'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Cores &amp; Estilo Visual:</span>
+                        <p className="font-bold text-purple-600 dark:text-purple-400">{parsedBriefing.preferred_colors || 'A critério do designer'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">WhatsApp no Botão:</span>
+                        <p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{parsedBriefing.whatsapp_button || 'Não informado'}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Serviços &amp; Produtos a Destacar:</span>
+                        <p className="font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-white/5 mt-0.5 whitespace-pre-wrap">
+                          {parsedBriefing.main_services || 'Não informado'}
+                        </p>
+                      </div>
+                      {parsedBriefing.inspiration_links && (
+                        <div className="sm:col-span-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Links &amp; Inspirações:</span>
+                          <p className="font-medium text-indigo-500 underline break-all mt-0.5">{parsedBriefing.inspiration_links}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 font-medium italic">
+                      O cliente ainda não preencheu o formulário de briefing na página de acompanhamento dele. Você pode enviar o link de tracking para ele preencher!
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
 
             {/* Seletor de Etapas (Stepper) */}
             <div className="space-y-3">

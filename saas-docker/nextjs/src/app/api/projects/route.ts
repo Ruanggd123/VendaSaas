@@ -104,7 +104,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, status, message, prazo_entrega } = body;
+    const { id, status, message, prazo_entrega, briefing } = body;
 
     if (!id) {
       return NextResponse.json({ error: "ID do projeto não informado" }, { status: 400 });
@@ -113,6 +113,7 @@ export async function PATCH(request: Request) {
     const updateData: any = {};
     if (status) updateData.status = status;
     if (prazo_entrega) updateData.prazo_entrega = new Date(prazo_entrega);
+    if (briefing !== undefined) updateData.briefing = typeof briefing === 'object' ? JSON.stringify(briefing) : briefing;
 
     const updatedProject = await prisma.project.update({
       where: { id },
@@ -146,3 +147,38 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Erro ao atualizar projeto" }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, briefing } = body;
+
+    if (!id || !briefing) {
+      return NextResponse.json({ error: "ID do projeto e briefing são obrigatórios" }, { status: 400 });
+    }
+
+    const briefingStr = typeof briefing === 'object' ? JSON.stringify(briefing) : briefing;
+
+    const updatedProject = await prisma.project.update({
+      where: { id },
+      data: {
+        briefing: briefingStr,
+        status: 'IN_PROGRESS',
+      },
+    });
+
+    await prisma.projectTimeline.create({
+      data: {
+        project_id: id,
+        status_change: 'IN_PROGRESS',
+        message: '📋 Briefing enviado com sucesso pelo cliente! Projeto em desenvolvimento.',
+        author: 'CLIENT',
+      },
+    });
+
+    return NextResponse.json({ success: true, project: updatedProject });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Erro ao salvar briefing do cliente" }, { status: 500 });
+  }
+}
+
