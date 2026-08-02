@@ -107,14 +107,8 @@ export default function NativeWhatsAppDashboard() {
     setCountdown(40);
 
     try {
-      // Aquecer Evolution API se estiver em cold start (Render free tier)
-      const warmRes = await fetch("/api/warm/evolution");
-      const warmData = await warmRes.json().catch(() => ({}));
-      if (warmData.status === "cold_booting") {
-        alert("O servidor de WhatsApp está inicializando. Aguarde 30 segundos e tente novamente.");
-        setIsProcessing(false);
-        return;
-      }
+      // Aquecer Evolution API em segundo plano sem bloquear
+      fetch("/api/warm/evolution").catch(() => {});
 
       const res = await fetch("/api/whatsapp/connect", { 
         method: "POST",
