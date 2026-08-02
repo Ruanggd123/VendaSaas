@@ -70,6 +70,139 @@ const DEFAULT_SCHEDULE_PER_DAY = {
   sun: { enabled: false, start: "09:00", end: "12:00", max_appointments: 2 },
 };
 
+const MAIN_STORE_TENANT_ID = "3bc0174c-d760-4fc7-9e38-8d20577f5593";
+
+const DEFAULT_CLIENT_GENERIC_NODES: any[] = [
+  {
+    id: "node_catalogo_generico",
+    parentId: null,
+    keyword: "1",
+    title: "📋 Produtos & Serviços",
+    actionType: "catalog",
+    textContent: "📋 *Confira nossos produtos e serviços abaixo:*\n\nEscolha uma das opções para ver os detalhes:",
+    showInPoll: true,
+  },
+  {
+    id: "node_agendamento_generico",
+    parentId: null,
+    keyword: "2",
+    title: "📅 Agendar Horário / Atendimento",
+    actionType: "scheduling",
+    textContent: "Escolha uma data e horário disponível abaixo para realizarmos o seu atendimento:",
+    showInPoll: true,
+  },
+  {
+    id: "node_atendente_generico",
+    parentId: null,
+    keyword: "3",
+    title: "👤 Falar com Atendente Humano",
+    actionType: "human",
+    textContent: "Transferindo o seu atendimento para um de nossos atendentes. Por favor, aguarde um instante! 🤝",
+    showInPoll: true,
+  },
+];
+
+
+const DEFAULT_SAAS_NODES: any[] = [
+  {
+    id: "node_plano_start",
+    parentId: null,
+    keyword: "1",
+    title: "Plano Start (R$ 67/mês)",
+    actionType: "checkout",
+    productId: "Plano Start",
+    productName: "Plano Start (R$ 67/mês)",
+    productPrice: "67",
+    productDescription: "📌 Plano Start (R$ 67/mês)\n• Bot Fixo de Regras e Botões no WhatsApp\n• Atendimento Automático 24 horas\n• Respostas Ilimitadas via Menu\n(NÃO inclui criação de site nem IA)",
+    textContent: "Você selecionou o *Plano Start (R$ 67/mês)*:\n\n✨ *O que está incluso:*\n• Bot Fixo de Regras/Botões no WhatsApp\n• Atendimento 24h automático\n• Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
+    paymentMode: "both",
+    showInPoll: true,
+  },
+  {
+    id: "node_plano_97",
+    parentId: null,
+    keyword: "2",
+    title: "Plano 97 (R$ 97/mês)",
+    actionType: "checkout",
+    productId: "Plano 97",
+    productName: "Plano 97 (R$ 97/mês)",
+    productPrice: "97",
+    productDescription: "📌 Plano 97 (R$ 97/mês)\n• Site Institucional 100% GRÁTIS Incluso\n• Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mês)\n• Agendamento Automático de Atendimentos",
+    textContent: "Você selecionou o *Plano 97 (R$ 97/mês)*:\n\n✨ *O que está incluso:*\n• Site Institucional 100% GRÁTIS\n• AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mês)\n• Agendamento de Horários\n\nEscolha a forma de pagamento:",
+    paymentMode: "both",
+    showInPoll: true,
+  },
+  {
+    id: "node_plano_growth",
+    parentId: null,
+    keyword: "3",
+    title: "Plano Growth (R$ 147/mês ⭐)",
+    actionType: "checkout",
+    productId: "Plano Growth (Mais Vendido ⭐)",
+    productName: "Plano Growth (Mais Vendido ⭐)",
+    productPrice: "147",
+    productDescription: "📌 Plano Growth (R$ 147/mês ⭐) — O Mais Vendido!\n• Site Institucional de até 5 Páginas\n• Ambos os Bots (Regras + IA 5k msgs/mês)\n• CRM de Vendas e Atendimento\n• Agendamento Automático + Suporte VIP",
+    textContent: "Você selecionou o *Plano Growth (R$ 147/mês ⭐)*:\n\n✨ *O que está incluso:*\n• Site Institucional Completo (até 5 páginas)\n• AMBOS OS BOTS INCLUSOS (Regras + IA 5k msgs/mês)\n• CRM de Atendimento e Vendas\n• Agendamento Automático de Horários\n\nEscolha a forma de pagamento:",
+    paymentMode: "both",
+    showInPoll: true,
+  },
+  {
+    id: "node_plano_scale",
+    parentId: null,
+    keyword: "4",
+    title: "Plano Scale (R$ 497/mês)",
+    actionType: "checkout",
+    productId: "Plano Scale",
+    productName: "Plano Scale (R$ 497/mês)",
+    productPrice: "497",
+    productDescription: "📌 Plano Scale (R$ 497/mês)\n• Loja Virtual E-Commerce Completa\n• Ambos os Bots (Regras + IA 20k msgs/mês)\n• Multiatendimento Ilimitado para Equipes\n• Disparos em Massa + Gestor Dedicado",
+    textContent: "Você selecionou o *Plano Scale (R$ 497/mês)*:\n\n✨ *O que está incluso:*\n• Loja Virtual E-Commerce Completa (sem taxas por venda)\n• AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mês)\n• Multiatendimento Ilimitado para Atendentes\n• Disparos em Massa + Funis de Vendas\n\nEscolha a forma de pagamento:",
+    paymentMode: "both",
+    showInPoll: true,
+  },
+  {
+    id: "node_site_avulso",
+    parentId: null,
+    keyword: "5",
+    title: "Site Avulso / Sob Medida (R$ 497)",
+    actionType: "checkout",
+    productId: "Site Avulso / Personalizado",
+    productName: "Site Avulso / Sob Medida",
+    productPrice: "497",
+    productDescription: "📌 Site Avulso Personalizado (R$ 497 taxa única)\n• Desenvolvimento de Site Exclusivo para seu Nicho\n• Sem mensalidade obrigatória\n• Entregue em 3 a 5 dias úteis com domínio e SSL inclusos",
+    textContent: "Você selecionou *Site Avulso / Sob Medida (R$ 497 taxa única)*:\n\n✨ *O que está incluso:*\n• Design exclusivo e sob medida para a sua empresa\n• Domínio próprio, SSL e Hospedagem\n• Otimizado para Celulares e Google (SEO)\n• Botão de WhatsApp Direct-to-Chat\n\nEscolha a forma de pagamento:",
+    paymentMode: "both",
+    showInPoll: true,
+  },
+  {
+    id: "node_agendamento",
+    parentId: null,
+    keyword: "6",
+    title: "📅 Agendar Horário / Reunião",
+    actionType: "scheduling",
+    textContent: "Escolha uma data e horário disponível abaixo para realizarmos a sua reunião ou atendimento:",
+    showInPoll: true,
+  },
+  {
+    id: "node_atendente_humano",
+    parentId: null,
+    keyword: "7",
+    title: "👤 Falar com Atendente Humano",
+    actionType: "human",
+    textContent: "Transferindo o seu atendimento para um especialista humano da nossa equipe! Por favor, aguarde um instante que já vamos te responder. 💙",
+    showInPoll: true,
+  },
+  {
+    id: "node_catalogo",
+    parentId: null,
+    keyword: "8",
+    title: "📋 Catálogo Completo de Serviços",
+    actionType: "catalog",
+    textContent: "📋 *Confira nosso Catálogo Completo de Produtos & Planos:*\n\nEscolha uma das opções abaixo para ver os detalhes e contratar:",
+    showInPoll: true,
+  },
+];
+
 const DEFAULT_AI: AISettings = {
   bot_type: "ia",
   ai_name: "Bot da loja",
@@ -87,129 +220,7 @@ const DEFAULT_AI: AISettings = {
   welcome_message: "Olá! Seja bem-vindo(a) ao nosso atendimento! 👋 Como posso te ajudar hoje?",
   welcome_menu_auto_append: true,
   enableScheduling: true,
-  custom_rules_nodes: [
-    {
-      id: "node_plano_start",
-      parentId: null,
-      keyword: "1",
-      title: "Plano Start (R$ 67/mês)",
-      actionType: "checkout",
-      productId: "Plano Start",
-      productName: "Plano Start (R$ 67/mês)",
-      productPrice: "67",
-      productDescription: "📌 Plano Start (R$ 67/mês)\n• Bot Fixo de Regras e Botões no WhatsApp\n• Atendimento Automático 24 horas\n• Respostas Ilimitadas via Menu\n(NÃO inclui criação de site nem IA)",
-      textContent: "Você selecionou o *Plano Start (R$ 67/mês)*:\n\n✨ *O que está incluso:*\n• Bot Fixo de Regras/Botões no WhatsApp\n• Atendimento 24h automático\n• Hospedagem e suporte inclusos\n\nEscolha a forma de pagamento:",
-      paymentMode: "both",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_97",
-      parentId: null,
-      keyword: "2",
-      title: "Plano 97 (R$ 97/mês)",
-      actionType: "checkout",
-      productId: "Plano 97",
-      productName: "Plano 97 (R$ 97/mês)",
-      productPrice: "97",
-      productDescription: "📌 Plano 97 (R$ 97/mês)\n• Site Institucional 100% GRÁTIS Incluso\n• Ambos os Bots (Bot de Regras + Bot com IA 5k msgs/mês)\n• Agendamento Automático de Atendimentos",
-      textContent: "Você selecionou o *Plano 97 (R$ 97/mês)*:\n\n✨ *O que está incluso:*\n• Site Institucional 100% GRÁTIS\n• AMBOS OS BOTS INCLUSOS (Bot de Regras + Bot Inteligente com IA 5k msgs/mês)\n• Agendamento de Horários\n\nEscolha a forma de pagamento:",
-      paymentMode: "both",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_growth",
-      parentId: null,
-      keyword: "3",
-      title: "Plano Growth (R$ 147/mês ⭐)",
-      actionType: "checkout",
-      productId: "Plano Growth (Mais Vendido ⭐)",
-      productName: "Plano Growth (Mais Vendido ⭐)",
-      productPrice: "147",
-      productDescription: "📌 Plano Growth (R$ 147/mês ⭐) — O Mais Vendido!\n• Site Institucional de até 5 Páginas\n• Ambos os Bots (Regras + IA 5k msgs/mês)\n• CRM de Vendas e Atendimento\n• Agendamento Automático + Suporte VIP",
-      textContent: "Você selecionou o *Plano Growth (R$ 147/mês ⭐)*:\n\n✨ *O que está incluso:*\n• Site Institucional Completo (até 5 páginas)\n• AMBOS OS BOTS INCLUSOS (Regras + IA 5k msgs/mês)\n• CRM de Atendimento e Vendas\n• Agendamento Automático de Horários\n\nEscolha a forma de pagamento:",
-      paymentMode: "both",
-      showInPoll: true,
-    },
-    {
-      id: "node_plano_scale",
-      parentId: null,
-      keyword: "4",
-      title: "Plano Scale (R$ 497/mês)",
-      actionType: "checkout",
-      productId: "Plano Scale",
-      productName: "Plano Scale (R$ 497/mês)",
-      productPrice: "497",
-      productDescription: "📌 Plano Scale (R$ 497/mês)\n• Loja Virtual E-Commerce Completa\n• Ambos os Bots (Regras + IA 20k msgs/mês)\n• Multiatendimento Ilimitado para Equipes\n• Disparos em Massa + Gestor Dedicado",
-      textContent: "Você selecionou o *Plano Scale (R$ 497/mês)*:\n\n✨ *O que está incluso:*\n• Loja Virtual E-Commerce Completa (sem taxas por venda)\n• AMBOS OS BOTS (Regras + IA Enterprise 20k msgs/mês)\n• Multiatendimento Ilimitado para Atendentes\n• Disparos em Massa + Funis de Vendas\n\nEscolha a forma de pagamento:",
-      paymentMode: "both",
-      showInPoll: true,
-    },
-    {
-      id: "node_site_avulso",
-      parentId: null,
-      keyword: "5",
-      title: "Site Avulso / Sob Medida (R$ 497)",
-      actionType: "checkout",
-      productId: "Site Avulso / Personalizado",
-      productName: "Site Avulso / Sob Medida",
-      productPrice: "497",
-      productDescription: "📌 Site Avulso Personalizado (R$ 497 taxa única)\n• Desenvolvimento de Site Exclusivo para seu Nicho\n• Sem mensalidade obrigatória\n• Entregue em 3 a 5 dias úteis com domínio e SSL inclusos",
-      textContent: "Você selecionou *Site Avulso / Sob Medida (R$ 497 taxa única)*:\n\n✨ *O que está incluso:*\n• Design exclusivo e sob medida para a sua empresa\n• Domínio próprio, SSL e Hospedagem\n• Otimizado para Celulares e Google (SEO)\n• Botão de WhatsApp Direct-to-Chat\n\nEscolha a forma de pagamento:",
-      paymentMode: "both",
-      showInPoll: true,
-    },
-    {
-      id: "node_agendamento",
-      parentId: null,
-      keyword: "6",
-      title: "📅 Agendar Horário / Reunião",
-      actionType: "scheduling",
-      textContent: "Escolha uma data e horário disponível abaixo para realizarmos a sua reunião ou atendimento:",
-      showInPoll: true,
-    },
-    {
-      id: "node_atendente_humano",
-      parentId: null,
-      keyword: "7",
-      title: "👤 Falar com Atendente Humano",
-      actionType: "human",
-      textContent: "Transferindo o seu atendimento para um especialista humano da nossa equipe! Por favor, aguarde um instante que já vamos te responder. 💙",
-      showInPoll: true,
-    },
-    {
-      id: "node_catalogo",
-      parentId: null,
-      keyword: "8",
-      title: "📋 Catálogo Completo de Serviços",
-      actionType: "catalog",
-      textContent: "📋 *Confira nosso Catálogo Completo de Produtos & Planos:*\n\nEscolha uma das opções abaixo para ver os detalhes e contratar:",
-      showInPoll: true,
-    },
-    { id: "node_cat_1", parentId: "node_catalogo", keyword: "1", title: "Plano Start (R$ 67/mês)", actionType: "product", productId: "Plano Start", productName: "Plano Start (R$ 67/mês)", productPrice: "67", productDescription: "📌 Bot Fixo de Regras e Botões no WhatsApp sem criação de site.", textContent: "Você selecionou o Plano Start no catálogo:", paymentMode: "both", showInPoll: true },
-    { id: "node_cat_2", parentId: "node_catalogo", keyword: "2", title: "Plano 97 (R$ 97/mês)", actionType: "product", productId: "Plano 97", productName: "Plano 97 (R$ 97/mês)", productPrice: "97", productDescription: "📌 Site Institucional Grátis + Ambos os Bots Inclusos (Regras + IA 5k msgs).", textContent: "Você selecionou o Plano 97 no catálogo:", paymentMode: "both", showInPoll: true },
-    { id: "node_cat_3", parentId: "node_catalogo", keyword: "3", title: "Plano Growth (R$ 147/mês ⭐)", actionType: "product", productId: "Plano Growth (Mais Vendido ⭐)", productName: "Plano Growth (Mais Vendido ⭐)", productPrice: "147", productDescription: "📌 Site 5 Páginas + Ambos os Bots (Regras + IA) + CRM + Agendamento VIP.", textContent: "Você selecionou o Plano Growth no catálogo:", paymentMode: "both", showInPoll: true },
-    { id: "node_cat_4", parentId: "node_catalogo", keyword: "4", title: "Plano Scale (R$ 497/mês)", actionType: "product", productId: "Plano Scale", productName: "Plano Scale (R$ 497/mês)", productPrice: "497", productDescription: "📌 Loja Virtual E-Commerce Completa + Multiatendimento + Disparos em Massa.", textContent: "Você selecionou o Plano Scale no catálogo:", paymentMode: "both", showInPoll: true },
-    { id: "node_cat_5", parentId: "node_catalogo", keyword: "5", title: "Site Avulso / Sob Medida (R$ 497)", actionType: "product", productId: "Site Avulso / Personalizado", productName: "Site Avulso / Sob Medida", productPrice: "497", productDescription: "📌 Desenvolvimento de Site Exclusivo Personalizado Sob Medida (sem mensalidade).", textContent: "Você selecionou Site Avulso no catálogo:", paymentMode: "both", showInPoll: true },
-    {
-      id: "node_form_question",
-      parentId: null,
-      keyword: "9",
-      title: "📝 Solicitar Informação / Orçamento",
-      actionType: "collect_data",
-      variableName: "informacao_cliente",
-      textContent: "Qual a sua principal dúvida, segmento de empresa ou informação que deseja solicitar?",
-      showInPoll: true,
-    },
-    {
-      id: "node_form_next_step",
-      parentId: "node_form_question",
-      keyword: "1",
-      title: "Confirmar Solicitação",
-      actionType: "text",
-      textContent: "Perfeito! Recebemos sua solicitação: \"{informacao_cliente}\". Um de nossos consultores entrará em contato em instantes!",
-      showInPoll: true,
-    },
-  ],
+  custom_rules_nodes: DEFAULT_CLIENT_GENERIC_NODES,
 };
 
 const TEMPLATES = [
@@ -292,9 +303,19 @@ export default function WorkflowPage() {
       const res = await fetch("/api/settings/whatsapp");
       const data = await res.json();
       if (data.settings) {
+        const isMainStore = data.tenantId === MAIN_STORE_TENANT_ID;
         const merged = { ...DEFAULT_AI, ...data.settings };
         merged.welcome_message = sanitizeWelcomeText(merged.welcome_message);
         if (!Array.isArray(merged.products)) merged.products = [];
+
+        // Limpeza e Isolamento: Se for cliente e tiver nós do SaaS da loja principal, limpa para o template genérico!
+        const hasSaasNodes = merged.custom_rules_nodes?.some((n: any) => n.id === "node_plano_growth" || n.productId === "Plano Growth (Mais Vendido ⭐)");
+        if (!isMainStore && (hasSaasNodes || !merged.custom_rules_nodes || merged.custom_rules_nodes.length === 0)) {
+          merged.custom_rules_nodes = DEFAULT_CLIENT_GENERIC_NODES;
+        } else if (isMainStore && (!merged.custom_rules_nodes || merged.custom_rules_nodes.length === 0)) {
+          merged.custom_rules_nodes = DEFAULT_SAAS_NODES;
+        }
+
         settingsRef.current = merged;
         setSettings(merged);
         setJsonText(JSON.stringify(merged, null, 2));

@@ -365,7 +365,11 @@ export async function processMessageWithRules(
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\w\s]/g, "");
 
-  const customNodes = settings.custom_rules_nodes || [];
+  let customNodes = settings.custom_rules_nodes || [];
+  const isMainStore = tenantId === "3bc0174c-d760-4fc7-9e38-8d20577f5593";
+  if (!isMainStore && customNodes.some((n: any) => n.id === "node_plano_growth" || n.productId === "Plano Growth (Mais Vendido ⭐)")) {
+    customNodes = [];
+  }
 
   const isGreetingOrReset = ["oi", "ola", "olá", "menu", "0", "voltar", "inicio", "início", "reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"].includes(cleanText);
   if (isGreetingOrReset) {
