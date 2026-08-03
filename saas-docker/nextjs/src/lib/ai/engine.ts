@@ -453,6 +453,10 @@ ${catalogText}
       internalTools = internalTools.filter(t => t.function.name !== "gerar_link_pagamento");
     }
 
+    if (isGreetingMsg) {
+      internalTools = internalTools.filter(t => t.function.name !== "verificar_status_pagamento");
+    }
+
     // Filtrar ferramentas da Fase 2 de acordo com os módulos ativos
     if (!activeModuleNames.includes("assistencia")) {
       internalTools = internalTools.filter(t => t.function.name !== "criar_ordem_servico" && t.function.name !== "consultar_status_os");
@@ -603,8 +607,10 @@ REGRAS:
             apiConfig.response_format = { type: "json_object" };
           }
         } else {
-          apiConfig.tools = internalTools as any;
-          apiConfig.tool_choice = "auto";
+          if (internalTools && internalTools.length > 0) {
+            apiConfig.tools = internalTools as any;
+            apiConfig.tool_choice = "auto";
+          }
         }
 
         response = await client.chat.completions.create(apiConfig, {
