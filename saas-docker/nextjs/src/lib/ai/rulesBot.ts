@@ -426,6 +426,41 @@ export async function processMessageWithRules(
     return getMainMenuMessage(settings);
   }
 
+  // Detecção Universal Direct-Match para seleções interativas do WhatsApp ou envio de nome de produto
+  const rawInputStripped = userMessage.replace(/^Selecionou:\s*/i, "").trim();
+  const rawInputClean = rawInputStripped.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, "");
+
+  if (rawInputClean.length >= 3 && !isResetCommand) {
+    const allProductsList = settings.products || [];
+    const matchedProduct = allProductsList.find((p: any) => {
+      const pNameClean = (p.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, "");
+      if (!pNameClean) return false;
+      return rawInputClean.includes(pNameClean) || pNameClean.includes(rawInputClean);
+    });
+
+    if (matchedProduct && (userMessage.toLowerCase().includes("selecionou:") || rawInputClean.length > 5)) {
+      state.data = { ...state.data, chosenService: matchedProduct, chosenNodeText: null };
+      const deliveryType = matchedProduct.delivery_type || "virtual_instant";
+      const deadline = matchedProduct.delivery_deadline || "imediato";
+
+      if (deliveryType === "virtual_instant") {
+        const addr = botMessageTemplates.labels.digitalImmediate();
+        state.data.address = addr;
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId, contactNumber, matchedProduct, addr,
+          settings, stateKey, state.data.collected, undefined, contactName
+        );
+      } else if (deliveryType === "virtual_deadline") {
+        const addr = botMessageTemplates.labels.bothDigital(deadline);
+        state.data.address = addr;
+        return await processarFinalizacaoPedidoRulesBot(
+          tenantId, contactNumber, matchedProduct, addr,
+          settings, stateKey, state.data.collected, undefined, contactName
+        );
+      }
+    }
+  }
+
   // Handle name collection for checkout payment
   if (state.step === "awaiting_checkout_name") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
