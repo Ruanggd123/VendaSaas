@@ -681,7 +681,7 @@ REGRAS:
       if (finalMsg.trim().startsWith('{"name"')) finalMsg = "Estou verificando isso para você...";
     }
     
-    return finalMsg;
+    return validateOutput(finalMsg);
   } catch (error: any) {
     console.error("Erro no processMessageWithAI:", error);
     const errorMsg = error?.message || "Erro de API / Desconhecido";

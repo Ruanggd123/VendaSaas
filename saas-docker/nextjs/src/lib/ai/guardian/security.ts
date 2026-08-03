@@ -58,6 +58,8 @@ export function sanitizeInput(message: string, maxLen: number = 350): string {
     /system (message|prompt) (:|: )?/gi,
     /output (the )?(initial|original|full|entire) (prompt|instruction|message)/gi,
     /role.?play|persona|character.?play/gi,
+    /modo (desenvolvedor|dan|deus|sudo|override)/gi,
+    /developer mode|god mode|dan mode/gi,
   ];
 
   for (const pattern of jailbreakPatterns) {
@@ -73,35 +75,39 @@ export function sanitizeInput(message: string, maxLen: number = 350): string {
 
 /**
  * Validação de Saída (Output Guardrail)
- * Executado após a IA retornar o JSON estruturado.
+ * Executado após a IA retornar a resposta.
  */
 export function validateOutput(aiResponse: string): string {
   try {
-    let parsed: any;
-    
-    // Tenta fazer o parse. Se falhar, a IA cortou no meio ou não respeitou o JSON Mode.
-    try {
-      // Limpa possíveis marcações markdown de código
-      const cleanJson = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      parsed = JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("[SECURITY] Falha ao parsear o Output da IA. Possível alucinação ou limite de tokens atingido.", aiResponse);
-      return "Desculpe, tive uma oscilação aqui na minha conexão. Pode repetir a sua última dúvida, por favor?";
+    if (!aiResponse || typeof aiResponse !== 'string') {
+      return "Desculpe, não consegui processar a resposta no momento.";
     }
 
-    const respostaCliente = parsed.resposta_cliente;
+    let respostaCliente = aiResponse.trim();
 
-    if (!respostaCliente || typeof respostaCliente !== 'string') {
-      console.error("[SECURITY] O JSON da IA não conteve o campo obrigatório 'resposta_cliente'.");
-      return "Estou com dificuldades para processar. Pode reformular?";
+    // Se a IA retornar JSON estruturado, extrai o texto do cliente
+    if (respostaCliente.startsWith("{") || respostaCliente.includes('"resposta_cliente"')) {
+      try {
+        const cleanJson = respostaCliente.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        if (parsed.resposta_cliente) {
+          respostaCliente = parsed.resposta_cliente;
+        }
+      } catch (e) {}
     }
 
-    // Filtros de segurança no texto de saída
+    // 1. Redação estrita de chaves de API e segredos (sk-..., tokens)
+    respostaCliente = respostaCliente
+      .replace(/sk-[a-zA-Z0-9_\-]{20,}/g, "[CHAVE_REMOVIDA]")
+      .replace(/ba1add[a-zA-Z0-9]{20,}/g, "[CHAVE_REMOVIDA]")
+      .replace(/gsk_[a-zA-Z0-9_\-]{20,}/g, "[CHAVE_REMOVIDA]");
+
+    // 2. Blacklist de vazamento de regras de sistema
     const blacklist = [
       "prompt original",
       "instruções de sistema",
       "system message",
-      "regras de segurança máxima", // Evita que a IA vaze suas próprias regras
+      "regras de segurança máxima",
       "anti-jailbreak"
     ];
 
@@ -109,14 +115,14 @@ export function validateOutput(aiResponse: string): string {
     for (const term of blacklist) {
       if (lowerResponse.includes(term)) {
         console.warn("[SECURITY] Output Guardrail bloqueou a resposta por conter termos sensíveis.", respostaCliente);
-        return "Notei que você fez uma pergunta um pouco fora do nosso escopo. Posso te ajudar com dúvidas sobre a plataforma, planos ou criação de sites?";
+        return "Posso te ajudar com dúvidas sobre nossos produtos, planos ou criação de sites! Como podemos prosseguir?";
       }
     }
 
     return respostaCliente;
 
   } catch (error) {
-    console.error("[SECURITY] Erro fatal no Output Guardrail:", error);
-    return "Ocorreu um erro inesperado.";
+    console.error("[SECURITY] Erro no Output Guardrail:", error);
+    return "Como posso te ajudar hoje com nossos produtos e serviços?";
   }
 }
