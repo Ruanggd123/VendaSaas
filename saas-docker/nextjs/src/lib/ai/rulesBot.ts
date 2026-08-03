@@ -570,10 +570,13 @@ export async function processMessageWithRules(
       return "✅ Cobrança cancelada com sucesso! Transfiri o seu atendimento para a nossa equipe humana. Como podemos te ajudar?";
     }
 
-    if (state.step !== "debt_payment_method" && state.step !== "debt_paying") {
-      state.step = "debt_payment_method";
-      await saveState(state);
-      return pendingPaymentPrompt;
+    const isExplicitPaymentRequest = cleanText.includes("pagar") || cleanText.includes("cobranca") || cleanText.includes("cobrança") || cleanText.includes("meu pedido");
+    if ((state.step === "debt_payment_method" || state.step === "debt_paying" || isExplicitPaymentRequest) && state.step !== "main_menu") {
+      if (state.step !== "debt_payment_method" && state.step !== "debt_paying") {
+        state.step = "debt_payment_method";
+        await saveState(state);
+        return pendingPaymentPrompt;
+      }
     }
   }
 
