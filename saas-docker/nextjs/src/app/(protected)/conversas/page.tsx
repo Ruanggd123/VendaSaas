@@ -13,6 +13,7 @@ import {
   FileText,
   Download,
   Image as ImageIcon,
+  Layers,
   Loader2,
   MessageSquare,
   MapPin,
@@ -472,6 +473,33 @@ export default function ConversasPage() {
   const [bulkFeedback, setBulkFeedback] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [draggedConvId, setDraggedConvId] = useState<string | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const [columnTitles, setColumnTitles] = useState<Record<string, string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("nexus_kanban_columns_v2");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {
+      unassigned: "📥 Fila Geral (Disponíveis)",
+      mine: "👤 Meu Atendimento",
+      team: "👥 Atendimento pela Equipe",
+      resolved: "✅ Concluídos / Resolvidos",
+    };
+  });
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editTitleDraft, setEditTitleDraft] = useState("");
+
+  const saveColumnTitle = (colId: string, newTitle: string) => {
+    const updated = { ...columnTitles, [colId]: newTitle || columnTitles[colId] };
+    setColumnTitles(updated);
+    setEditingColumnId(null);
+    if (typeof window !== "undefined") {
+      try { localStorage.setItem("nexus_kanban_columns_v2", JSON.stringify(updated)); } catch {}
+    }
+  };
 
   const listRequestRef = useRef(false);
   const messageRequestRef = useRef<{ conversationId: string; version: number } | null>(null);
@@ -1746,129 +1774,210 @@ export default function ConversasPage() {
       </div>
 
       {viewMode === 'canvas' ? (
-        <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-slate-50 dark:bg-slate-950/60 min-h-0">
+        <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-slate-100/70 dark:bg-slate-950/80 min-h-0">
           <div className="flex gap-6 min-w-max items-start h-full pb-4">
             {[
               {
                 id: 'unassigned',
-                title: '📥 Fila Geral (Disponíveis)',
-                subtitle: 'Atendimentos livres para a equipe assumir',
-                color: 'border-blue-500/40 bg-blue-500/5 text-blue-600 dark:text-blue-400',
-                badgeBg: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+                defaultTitle: '📥 Fila Geral (Disponíveis)',
+                subtitle: 'Arraste cartões aqui para devolver à fila',
+                color: 'border-blue-500/40 bg-gradient-to-b from-blue-500/10 to-blue-500/5 text-blue-600 dark:text-blue-400',
+                badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30',
                 items: filtered.filter(c => !c.assigned_to && c.status !== 'resolved')
               },
               {
                 id: 'mine',
-                title: '👤 Meu Atendimento',
-                subtitle: 'Conversas atribuídas a você',
-                color: 'border-indigo-500/40 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400',
-                badgeBg: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/30',
+                defaultTitle: '👤 Meu Atendimento',
+                subtitle: 'Arraste cartões aqui para assumir a conversa',
+                color: 'border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400',
+                badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30',
                 items: filtered.filter(c => c.assigned_to === sessionUser?.id && c.status !== 'resolved')
               },
               {
                 id: 'team',
-                title: '👥 Atendimento pela Equipe',
-                subtitle: 'Conversas em andamento por colegas',
-                color: 'border-purple-500/40 bg-purple-500/5 text-purple-600 dark:text-purple-400',
-                badgeBg: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
+                defaultTitle: '👥 Atendimento pela Equipe',
+                subtitle: 'Conversas em andamento pela equipe',
+                color: 'border-purple-500/40 bg-gradient-to-b from-purple-500/10 to-purple-500/5 text-purple-600 dark:text-purple-400',
+                badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30',
                 items: filtered.filter(c => c.assigned_to && c.assigned_to !== sessionUser?.id && c.status !== 'resolved')
               },
               {
                 id: 'resolved',
-                title: '✅ Concluídos / Resolvidos',
-                subtitle: 'Atendimentos finalizados com sucesso',
-                color: 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
-                badgeBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+                defaultTitle: '✅ Concluídos / Resolvidos',
+                subtitle: 'Arraste cartões aqui para finalizar o atendimento',
+                color: 'border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+                badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30',
                 items: filtered.filter(c => c.status === 'resolved')
               }
-            ].map((column) => (
-              <div key={column.id} className="w-80 flex-shrink-0 flex flex-col h-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">
-                <div className={`p-4 border-b border-slate-200 dark:border-white/10 ${column.color}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-black text-xs tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                      {column.title}
-                    </h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-black border ${column.badgeBg}`}>
-                      {column.items.length}
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-medium text-slate-500 dark:text-zinc-400 leading-tight">
-                    {column.subtitle}
-                  </p>
-                </div>
+            ].map((column) => {
+              const displayTitle = columnTitles[column.id] || column.defaultTitle;
+              const isDragOver = dragOverColumnId === column.id;
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
-                  {column.items.length === 0 ? (
-                    <div className="py-12 text-center text-xs font-semibold text-slate-400 dark:text-zinc-500 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-xl">
-                      Nenhuma conversa nesta coluna
-                    </div>
-                  ) : (
-                    column.items.map((conv) => {
-                      const lastMsg = conv.messages?.[conv.messages.length - 1];
-                      return (
-                        <div key={conv.id} className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-white/10 space-y-3 hover:border-indigo-500/50 hover:shadow-md transition-all">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
-                                {conv.contact_name || conv.contact_number}
-                              </h4>
-                              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
-                                {maskPhone(conv.contact_number)}
-                              </p>
-                            </div>
-                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0 truncate max-w-[100px]">
-                              {conv.assignee?.name || (conv.assigned_to ? "Equipe" : "Fila Geral")}
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-slate-600 dark:text-zinc-300 line-clamp-2 bg-white dark:bg-zinc-900/90 p-2.5 rounded-lg border border-slate-200/60 dark:border-white/5 font-medium leading-relaxed">
-                            {lastMsg?.content || "Sem mensagens recentes..."}
-                          </p>
-
-                          <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 flex flex-col gap-1.5">
-                            {column.id === 'unassigned' && (
-                              <button
-                                onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id }, conv.id)}
-                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                              >
-                                <Zap className="w-3.5 h-3.5 text-amber-300" /> Assumir Conversa
-                              </button>
-                            )}
-
-                            {column.id === 'mine' && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => void patchConversation("metadata", { service_status: "resolved" }, conv.id)}
-                                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95"
-                                >
-                                  ✅ Concluir
-                                </button>
-                                <button
-                                  onClick={() => void patchConversation("assignment", { assigned_to: null }, conv.id)}
-                                  className="flex-1 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 text-slate-700 dark:text-zinc-300 font-bold text-[11px] rounded-lg active:scale-95"
-                                >
-                                  ↩️ Devolver
-                                </button>
-                              </div>
-                            )}
-
-                            <button
-                              onClick={() => {
-                                setSelectedId(conv.id);
-                                setViewMode("list");
-                              }}
-                              className="w-full py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold text-[11px] rounded-lg flex items-center justify-center gap-1 transition-all"
-                            >
-                              💬 Abrir Chat Detalhado
-                            </button>
-                          </div>
+              return (
+                <div 
+                  key={column.id} 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragOverColumnId !== column.id) setDragOverColumnId(column.id);
+                  }}
+                  onDragLeave={() => setDragOverColumnId(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const convId = e.dataTransfer.getData("text/plain") || draggedConvId;
+                    if (convId) {
+                      setDraggedConvId(null);
+                      setDragOverColumnId(null);
+                      if (column.id === "unassigned") void patchConversation("assignment", { assigned_to: null }, convId);
+                      if (column.id === "mine") void patchConversation("assignment", { assigned_to: sessionUser?.id }, convId);
+                      if (column.id === "resolved") void patchConversation("metadata", { service_status: "resolved" }, convId);
+                    }
+                  }}
+                  className={`w-88 flex-shrink-0 flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
+                    isDragOver 
+                      ? "border-purple-500 ring-4 ring-purple-500/30 scale-[1.01] bg-purple-500/5" 
+                      : "border-slate-200 dark:border-white/10"
+                  }`}
+                >
+                  {/* Header da Coluna com Edição de Título */}
+                  <div className={`p-4 border-b border-slate-200 dark:border-white/10 ${column.color}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      {editingColumnId === column.id ? (
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <input
+                            type="text"
+                            value={editTitleDraft}
+                            onChange={(e) => setEditTitleDraft(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveColumnTitle(column.id, editTitleDraft); }}
+                            className="w-full text-xs font-black px-2 py-1 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-indigo-500 outline-none"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveColumnTitle(column.id, editTitleDraft)}
+                            className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black"
+                          >
+                            ✓
+                          </button>
                         </div>
-                      );
-                    })
-                  )}
+                      ) : (
+                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditingColumnId(column.id); setEditTitleDraft(displayTitle); }}>
+                          <h3 className="font-black text-xs tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                            {displayTitle}
+                          </h3>
+                          <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 transition-opacity">✏️</span>
+                        </div>
+                      )}
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${column.badgeBg}`}>
+                        {column.items.length}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
+                      {column.subtitle}
+                    </p>
+                  </div>
+
+                  {/* Lista de Cartões Arrastáveis */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+                    {column.items.length === 0 ? (
+                      <div className="py-16 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl flex flex-col items-center justify-center gap-2">
+                        <Layers className="size-6 text-slate-300 dark:text-slate-600" />
+                        <span>Arraste uma conversa aqui</span>
+                      </div>
+                    ) : (
+                      column.items.map((conv) => {
+                        const lastMsg = conv.messages?.[conv.messages.length - 1];
+                        const isDraggingThis = draggedConvId === conv.id;
+
+                        return (
+                          <div 
+                            key={conv.id} 
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", conv.id);
+                              setDraggedConvId(conv.id);
+                            }}
+                            onDragEnd={() => setDraggedConvId(null)}
+                            className={`p-4 rounded-2xl bg-white dark:bg-slate-950/90 border transition-all cursor-grab active:cursor-grabbing space-y-3 ${
+                              isDraggingThis 
+                                ? "opacity-40 border-purple-500 ring-2 ring-purple-500/50 scale-95" 
+                                : "border-slate-200 dark:border-white/10 hover:border-purple-400 hover:shadow-xl dark:hover:border-purple-500/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="size-9 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-purple-500/20 shrink-0">
+                                  {(conv.contact_name || maskPhone(conv.contact_number)).charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                                    {conv.contact_name || conv.contact_number}
+                                  </h4>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                    {maskPhone(conv.contact_number)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {conv.ai_paused ? (
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                                  👤 Humano
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
+                                  🤖 IA Ativa
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 bg-slate-50 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/5 font-semibold leading-relaxed">
+                              {lastMsg?.content || "Sem mensagens recentes..."}
+                            </p>
+
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-1.5">
+                              {column.id === 'unassigned' && (
+                                <button
+                                  onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id }, conv.id)}
+                                  className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                                >
+                                  <Zap className="w-3.5 h-3.5 text-amber-300" /> Assumir Conversa
+                                </button>
+                              )}
+
+                              {column.id === 'mine' && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => void patchConversation("metadata", { service_status: "resolved" }, conv.id)}
+                                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-xl shadow-md active:scale-95"
+                                  >
+                                    ✅ Concluir
+                                  </button>
+                                  <button
+                                    onClick={() => void patchConversation("assignment", { assigned_to: null }, conv.id)}
+                                    className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] rounded-xl active:scale-95"
+                                  >
+                                    ↩️ Devolver
+                                  </button>
+                                </div>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  setSelectedId(conv.id);
+                                  setViewMode("list");
+                                }}
+                                className="w-full py-2 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-[11px] rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                              >
+                                💬 Abrir Chat Detalhado
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -2222,18 +2331,60 @@ export default function ConversasPage() {
 
       <main className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-slate-50/60 dark:bg-[#030712]`}>
         {!selected ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-            <div className="mb-5 flex size-20 items-center justify-center rounded-[28px] border border-indigo-200 bg-indigo-50 text-indigo-600 shadow-xl shadow-indigo-500/10 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400"><MessageSquare className="size-9" /></div>
-            <h2 className="text-xl font-black tracking-tight">Sua central de atendimento</h2>
-            <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">Selecione uma conversa para acompanhar o histórico e responder ao contato.</p>
-            {instances.length > 0 && (
-              <div className="mt-7 flex flex-wrap justify-center gap-2">
-                {instances.map((instance) => {
-                  const online = instance.status === "open";
-                  return <span key={instance.name} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold dark:border-white/10 dark:bg-slate-900">{online ? <Wifi className="size-3 text-emerald-500" /> : <WifiOff className="size-3 text-rose-500" />}{instance.connectionName || instance.name}: {online ? "conectado" : "desconectado"}</span>;
-                })}
+          <div className="flex flex-1 flex-col items-center justify-center p-6 md:p-12 text-center bg-gradient-to-b from-slate-50/50 via-white to-purple-50/30 dark:from-slate-950 dark:via-slate-900/50 dark:to-purple-950/20">
+            <div className="max-w-xl w-full p-8 rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl space-y-6">
+              <div className="mx-auto flex size-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white shadow-xl shadow-indigo-500/20 animate-pulse">
+                <MessageSquare className="size-10" />
               </div>
-            )}
+
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Central de Atendimento CRM</h2>
+                <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Selecione uma conversa no menu ao lado ou arraste cartões no modo Kanban para gerenciar seus contatos em tempo real.
+                </p>
+              </div>
+
+              {/* Cards Rápidos de Métricas */}
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 text-center">
+                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 block">{filtered.length}</span>
+                  <span className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300">Na Fila</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-center">
+                  <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 block">
+                    {filtered.filter(c => !c.ai_paused).length}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300">IA Ativa</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-center">
+                  <span className="text-xl font-black text-amber-600 dark:text-amber-400 block">
+                    {filtered.filter(c => c.ai_paused).length}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300">Humano</span>
+                </div>
+              </div>
+
+              {instances.length > 0 && (
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] font-black text-slate-400 block mb-2 uppercase tracking-wider">Conexões WhatsApp Ativas</span>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {instances.map((instance) => {
+                      const online = instance.status === "open";
+                      return (
+                        <span key={instance.name} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-black shadow-sm ${
+                          online 
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800" 
+                            : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800"
+                        }`}>
+                          {online ? <Wifi className="size-3.5 text-emerald-500 animate-pulse" /> : <WifiOff className="size-3.5 text-rose-500" />}
+                          {instance.connectionName || instance.name}: {online ? "Conectado" : "Desconectado"}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <>
