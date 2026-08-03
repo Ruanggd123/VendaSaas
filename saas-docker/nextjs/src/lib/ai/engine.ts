@@ -369,15 +369,18 @@ O cliente se chama ${clientName}.
       select: { product_name: true, amount: true, payment_link: true }
     });
 
+    const cleanMsgLower = sanitizedMessage.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, "");
+    const msgWords = cleanMsgLower.split(/\s+/).filter(Boolean);
+    const actionKeys = ["comprar", "pix", "cartao", "credito", "agendar", "suporte", "preco", "link", "cancelar", "cancele", "paguei", "verificar"];
+    const isGreetingMsg = msgWords.length > 0 && msgWords.length <= 3 && !msgWords.some(w => actionKeys.some(ak => w.includes(ak)));
+
     let debtPrompt = "";
-    if (pendingSale) {
+    if (pendingSale && !isGreetingMsg) {
       debtPrompt = `\n[INFORMAÇÃO DE COBRANÇA PENDENTE]:
 O cliente ${clientName} possui um link de pagamento pendente para o produto/serviço "${pendingSale.product_name}" no valor de R$ ${pendingSale.amount.toFixed(2)}.
 Link: ${pendingSale.payment_link || 'Indisponível'}.
 REGRAS DE COBRANÇA:
-1. Se a mensagem do cliente for apenas uma saudação ("Oi", "Olá", "Boa noite"), responda a saudação normalmente PRIMEIRO e só mencione o link de pagamento SE ele perguntar sobre o produto ou como pagar.
-2. NUNCA chame ferramentas de verificação de pagamento se o cliente mandou apenas uma saudação ("Oi", "Olá").
-3. Só use a ferramenta 'verificar_status_pagamento' se o cliente disser que JÁ PAGOU ou pedir para verificar.`;
+Só mencione o link de pagamento se o cliente perguntar como pagar ou quiser concluir a compra.`;
     }
 
     const basePrompt = settings.ai_prompt || settings.ia_prompt || defaultPrompt;
