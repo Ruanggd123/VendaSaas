@@ -2016,21 +2016,16 @@ export async function processMessageWithRules(
   await saveState(state);
 
   if (state.step === "main_menu") {
-    // Primeira mensagem não reconhecida: mostra menu sem o prefixo de erro
-    // (importante para clientes que vêm do site com "Olá! Vim pelo site...")
-    if (errorCount === 1) {
-      state.data.menu_sent = true;
-      await saveState(state);
-      return getMainMenuMessage(settings);
-    }
-    return `Desculpe, não entendi. Selecione uma opção válida:\n\n${getMainMenuMessage(settings)}`;
+    // Se a mensagem do cliente for uma pergunta livre (nao casou com nenhum botao/numero), retorna null para permitir que a IA responda
+    console.log(`[RulesBot] Mensagem '${userMessage}' nao casou com nenhum nó do menu. Delegando para a IA.`);
+    return null;
   } else if (state.step.startsWith("submenu:")) {
     const currentSubmenuId = state.step.replace("submenu:", "");
     const parentNode = customNodes.find((n: any) => n.id === currentSubmenuId);
     return `Opção inválida. Selecione uma das opções abaixo:\n\n${getSubmenuMessage(parentNode, customNodes)}`;
   }
 
-  return "Olá! Digite *menu* para iniciar o auto-atendimento.";
+  return null;
 }
 
 function getMainMenuMessage(settings: any): string {

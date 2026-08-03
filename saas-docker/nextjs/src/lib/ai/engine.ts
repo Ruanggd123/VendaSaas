@@ -157,7 +157,8 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
 
     if (!isDemoIA && settings.bot_type === "regras") {
       const { processMessageWithRules } = await import("./rulesBot");
-      return await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
+      const rulesResp = await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
+      if (rulesResp) return rulesResp;
     }
 
     if (!isDemoIA && settings.bot_type === "hibrido") {
