@@ -385,7 +385,14 @@ export async function processMessageWithRules(
   }
 
   const words = cleanText.split(/\s+/).filter(Boolean);
-  const actionKeywords = ["comprar", "pix", "cartao", "credito", "agendar", "suporte", "preco", "link", "cancelar", "cancele", "paguei", "verificar", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+  const actionKeywords = [
+    "comprar", "pix", "cartao", "credito", "agendar", "agendamento", "suporte",
+    "preco", "preço", "link", "cancelar", "cancele", "paguei", "verificar",
+    "catalogo", "catalogos", "servico", "servicos", "produto", "produtos",
+    "atendente", "humano", "orcamento", "orçamento", "informacao", "informação",
+    "reuniao", "reunião", "horario", "horário",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"
+  ];
   const hasActionKeyword = words.some(w => actionKeywords.some(ak => w === ak || (ak.length >= 4 && w.includes(ak))));
 
   const isResetCommand = ["menu", "0", "voltar", "inicio", "reiniciar", "recomecar"].includes(cleanText);
