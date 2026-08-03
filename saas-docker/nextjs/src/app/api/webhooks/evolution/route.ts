@@ -824,7 +824,21 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: true, stored: rawMessageType });
         }
 
-        console.log(`💬 [Tenant ${tenantId}] Mensagem sincronizada de ${contactNumber}: ${msgContent.substring(0,30)}...`);
+        // Checar se a mensagem é um eco de uma resposta que o Bot/IA acabou de enviar nos últimos 15 segundos
+        const recentBotResponse = await prisma.message.findFirst({
+          where: {
+            conversation_id: conversation.id,
+            direction: "outbound",
+            created_at: { gte: new Date(Date.now() - 15000) }
+          },
+          orderBy: { created_at: 'desc' },
+          select: { id: true, content: true }
+        });
+
+        if (recentBotResponse && (fromMe || (recentBotResponse.content && recentBotResponse.content.slice(0, 20) === msgContent.slice(0, 20)))) {
+          console.log(`[Webhook] Eco de mensagem do bot ignorado para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Eco de resposta do bot" });
+        }
 
         // 3. Lógica de Auto-Pause e IA
         if (fromMe && !isMessageToMyself) {
