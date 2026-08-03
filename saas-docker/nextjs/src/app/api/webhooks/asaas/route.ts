@@ -255,7 +255,7 @@ export async function POST(req: Request) {
 
             const clientPhone = extractedPhone || sale.lead?.phone || body.payment?.customerPhone || body.payment?.mobilePhone || "";
             const clientName = extractedName || sale.lead?.name || body.payment?.customerName || "Cliente";
-            const clientEmail = extractedEmail || sale.lead?.email || body.payment?.customerEmail || "";
+            const clientEmail = extractedEmail || sale.lead?.email || body.payment?.customerEmail || (clientPhone ? `${clientPhone.replace(/\D/g, '')}@nexussaas.com` : "");
             const productName = sale.product_name?.toLowerCase() || "";
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 10);
