@@ -390,7 +390,7 @@ ${debtPrompt}
 # REGRAS DE USO DE FERRAMENTAS
 
 ## Quando NÃO chamar ferramentas:
-- Se o cliente mandou apenas uma saudação ("Oi", "Bom dia"), responda naturalmente. NUNCA chame ferramentas em saudações.
+- Se o cliente mandou qualquer tipo de saudação ("Oi", "Olá", "Bom dia", "Boa tarde", "Boa noite", "Tudo bem", "Opa", "Fala", "Hey", "Hello", "Salve", ou variações), responda apenas com uma saudação amigável e humana. É ESTRITAMENTE PROIBIDO chamar qualquer ferramenta em mensagens de saudação.
 - Se o cliente está tirando dúvidas, perguntando como funciona, ou pedindo informações. Explique em texto natural.
 - Só chame ferramentas quando o cliente disser explicitamente que quer agir: "quero comprar", "pode agendar", "me manda o link".
 

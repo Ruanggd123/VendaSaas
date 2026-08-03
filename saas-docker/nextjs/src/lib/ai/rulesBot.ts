@@ -384,7 +384,14 @@ export async function processMessageWithRules(
     customNodes = [];
   }
 
-  const isGreetingOrReset = ["oi", "ola", "olá", "menu", "0", "voltar", "inicio", "início", "reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"].includes(cleanText);
+  const commonGreetings = [
+    "oi", "ola", "hey", "hello", "opa", "salve", "ei",
+    "boa noite", "boa tarde", "bom dia", "tudo bem", "tudo bom", "como vai",
+    "fala", "fala meu amigo", "menu", "0", "voltar", "inicio", "início",
+    "reiniciar", "reiniciar atendimento", "recomecar", "recomecar atendimento"
+  ];
+  const isRegexGreeting = /^(o+i+|o+l+a+|o+p+a+|h+e+y+|h+e+l+o+|s+a+l+v+e+|b+o+a+s?)$/i.test(cleanText);
+  const isGreetingOrReset = commonGreetings.includes(cleanText) || isRegexGreeting || cleanText.startsWith("bom dia") || cleanText.startsWith("boa tarde") || cleanText.startsWith("boa noite") || cleanText.startsWith("tudo bem");
   if (isGreetingOrReset) {
     state = { step: "main_menu", data: { menu_sent: true } };
     await saveState(state);
