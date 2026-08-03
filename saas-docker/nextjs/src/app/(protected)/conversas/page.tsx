@@ -476,6 +476,20 @@ export default function ConversasPage() {
   const [draggedConvId, setDraggedConvId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [mobileKanbanTab, setMobileKanbanTab] = useState<string>("unassigned");
+  const [teamAssignModalConvId, setTeamAssignModalConvId] = useState<string | null>(null);
+
+  // Seções customizáveis criadas pelo usuário
+  const [customSections, setCustomSections] = useState<{ id: string; title: string; subtitle: string; color: string }[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("nexus_custom_kanban_sections_v2");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [];
+  });
+
   const [columnTitles, setColumnTitles] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -492,6 +506,40 @@ export default function ConversasPage() {
   });
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editTitleDraft, setEditTitleDraft] = useState("");
+  const [showNewSectionModal, setShowNewSectionModal] = useState(false);
+  const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [newSectionSubtitle, setNewSectionSubtitle] = useState("");
+  const [newSectionColor, setNewSectionColor] = useState("purple");
+
+  const saveCustomSections = (updated: { id: string; title: string; subtitle: string; color: string }[]) => {
+    setCustomSections(updated);
+    if (typeof window !== "undefined") {
+      try { localStorage.setItem("nexus_custom_kanban_sections_v2", JSON.stringify(updated)); } catch {}
+    }
+  };
+
+  const addCustomSection = () => {
+    if (!newSectionTitle.trim()) return;
+    const newId = `custom_${Date.now()}`;
+    const updated = [
+      ...customSections,
+      {
+        id: newId,
+        title: newSectionTitle.trim(),
+        subtitle: newSectionSubtitle.trim() || "Etapa personalizada do CRM",
+        color: newSectionColor,
+      },
+    ];
+    saveCustomSections(updated);
+    setNewSectionTitle("");
+    setNewSectionSubtitle("");
+    setShowNewSectionModal(false);
+  };
+
+  const removeCustomSection = (sectionId: string) => {
+    const updated = customSections.filter((s) => s.id !== sectionId);
+    saveCustomSections(updated);
+  };
 
   const saveColumnTitle = (colId: string, newTitle: string) => {
     const updated = { ...columnTitles, [colId]: newTitle || columnTitles[colId] };
@@ -1775,210 +1823,301 @@ export default function ConversasPage() {
       </div>
 
       {viewMode === 'canvas' ? (
-        <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-slate-100/70 dark:bg-slate-950/80 min-h-0">
-          <div className="flex gap-6 min-w-max items-start h-full pb-4">
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/70 dark:bg-slate-950/80 min-h-0">
+          {/* Seletor de Abas para Celular (Mobile) */}
+          <div className="flex md:hidden items-center gap-1.5 p-3 overflow-x-auto border-b border-slate-200 dark:border-white/10 shrink-0 scrollbar-none bg-white dark:bg-slate-900">
             {[
-              {
-                id: 'unassigned',
-                defaultTitle: '📥 Fila Geral (Disponíveis)',
-                subtitle: 'Arraste cartões aqui para devolver à fila',
-                color: 'border-blue-500/40 bg-gradient-to-b from-blue-500/10 to-blue-500/5 text-blue-600 dark:text-blue-400',
-                badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30',
-                items: filtered.filter(c => !c.assigned_to && c.status !== 'resolved')
-              },
-              {
-                id: 'mine',
-                defaultTitle: '👤 Meu Atendimento',
-                subtitle: 'Arraste cartões aqui para assumir a conversa',
-                color: 'border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400',
-                badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30',
-                items: filtered.filter(c => c.assigned_to === sessionUser?.id && c.status !== 'resolved')
-              },
-              {
-                id: 'team',
-                defaultTitle: '👥 Atendimento pela Equipe',
-                subtitle: 'Conversas em andamento pela equipe',
-                color: 'border-purple-500/40 bg-gradient-to-b from-purple-500/10 to-purple-500/5 text-purple-600 dark:text-purple-400',
-                badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30',
-                items: filtered.filter(c => c.assigned_to && c.assigned_to !== sessionUser?.id && c.status !== 'resolved')
-              },
-              {
-                id: 'resolved',
-                defaultTitle: '✅ Concluídos / Resolvidos',
-                subtitle: 'Arraste cartões aqui para finalizar o atendimento',
-                color: 'border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400',
-                badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30',
-                items: filtered.filter(c => c.status === 'resolved')
-              }
-            ].map((column) => {
-              const displayTitle = columnTitles[column.id] || column.defaultTitle;
-              const isDragOver = dragOverColumnId === column.id;
+              { id: 'unassigned', title: '📥 Fila' },
+              { id: 'mine', title: '👤 Meu' },
+              { id: 'team', title: '👥 Equipe' },
+              { id: 'resolved', title: '✅ Concluídos' },
+              ...customSections.map(s => ({ id: s.id, title: s.title }))
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMobileKanbanTab(tab.id)}
+                className={`px-3.5 py-2 rounded-2xl text-xs font-black shrink-0 transition-all ${
+                  mobileKanbanTab === tab.id
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-500/25"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                {columnTitles[tab.id] || tab.title}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowNewSectionModal(true)}
+              className="px-3 py-2 rounded-2xl text-xs font-black shrink-0 bg-emerald-600 text-white shadow-md flex items-center gap-1"
+            >
+              + Nova Seção
+            </button>
+          </div>
 
-              return (
-                <div 
-                  key={column.id} 
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (dragOverColumnId !== column.id) setDragOverColumnId(column.id);
-                  }}
-                  onDragLeave={() => setDragOverColumnId(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const convId = e.dataTransfer.getData("text/plain") || draggedConvId;
-                    if (convId) {
-                      setDraggedConvId(null);
-                      setDragOverColumnId(null);
-                      if (column.id === "unassigned") void patchConversation("assignment", { assigned_to: null }, convId);
-                      if (column.id === "mine") void patchConversation("assignment", { assigned_to: sessionUser?.id }, convId);
-                      if (column.id === "resolved") void patchConversation("metadata", { service_status: "resolved" }, convId);
-                    }
-                  }}
-                  className={`w-[350px] min-w-[350px] max-w-[350px] shrink-0 flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
-                    isDragOver 
-                      ? "border-purple-500 ring-4 ring-purple-500/30 scale-[1.01] bg-purple-500/5" 
-                      : "border-slate-200 dark:border-white/10"
-                  }`}
-                >
-                  {/* Header da Coluna com Edição de Título */}
-                  <div className={`p-4 border-b border-slate-200 dark:border-white/10 ${column.color}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      {editingColumnId === column.id ? (
-                        <div className="flex items-center gap-2 flex-1 mr-2">
-                          <input
-                            type="text"
-                            value={editTitleDraft}
-                            onChange={(e) => setEditTitleDraft(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") saveColumnTitle(column.id, editTitleDraft); }}
-                            className="w-full text-xs font-black px-2 py-1 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-indigo-500 outline-none"
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => saveColumnTitle(column.id, editTitleDraft)}
-                            className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black"
-                          >
-                            ✓
-                          </button>
+          {/* Container Principal do Kanban (Scroll Horizontal no Desktop, Filtro por Aba no Mobile) */}
+          <div className="flex-1 overflow-x-auto p-4 md:p-6 min-h-0">
+            <div className="flex gap-6 min-w-max items-start h-full pb-4">
+              {[
+                {
+                  id: 'unassigned',
+                  defaultTitle: '📥 Fila Geral (Disponíveis)',
+                  subtitle: 'Arraste cartões aqui para devolver à fila',
+                  color: 'border-blue-500/40 bg-gradient-to-b from-blue-500/10 to-blue-500/5 text-blue-600 dark:text-blue-400',
+                  badgeBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30',
+                  isCustom: false,
+                  items: filtered.filter(c => !c.assigned_to && c.status !== 'resolved')
+                },
+                {
+                  id: 'mine',
+                  defaultTitle: '👤 Meu Atendimento',
+                  subtitle: 'Arraste cartões aqui para assumir a conversa',
+                  color: 'border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400',
+                  badgeBg: 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30',
+                  isCustom: false,
+                  items: filtered.filter(c => c.assigned_to === sessionUser?.id && c.status !== 'resolved')
+                },
+                {
+                  id: 'team',
+                  defaultTitle: '👥 Atendimento pela Equipe',
+                  subtitle: 'Arraste para atribuir a um colega da equipe',
+                  color: 'border-purple-500/40 bg-gradient-to-b from-purple-500/10 to-purple-500/5 text-purple-600 dark:text-purple-400',
+                  badgeBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30',
+                  isCustom: false,
+                  items: filtered.filter(c => c.assigned_to && c.assigned_to !== sessionUser?.id && c.status !== 'resolved')
+                },
+                {
+                  id: 'resolved',
+                  defaultTitle: '✅ Concluídos / Resolvidos',
+                  subtitle: 'Arraste cartões aqui para finalizar o atendimento',
+                  color: 'border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+                  badgeBg: 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30',
+                  isCustom: false,
+                  items: filtered.filter(c => c.status === 'resolved')
+                },
+                ...customSections.map((sec) => ({
+                  id: sec.id,
+                  defaultTitle: sec.title,
+                  subtitle: sec.subtitle,
+                  color: 'border-pink-500/40 bg-gradient-to-b from-pink-500/10 to-pink-500/5 text-pink-600 dark:text-pink-400',
+                  badgeBg: 'bg-pink-600 text-white shadow-md shadow-pink-500/30',
+                  isCustom: true,
+                  items: filtered.filter(c => c.leads?.[0]?.category === sec.id)
+                }))
+              ]
+              .filter((column) => {
+                if (typeof window !== "undefined" && window.innerWidth < 768) {
+                  return column.id === mobileKanbanTab;
+                }
+                return true;
+              })
+              .map((column) => {
+                const displayTitle = columnTitles[column.id] || column.defaultTitle;
+                const isDragOver = dragOverColumnId === column.id;
+
+                return (
+                  <div 
+                    key={column.id} 
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverColumnId !== column.id) setDragOverColumnId(column.id);
+                    }}
+                    onDragLeave={() => setDragOverColumnId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const convId = e.dataTransfer.getData("text/plain") || draggedConvId;
+                      if (convId) {
+                        setDraggedConvId(null);
+                        setDragOverColumnId(null);
+                        if (column.id === "unassigned") void patchConversation("assignment", { assigned_to: null }, convId);
+                        else if (column.id === "mine") void patchConversation("assignment", { assigned_to: sessionUser?.id }, convId);
+                        else if (column.id === "team") setTeamAssignModalConvId(convId);
+                        else if (column.id === "resolved") void patchConversation("metadata", { service_status: "resolved" }, convId);
+                        else void patchConversation("metadata", { category: column.id }, convId);
+                      }
+                    }}
+                    className={`w-full md:w-[350px] md:min-w-[350px] md:max-w-[350px] shrink-0 flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
+                      isDragOver 
+                        ? "border-purple-500 ring-4 ring-purple-500/30 scale-[1.01] bg-purple-500/5" 
+                        : "border-slate-200 dark:border-white/10"
+                    }`}
+                  >
+                    {/* Header da Coluna com Edição e Exclusão */}
+                    <div className={`p-4 border-b border-slate-200 dark:border-white/10 ${column.color}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        {editingColumnId === column.id ? (
+                          <div className="flex items-center gap-2 flex-1 mr-2">
+                            <input
+                              type="text"
+                              value={editTitleDraft}
+                              onChange={(e) => setEditTitleDraft(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveColumnTitle(column.id, editTitleDraft); }}
+                              className="w-full text-xs font-black px-2 py-1 rounded-xl bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-indigo-500 outline-none"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveColumnTitle(column.id, editTitleDraft)}
+                              className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black"
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditingColumnId(column.id); setEditTitleDraft(displayTitle); }}>
+                            <h3 className="font-black text-xs tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                              {displayTitle}
+                            </h3>
+                            <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 transition-opacity">✏️</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          {column.isCustom && (
+                            <button
+                              type="button"
+                              onClick={() => removeCustomSection(column.id)}
+                              className="text-[11px] hover:text-rose-600 transition-colors p-1"
+                              title="Excluir Seção Customizada"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${column.badgeBg}`}>
+                            {column.items.length}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
+                        {column.subtitle}
+                      </p>
+                    </div>
+
+                    {/* Lista de Cartões Arrastáveis */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
+                      {column.items.length === 0 ? (
+                        <div className="py-16 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl flex flex-col items-center justify-center gap-2">
+                          <Layers className="size-6 text-slate-300 dark:text-slate-600" />
+                          <span>Arraste uma conversa aqui</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setEditingColumnId(column.id); setEditTitleDraft(displayTitle); }}>
-                          <h3 className="font-black text-xs tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                            {displayTitle}
-                          </h3>
-                          <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 transition-opacity">✏️</span>
-                        </div>
-                      )}
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${column.badgeBg}`}>
-                        {column.items.length}
-                      </span>
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
-                      {column.subtitle}
-                    </p>
-                  </div>
+                        column.items.map((conv) => {
+                          const lastMsg = conv.messages?.[conv.messages.length - 1];
+                          const isDraggingThis = draggedConvId === conv.id;
 
-                  {/* Lista de Cartões Arrastáveis */}
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-thin">
-                    {column.items.length === 0 ? (
-                      <div className="py-16 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl flex flex-col items-center justify-center gap-2">
-                        <Layers className="size-6 text-slate-300 dark:text-slate-600" />
-                        <span>Arraste uma conversa aqui</span>
-                      </div>
-                    ) : (
-                      column.items.map((conv) => {
-                        const lastMsg = conv.messages?.[conv.messages.length - 1];
-                        const isDraggingThis = draggedConvId === conv.id;
+                          return (
+                            <div 
+                              key={conv.id} 
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", conv.id);
+                                setDraggedConvId(conv.id);
+                              }}
+                              onDragEnd={() => setDraggedConvId(null)}
+                              className={`p-4 rounded-2xl bg-white dark:bg-slate-950/90 border transition-all cursor-grab active:cursor-grabbing space-y-3 ${
+                                isDraggingThis 
+                                  ? "opacity-40 border-purple-500 ring-2 ring-purple-500/50 scale-95" 
+                                  : "border-slate-200 dark:border-white/10 hover:border-purple-400 hover:shadow-xl dark:hover:border-purple-500/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="size-9 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-purple-500/20 shrink-0">
+                                    {(conv.contact_name || maskPhone(conv.contact_number)).charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                                      {conv.contact_name || conv.contact_number}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                      {maskPhone(conv.contact_number)}
+                                    </p>
+                                  </div>
+                                </div>
 
-                        return (
-                          <div 
-                            key={conv.id} 
-                            draggable
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData("text/plain", conv.id);
-                              setDraggedConvId(conv.id);
-                            }}
-                            onDragEnd={() => setDraggedConvId(null)}
-                            className={`p-4 rounded-2xl bg-white dark:bg-slate-950/90 border transition-all cursor-grab active:cursor-grabbing space-y-3 ${
-                              isDraggingThis 
-                                ? "opacity-40 border-purple-500 ring-2 ring-purple-500/50 scale-95" 
-                                : "border-slate-200 dark:border-white/10 hover:border-purple-400 hover:shadow-xl dark:hover:border-purple-500/40"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="size-9 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-purple-500/20 shrink-0">
-                                  {(conv.contact_name || maskPhone(conv.contact_number)).charAt(0).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
-                                    {conv.contact_name || conv.contact_number}
-                                  </h4>
-                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                                    {maskPhone(conv.contact_number)}
-                                  </p>
-                                </div>
+                                {conv.ai_paused ? (
+                                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                                    👤 Humano
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
+                                    🤖 IA Ativa
+                                  </span>
+                                )}
                               </div>
 
-                              {conv.ai_paused ? (
-                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
-                                  👤 Humano
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
-                                  🤖 IA Ativa
-                                </span>
-                              )}
-                            </div>
+                              <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 bg-slate-50 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/5 font-semibold leading-relaxed">
+                                {lastMsg?.content || "Sem mensagens recentes..."}
+                              </p>
 
-                            <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 bg-slate-50 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/5 font-semibold leading-relaxed">
-                              {lastMsg?.content || "Sem mensagens recentes..."}
-                            </p>
+                              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-1.5">
+                                {column.id === 'unassigned' && (
+                                  <button
+                                    onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id }, conv.id)}
+                                    className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                                  >
+                                    <Zap className="w-3.5 h-3.5 text-amber-300" /> Assumir Conversa
+                                  </button>
+                                )}
 
-                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-col gap-1.5">
-                              {column.id === 'unassigned' && (
+                                {column.id === 'team' && (
+                                  <button
+                                    onClick={() => setTeamAssignModalConvId(conv.id)}
+                                    className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                                  >
+                                    👤 Atribuir a Colega
+                                  </button>
+                                )}
+
+                                {column.id === 'mine' && (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => void patchConversation("metadata", { service_status: "resolved" }, conv.id)}
+                                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-xl shadow-md active:scale-95"
+                                    >
+                                      ✅ Concluir
+                                    </button>
+                                    <button
+                                      onClick={() => void patchConversation("assignment", { assigned_to: null }, conv.id)}
+                                      className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] rounded-xl active:scale-95"
+                                    >
+                                      ↩️ Devolver
+                                    </button>
+                                  </div>
+                                )}
+
                                 <button
-                                  onClick={() => void patchConversation("assignment", { assigned_to: sessionUser?.id }, conv.id)}
-                                  className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                                  onClick={() => {
+                                    setSelectedId(conv.id);
+                                    setViewMode("list");
+                                  }}
+                                  className="w-full py-2 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-[11px] rounded-xl flex items-center justify-center gap-1.5 transition-all"
                                 >
-                                  <Zap className="w-3.5 h-3.5 text-amber-300" /> Assumir Conversa
+                                  💬 Abrir Chat Detalhado
                                 </button>
-                              )}
-
-                              {column.id === 'mine' && (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => void patchConversation("metadata", { service_status: "resolved" }, conv.id)}
-                                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-xl shadow-md active:scale-95"
-                                  >
-                                    ✅ Concluir
-                                  </button>
-                                  <button
-                                    onClick={() => void patchConversation("assignment", { assigned_to: null }, conv.id)}
-                                    className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] rounded-xl active:scale-95"
-                                  >
-                                    ↩️ Devolver
-                                  </button>
-                                </div>
-                              )}
-
-                              <button
-                                onClick={() => {
-                                  setSelectedId(conv.id);
-                                  setViewMode("list");
-                                }}
-                                className="w-full py-2 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-[11px] rounded-xl flex items-center justify-center gap-1.5 transition-all"
-                              >
-                                💬 Abrir Chat Detalhado
-                              </button>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })
-                    )}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+
+              {/* Botão para Adicionar Nova Seção Customizada no Desktop */}
+              <div className="w-[300px] min-w-[300px] shrink-0 h-full flex flex-col items-center justify-center p-6 bg-slate-200/50 dark:bg-slate-900/40 border-2 border-dashed border-slate-300 dark:border-white/10 rounded-3xl text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowNewSectionModal(true)}
+                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs shadow-xl shadow-purple-500/25 hover:opacity-95 transition-all flex items-center gap-2"
+                >
+                  <Sparkles className="size-4" /> + Adicionar Nova Seção
+                </button>
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-3">
+                  Crie etapas personalizadas para o seu processo comercial
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -2833,6 +2972,107 @@ export default function ConversasPage() {
             {renderContactPanel("drawer", true)}
           </aside>
         </>
+      )}
+
+      {/* Modal de Atribuição de Equipe */}
+      {teamAssignModalConvId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                👥 Atribuir Atendimento a Colega
+              </h3>
+              <button onClick={() => setTeamAssignModalConvId(null)} className="text-xs font-bold text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Escolha qual membro da sua equipe assumirá este contato:
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {team.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-4 text-center">Nenhum membro na equipe cadastrado ainda.</p>
+              ) : (
+                team.map((member) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => {
+                      void patchConversation("assignment", { assigned_to: member.id }, teamAssignModalConvId);
+                      setTeamAssignModalConvId(null);
+                    }}
+                    className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/30 flex items-center justify-between text-left transition-all"
+                  >
+                    <div>
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white block">{member.name || "Sem nome"}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Atendente de Equipe</span>
+                    </div>
+                    <span className="text-xs text-purple-600 font-black">Atribuir →</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              onClick={() => setTeamAssignModalConvId(null)}
+              className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-xs rounded-xl"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criação de Nova Seção Customizada */}
+      {showNewSectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                ✨ Criar Nova Seção Customizada no Kanban
+              </h3>
+              <button onClick={() => setShowNewSectionModal(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 block mb-1">Título da Seção</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 💳 Aguardando PIX / 📞 Em Qualificação"
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 block mb-1">Descrição / Subtítulo</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Clientes aguardando envio do comprovante"
+                  value={newSectionSubtitle}
+                  onChange={(e) => setNewSectionSubtitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowNewSectionModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={addCustomSection}
+                className="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all"
+              >
+                Criar Seção ✨
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
