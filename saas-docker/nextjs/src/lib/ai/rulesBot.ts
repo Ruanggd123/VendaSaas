@@ -502,13 +502,17 @@ export async function processMessageWithRules(
   } else {
     phoneFormats.push("55" + phoneDigits);
   }
+  const phoneOrConditions = phoneFormats.flatMap(pf => [
+    { notes: { contains: `customer_phone:${pf}` } },
+    { notes: { contains: `"customer_phone":"${pf}"` } },
+    { notes: { contains: pf } }
+  ]);
+
   const pendingSale = await prisma.sale.findFirst({
     where: {
       tenant_id: tenantId,
       status: "pending",
-      OR: phoneFormats.map(pf => ({
-        notes: { contains: `customer_phone:${pf}` }
-      }))
+      OR: phoneOrConditions
     },
     orderBy: { created_at: "desc" },
     select: {
@@ -560,9 +564,7 @@ export async function processMessageWithRules(
       where: {
         tenant_id: tenantId,
         status: "paid",
-        OR: phoneFormats.map(pf => ({
-          notes: { contains: `customer_phone:${pf}` }
-        }))
+        OR: phoneOrConditions
       },
       orderBy: { paid_at: "desc" }
     });
@@ -2641,6 +2643,20 @@ async function processarFinalizacaoPedidoRulesBot(
       if (customerName) checkoutUrl += `&name=${encodeURIComponent(customerName)}`;
       if (cleanDigits) checkoutUrl += `&phone=${encodeURIComponent(contactNumber)}`;
       if (customerEmail) checkoutUrl += `&email=${encodeURIComponent(customerEmail)}`;
+
+      // Registra a venda PENDENTE no banco para vincular ao WhatsApp do cliente imediatamente
+      await prisma.sale.create({
+        data: {
+          tenant_id: tenantId,
+          product_name: chosenService.name,
+          amount: effectivePrice,
+          status: "pending",
+          notes: `customer_phone:${cleanDigits} | Link Checkout | customer_email:${customerEmail || ''} | customer_name:${customerName || ''}${extraNotes}`,
+          due_date: new Date(Date.now() + 7 * 86400000),
+          retail_order_id: order.id,
+          payment_link: checkoutUrl,
+        }
+      }).catch(err => console.error("Erro ao registrar venda pendente do checkout:", err));
 
       await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
 
