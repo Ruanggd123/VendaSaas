@@ -508,74 +508,157 @@ export async function processMessageWithRules(
     { notes: { contains: pf } }
   ]);
 
-  const pendingSale = await prisma.sale.findFirst({
+  // Busca a compra/cobrança MAIS RECENTE de todas para este número (pendente, paga ou expirada)
+  const mostRecentSale = await prisma.sale.findFirst({
     where: {
       tenant_id: tenantId,
-      status: "pending",
       OR: phoneOrConditions
     },
-    orderBy: { created_at: "desc" },
-    select: {
-      id: true,
-      product_name: true,
-      amount: true,
-      payment_link: true,
-      payment_id: true,
-      notes: true,
-      status: true,
-    }
+    orderBy: { created_at: "desc" }
   });
 
-  const pendingPaymentPrompt = pendingSale
-    ? `Olá! Existe um pagamento pendente para *${pendingSale.product_name}* no valor de *R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}*.`
+  const pendingSale = mostRecentSale?.status === "pending" ? mostRecentSale : null;
+
+  const pendingPaymentPrompt = (mostRecentSale && mostRecentSale.status === "pending")
+    ? `Olá! Existe um pagamento pendente para *${mostRecentSale.product_name}* no valor de *R$ ${mostRecentSale.amount.toFixed(2).replace(".", ",")}*.`
       + `\n\nEscolha como deseja continuar:\n\n1️⃣ *Pagar com PIX* — código no próprio WhatsApp\n2️⃣ *Pagar com Cartão* — checkout seguro\n3️⃣ *Cancelar cobrança*\n\n---BUTTONS---\nPagar com PIX|1\nPagar com Cartão|2\nCancelar cobrança|3`
     : "";
 
   const isAlreadyPaidIntent = cleanText.includes("paguei") || cleanText.includes("ja paguei") || cleanText.includes("fiz o pagamento") || cleanText.includes("fiz o pix") || cleanText.includes("comprovante") || cleanText.includes("pago") || cleanText.includes("ja tenho o plano") || cleanText.includes("ja tenho plano") || cleanText.includes("verificar") || cleanText.includes("verifique");
 
   if (isAlreadyPaidIntent) {
-    // 1. Se existir uma cobrança PENDENTE recente, verifica ela no Asaas em primeiro lugar!
-    if (pendingSale) {
+    if (!mostRecentSale) {
+      return `🔎 Não identifiquei nenhuma tentativa de pagamento registrada para este número de WhatsApp. Gostaria de conhecer nossos planos e solicitar um PIX?`;
+    }
+
+    const appUrl = (await import("@/lib/auth")).getAppBaseUrl();
+
+    // Extração defensiva do e-mail do cliente a partir dos campos
+    let clientEmail = "";
+    if (mostRecentSale.notes) {
+      const matchE = mostRecentSale.notes.match(/customer_email:([^\s|]+)/);
+      if (matchE && matchE[1]) clientEmail = matchE[1];
+    }
+
+    // --- CASO 1: A COMPRA MAIS RECENTE CONSTA COMO PENDENTE ---
+    if (mostRecentSale.status === "pending") {
       const apiKey = settings.asaas_api_key || process.env.ASAAS_API_KEY;
-      if (pendingSale.payment_id && apiKey) {
+      if (mostRecentSale.payment_id && apiKey) {
         try {
           const { getPayment } = await import("@/lib/asaas");
-          const asaasRes = await getPayment(pendingSale.payment_id, apiKey);
+          const asaasRes = await getPayment(mostRecentSale.payment_id, apiKey);
           const st = (asaasRes?.status || "").toUpperCase();
+
           if (st === "RECEIVED" || st === "CONFIRMED" || st === "RECEIVED_IN_CASH") {
             const newlyPaid = await prisma.sale.update({
-              where: { id: pendingSale.id },
+              where: { id: mostRecentSale.id },
               data: { status: "paid", paid_at: new Date() }
             });
+
+            // Entrega / Provisionamento automático de credenciais de acesso
+            let accessDetails = "";
+            if (clientEmail) {
+              const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
+              if (existingUser) {
+                accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha:* Sua senha cadastrada no sistema`;
+              } else {
+                const bcrypt = await import("bcryptjs");
+                const rawPassword = Math.random().toString(36).slice(-8) + "A1!";
+                const hashedPassword = await bcrypt.hash(rawPassword, 10);
+                const newTenant = await prisma.tenant.create({
+                  data: {
+                    name: `Empresa ${clientEmail.split("@")[0]}`,
+                    phone: `${contactNumber}_sub_${Date.now()}`,
+                    plan: newlyPaid.product_name,
+                    subscription_expires_at: new Date(Date.now() + 30 * 86400000),
+                  }
+                });
+                await prisma.user.create({
+                  data: {
+                    tenant_id: newTenant.id,
+                    name: clientEmail.split("@")[0],
+                    email: clientEmail,
+                    password_hash: hashedPassword,
+                    role: "admin",
+                  }
+                });
+                accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha Provisória:* ${rawPassword}\n\n_(Recomendamos alterar a senha no primeiro acesso!)_`;
+              }
+            } else {
+              accessDetails = `\n\n📋 *Acesso ao Painel:*\n🔗 ${appUrl}/login\nAcesse com seu e-mail cadastrado.`;
+            }
+
             state = { step: "main_menu", data: {} };
             await saveState(state);
-            return `🎉 *Pagamento Confirmado!*\n\nIdentificamos o seu pagamento para *${newlyPaid.product_name}* (R$ ${newlyPaid.amount.toFixed(2).replace(".", ",")}). Sua assinatura está 100% ativa! Como podemos te ajudar agora?`;
+            return `🎉 *Pagamento Confirmado & Conta Liberada com Sucesso!*\n\nIdentificamos o seu pagamento aprovado para *${newlyPaid.product_name}* (R$ ${newlyPaid.amount.toFixed(2).replace(".", ",")})! 🚀${accessDetails}\n\nSeu pedido já está 100% ativo! Como podemos te ajudar agora?`;
+          }
+
+          if (st === "OVERDUE" || st === "CANCELLED" || st === "REFUNDED") {
+            await prisma.sale.update({
+              where: { id: mostRecentSale.id },
+              data: { status: "expired" }
+            });
+            return `⏰ *Cobrança Expirada*\n\nA sua cobrança para *${mostRecentSale.product_name}* (R$ ${mostRecentSale.amount.toFixed(2).replace(".", ",")}) expirou ou foi cancelada pela operadora por limite de tempo.\n\nDeseja gerar um novo código PIX ou link de pagamento para concluir a compra?`;
           }
         } catch (e) {
           console.error("Erro ao consultar Asaas em tempo real:", e);
         }
       }
-      // Se a cobrança pendente ainda não foi paga no Asaas:
-      return `🔎 Seu pagamento para *${pendingSale.product_name}* (R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}) ainda consta como PENDENTE na operadora. Se você acabou de concluir a transferência via PIX, a compensação costuma ser automática em até 30 segundos! Digite 'paguei' novamente em instantes para re-verificar.`;
+
+      // Se a cobrança pendente foi criada há mais de 48h sem pagamento
+      const hoursOld = (Date.now() - new Date(mostRecentSale.created_at).getTime()) / (1000 * 60 * 60);
+      if (hoursOld > 48) {
+        await prisma.sale.update({
+          where: { id: mostRecentSale.id },
+          data: { status: "expired" }
+        });
+        return `⏰ A sua cobrança para *${mostRecentSale.product_name}* (R$ ${mostRecentSale.amount.toFixed(2).replace(".", ",")}) expirou por ter ultrapassado o tempo limite de pagamento (mais de 48h).\n\nQuer que eu gere um novo código PIX para você agora?`;
+      }
+
+      return `🔎 O seu pagamento para *${mostRecentSale.product_name}* (R$ ${mostRecentSale.amount.toFixed(2).replace(".", ",")}) ainda consta como PENDENTE na operadora.\n\nSe você acabou de concluir a transferência via PIX, a compensação costuma ser automática em até 30 segundos! Digite 'paguei' novamente em instantes para re-verificar.`;
     }
 
-    // 2. Se NÃO houver nenhuma cobrança pendente, busca pelo último pagamento já aprovado no histórico:
-    const paidSale = await prisma.sale.findFirst({
-      where: {
-        tenant_id: tenantId,
-        status: "paid",
-        OR: phoneOrConditions
-      },
-      orderBy: { paid_at: "desc" }
-    });
+    // --- CASO 2: A COMPRA MAIS RECENTE JÁ ESTÁ PAGA E APROVADA ---
+    if (mostRecentSale.status === "paid") {
+      let accessDetails = "";
+      if (clientEmail) {
+        const existingUser = await prisma.user.findUnique({ where: { email: clientEmail } });
+        if (existingUser) {
+          accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha:* Sua senha cadastrada no sistema`;
+        } else {
+          const bcrypt = await import("bcryptjs");
+          const rawPassword = Math.random().toString(36).slice(-8) + "A1!";
+          const hashedPassword = await bcrypt.hash(rawPassword, 10);
+          const newTenant = await prisma.tenant.create({
+            data: {
+              name: `Empresa ${clientEmail.split("@")[0]}`,
+              phone: `${contactNumber}_sub_${Date.now()}`,
+              plan: mostRecentSale.product_name,
+              subscription_expires_at: new Date(Date.now() + 30 * 86400000),
+            }
+          });
+          await prisma.user.create({
+            data: {
+              tenant_id: newTenant.id,
+              name: clientEmail.split("@")[0],
+              email: clientEmail,
+              password_hash: hashedPassword,
+              role: "admin",
+            }
+          });
+          accessDetails = `\n\n📋 *Seus Dados de Acesso ao Painel:*\n🔗 ${appUrl}/login\n📧 *Email:* ${clientEmail}\n🔑 *Senha Provisória:* ${rawPassword}\n\n_(Recomendamos alterar a senha no primeiro acesso!)_`;
+        }
+      } else {
+        accessDetails = `\n\n📋 *Acesso ao Painel:*\n🔗 ${appUrl}/login\nAcesse com seu e-mail cadastrado para gerenciar seus serviços.`;
+      }
 
-    if (paidSale) {
       state = { step: "main_menu", data: {} };
       await saveState(state);
-      return `🎉 *Assinatura Ativa!*\n\nIdentificamos a sua assinatura ativa para *${paidSale.product_name}* (R$ ${paidSale.amount.toFixed(2).replace(".", ",")}). Como podemos te ajudar agora?`;
-    } else {
-      return `🔎 Não identifiquei nenhum pagamento aprovado recente para este número de WhatsApp. Se você concluiu o pagamento via PIX ou Cartão há poucos instantes, aguarde até 2 minutos para a compensação automática ou fale com nosso suporte humano!`;
+      return `🎉 *Assinatura Ativa & Acesso Liberado!*\n\nIdentificamos o seu pagamento aprovado para *${mostRecentSale.product_name}* (R$ ${mostRecentSale.amount.toFixed(2).replace(".", ",")})! 🚀${accessDetails}\n\nComo podemos te ajudar agora?`;
     }
+
+    // --- CASO 3: OUTROS STATUS (EX: EXPIRADO OU CANCELADO) ---
+    return `⏰ A sua última tentativa de compra para *${mostRecentSale.product_name}* consta como expirada ou cancelada. Deseja escolher um plano para gerar um novo pagamento?`;
   }
 
   if (pendingSale) {
