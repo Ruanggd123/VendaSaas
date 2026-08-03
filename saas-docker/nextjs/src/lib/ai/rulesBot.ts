@@ -502,6 +502,33 @@ export async function processMessageWithRules(
     );
   }
 
+  // Handle briefing collection for service products (sob medida) antes do pagamento
+  if (state.step === "awaiting_checkout_briefing") {
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
+      state = { step: "main_menu", data: {} };
+      await saveState(state);
+      return getMainMenuMessage(settings);
+    }
+    const answer = userMessage.trim();
+    if (answer.length < 2) return "Por favor, digite uma resposta válida:";
+    const collected = { ...(state.data.collected || {}) };
+    if ((state.data.briefingStep || 0) === 0) {
+      collected.briefing_segmento = answer;
+      state.data.collected = collected;
+      state.data.briefingStep = 1;
+      await saveState(state);
+      return appendNodeCheckoutText(state.data.originNodeText, "2️⃣ *Quais páginas/sessões você precisa no site?* (ex: Início, Serviços, Contato)");
+    }
+    collected.briefing_paginas = answer;
+    const nome = state.data.name || contactName;
+    return await processarFinalizacaoPedidoRulesBot(
+      tenantId, contactNumber, state.data.chosenService,
+      state.data.address, settings, stateKey,
+      { ...collected, name: collected.name || nome, email: collected.email },
+      state.data.originNodeText, nome
+    );
+  }
+
   // Handle payment method selection for checkout
   if (state.step === "awaiting_payment_method") {
     if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu") {
@@ -872,7 +899,7 @@ export async function processMessageWithRules(
         },
       });
 
-      const response = `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código enviado.\n\nSe escolheu errado, você pode trocar a forma ou cancelar:\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3\n\n---PIX-COPY---\n${pixCopy}`;
+      const response = `✅ *PIX gerado no próprio WhatsApp*\n\n📦 *${pendingSale.product_name}*\n💰 *Valor:* R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}\n\n🔑 O código Pix Copia e Cola será enviado em uma mensagem separada para facilitar a cópia.\n\nAbra o aplicativo do seu banco, escolha *Pix Copia e Cola* e cole o código enviado.\n\n---PIX-COPY---\n${pixCopy}`;
       return encodedImage
         ? `${response}\n\n---IMAGE---\n${encodedImage.replace(/^data:image\/[^;]+;base64,/, "")}`
         : response;
@@ -2608,6 +2635,30 @@ async function processarFinalizacaoPedidoRulesBot(
           return appendNodeCheckoutText(originNodeText, "Qual o seu *melhor email* para enviarmos a confirmação do pagamento?");
         }
 
+        // Briefing para serviços sob medida: coleta informações do projeto antes do pagamento
+        const isServiceProduct = String(chosenService?.type || "").trim().toLowerCase() === "service"
+          || String(chosenService?.delivery_type || "").trim().toLowerCase() === "service";
+        const briefingDone = !!(collectedData?.briefing_segmento && collectedData?.briefing_paginas);
+        if (isServiceProduct && !briefingDone) {
+          const stateData: any = {
+            step: "awaiting_checkout_briefing",
+            data: {
+              chosenService,
+              address,
+              collected: collectedData || {},
+              originNodeText,
+              name: customerName,
+              briefingStep: 0,
+            }
+          };
+          await prisma.systemConfig.upsert({
+            where: { key: stateKey },
+            update: { value: JSON.stringify(stateData) },
+            create: { key: stateKey, value: JSON.stringify(stateData) }
+          });
+          return appendNodeCheckoutText(originNodeText, "Perfeito! Antes de gerar o pagamento, preciso de algumas informações do seu projeto:\n\n1️⃣ *Qual o segmento/área do seu negócio?*");
+        }
+
         try {
           const asaasUrl = settings.asaas_mode === 'production'
             ? 'https://asaas.com/api/v3'
@@ -2732,7 +2783,6 @@ async function processarFinalizacaoPedidoRulesBot(
           }
 
           msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
-          msg += `\n\n---BUTTONS---\nPagar com Cartão|2\nCancelar cobrança|3`;
           if (pixCopy) {
             msg += `\n\n---PIX-COPY---\n${pixCopy.trim()}`;
           }
