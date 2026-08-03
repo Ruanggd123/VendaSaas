@@ -475,6 +475,7 @@ export default function ConversasPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [draggedConvId, setDraggedConvId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [columnTitles, setColumnTitles] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -1832,7 +1833,7 @@ export default function ConversasPage() {
                       if (column.id === "resolved") void patchConversation("metadata", { service_status: "resolved" }, convId);
                     }
                   }}
-                  className={`w-88 flex-shrink-0 flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
+                  className={`w-[350px] min-w-[350px] max-w-[350px] shrink-0 flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
                     isDragOver 
                       ? "border-purple-500 ring-4 ring-purple-500/30 scale-[1.01] bg-purple-500/5" 
                       : "border-slate-200 dark:border-white/10"
@@ -1986,90 +1987,117 @@ export default function ConversasPage() {
             className={`${selectedId ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/90 md:w-[350px] md:min-w-[320px] xl:w-[390px]`}
           >
 
-        <div className="space-y-2.5 border-b border-slate-200/80 px-3 pb-3 pt-2 dark:border-white/10">
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6" aria-label="Filtros rápidos">
-            {QUICK_FILTERS.map((filter) => (
-              <button
-                type="button"
-                key={filter.value}
-                onClick={() => setQuickFilter(filter.value)}
-                aria-pressed={quickFilter === filter.value}
-                aria-label={`Filtrar por ${filter.label}. ${filter.description}`}
-                className={`relative rounded-xl border px-2 py-2 text-left text-[10px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                  quickFilter === filter.value
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-300"
-                    : "border-slate-200 bg-slate-100 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
-                }`}
-                title={filter.description}
-              >
-                <span className="block">{filter.label}</span>
-                <span className="mt-0.5 block text-[9px] font-normal text-slate-500 dark:text-slate-400">
-                  {filter.value === "all"
-                    ? quickCounts.all
-                    : filter.value === "waiting"
-                      ? quickCounts.waiting
-                      : filter.value === "unread"
-                        ? quickCounts.unread
-                        : filter.value === "mine"
-                          ? quickCounts.mine
-                          : filter.value === "urgent"
-                            ? quickCounts.urgent
-                            : quickCounts.unassigned}
-                </span>
-              </button>
-            ))}
+        <div className="space-y-2 border-b border-slate-200/80 p-3 dark:border-white/10">
+          {/* Carrossel de Filtros Rápidos (Horizontal) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtros rápidos">
+            {QUICK_FILTERS.map((filter) => {
+              const isActive = quickFilter === filter.value;
+              const count = filter.value === "all"
+                ? quickCounts.all
+                : filter.value === "waiting"
+                  ? quickCounts.waiting
+                  : filter.value === "unread"
+                    ? quickCounts.unread
+                    : filter.value === "mine"
+                      ? quickCounts.mine
+                      : filter.value === "urgent"
+                        ? quickCounts.urgent
+                        : quickCounts.unassigned;
+
+              return (
+                <button
+                  type="button"
+                  key={filter.value}
+                  onClick={() => setQuickFilter(filter.value)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition-all ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-[1.02]"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <span>{filter.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          <label className="relative block">
-            <span className="sr-only">Buscar conversa</span>
-            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar nome ou número"
-              className="w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-3 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-white/10 dark:bg-slate-950"
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              aria-label="Filtrar por fila"
-              value={queueFilter}
-              onChange={(event) => setQueueFilter(event.target.value)}
-              className="min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
+          {/* Campo de Busca & Botão de Filtros Avançados */}
+          <div className="flex items-center gap-2">
+            <label className="relative flex-1">
+              <span className="sr-only">Buscar conversa</span>
+              <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar nome ou número..."
+                className="w-full rounded-2xl border border-slate-200 bg-slate-100/80 py-2 pl-9 pr-3 text-xs font-semibold outline-none transition focus:border-indigo-500 focus:bg-white dark:border-white/10 dark:bg-slate-950"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`px-3 py-2 rounded-2xl border text-xs font-black transition flex items-center gap-1.5 shrink-0 ${
+                showAdvancedFilters || queueFilter !== "all" || priorityFilter !== "all" || serviceStatusFilter !== "all" || assignedFilter !== "all"
+                  ? "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+              }`}
             >
-              <option value="all">Todas as filas</option>
-              {QUEUE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select
-              aria-label="Filtrar por prioridade"
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value)}
-              className="min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
-            >
-              <option value="all">Prioridades</option>
-              {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select
-              aria-label="Filtrar por etapa do atendimento"
-              value={serviceStatusFilter}
-              onChange={(event) => setServiceStatusFilter(event.target.value)}
-              className="col-span-2 min-w-0 rounded-xl border border-slate-200 bg-slate-100 px-2 py-2 text-[10px] font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
-            >
-              <option value="all">Todas as etapas</option>
-              {SERVICE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+              <span>⚙️ Filtros</span>
+            </button>
           </div>
-          {sessionUser?.role !== "agent" && sessionUser?.role !== "partner" && (
-            <select
-              aria-label="Filtrar por atendente"
-              value={assignedFilter}
-              onChange={(event) => setAssignedFilter(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-950"
-            >
-              <option value="all">Todos os atendimentos</option>
-              <option value="unassigned">Fila geral</option>
-              {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
-            </select>
+
+          {/* Painel Colapsável de Filtros Avançados */}
+          {showAdvancedFilters && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-white/10 space-y-2 animate-in fade-in slide-in-from-top-1">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Filtrar por fila"
+                  value={queueFilter}
+                  onChange={(event) => setQueueFilter(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold outline-none dark:border-white/10 dark:bg-slate-900"
+                >
+                  <option value="all">Todas as filas</option>
+                  {QUEUE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <select
+                  aria-label="Filtrar por prioridade"
+                  value={priorityFilter}
+                  onChange={(event) => setPriorityFilter(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold outline-none dark:border-white/10 dark:bg-slate-900"
+                >
+                  <option value="all">Prioridades</option>
+                  {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Filtrar por etapa do atendimento"
+                  value={serviceStatusFilter}
+                  onChange={(event) => setServiceStatusFilter(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold outline-none dark:border-white/10 dark:bg-slate-900"
+                >
+                  <option value="all">Todas as etapas</option>
+                  {SERVICE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+
+                {sessionUser?.role !== "agent" && sessionUser?.role !== "partner" && (
+                  <select
+                    aria-label="Filtrar por atendente"
+                    value={assignedFilter}
+                    onChange={(event) => setAssignedFilter(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold outline-none dark:border-white/10 dark:bg-slate-900"
+                  >
+                    <option value="all">Todos os atendentes</option>
+                    <option value="unassigned">Fila geral</option>
+                    {team.map((member) => <option key={member.id} value={member.id}>{member.name || "Sem nome"}</option>)}
+                  </select>
+                )}
+              </div>
+            </div>
           )}
 
           {activeFilterChips.length > 0 && (
