@@ -384,8 +384,27 @@ export async function processMessageWithRules(
     customNodes = [];
   }
 
+  const customNodeTitlesAndKeywords: string[] = [];
+  if (Array.isArray(customNodes)) {
+    for (const node of customNodes) {
+      if (node.title) {
+        customNodeTitlesAndKeywords.push(...node.title.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, "").split(/\s+/).filter((w: string) => w.length >= 3));
+      }
+      if (node.triggerKeywords && Array.isArray(node.triggerKeywords)) {
+        customNodeTitlesAndKeywords.push(...node.triggerKeywords.map((k: string) => k.toLowerCase().trim()));
+      }
+      if (node.options && Array.isArray(node.options)) {
+        for (const opt of node.options) {
+          if (opt.text) {
+            customNodeTitlesAndKeywords.push(...opt.text.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, "").split(/\s+/).filter((w: string) => w.length >= 3));
+          }
+        }
+      }
+    }
+  }
+
   const words = cleanText.split(/\s+/).filter(Boolean);
-  const actionKeywords = [
+  const globalActionKeywords = [
     "comprar", "pix", "cartao", "credito", "agendar", "agendamento", "suporte",
     "preco", "preço", "link", "cancelar", "cancele", "paguei", "verificar",
     "catalogo", "catalogos", "servico", "servicos", "produto", "produtos",
@@ -393,7 +412,9 @@ export async function processMessageWithRules(
     "reuniao", "reunião", "horario", "horário",
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"
   ];
-  const hasActionKeyword = words.some(w => actionKeywords.some(ak => w === ak || (ak.length >= 4 && w.includes(ak))));
+  const allActionKeywords = [...globalActionKeywords, ...customNodeTitlesAndKeywords];
+
+  const hasActionKeyword = words.some(w => allActionKeywords.some(ak => w === ak || (ak.length >= 3 && w.includes(ak))));
 
   const isResetCommand = ["menu", "0", "voltar", "inicio", "reiniciar", "recomecar"].includes(cleanText);
   const isShortGreeting = words.length > 0 && words.length <= 4 && !hasActionKeyword;
