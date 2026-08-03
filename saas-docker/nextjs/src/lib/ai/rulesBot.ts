@@ -530,7 +530,33 @@ export async function processMessageWithRules(
   const isAlreadyPaidIntent = cleanText.includes("paguei") || cleanText.includes("ja paguei") || cleanText.includes("fiz o pagamento") || cleanText.includes("fiz o pix") || cleanText.includes("comprovante") || cleanText.includes("pago") || cleanText.includes("ja tenho o plano") || cleanText.includes("ja tenho plano") || cleanText.includes("verificar") || cleanText.includes("verifique");
 
   if (isAlreadyPaidIntent) {
-    let paidSale = await prisma.sale.findFirst({
+    // 1. Se existir uma cobrança PENDENTE recente, verifica ela no Asaas em primeiro lugar!
+    if (pendingSale) {
+      const apiKey = settings.asaas_api_key || process.env.ASAAS_API_KEY;
+      if (pendingSale.payment_id && apiKey) {
+        try {
+          const { getPayment } = await import("@/lib/asaas");
+          const asaasRes = await getPayment(pendingSale.payment_id, apiKey);
+          const st = (asaasRes?.status || "").toUpperCase();
+          if (st === "RECEIVED" || st === "CONFIRMED" || st === "RECEIVED_IN_CASH") {
+            const newlyPaid = await prisma.sale.update({
+              where: { id: pendingSale.id },
+              data: { status: "paid", paid_at: new Date() }
+            });
+            state = { step: "main_menu", data: {} };
+            await saveState(state);
+            return `🎉 *Pagamento Confirmado!*\n\nIdentificamos o seu pagamento para *${newlyPaid.product_name}* (R$ ${newlyPaid.amount.toFixed(2).replace(".", ",")}). Sua assinatura está 100% ativa! Como podemos te ajudar agora?`;
+          }
+        } catch (e) {
+          console.error("Erro ao consultar Asaas em tempo real:", e);
+        }
+      }
+      // Se a cobrança pendente ainda não foi paga no Asaas:
+      return `🔎 Seu pagamento para *${pendingSale.product_name}* (R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}) ainda consta como PENDENTE na operadora. Se você acabou de concluir a transferência via PIX, a compensação costuma ser automática em até 30 segundos! Digite 'paguei' novamente em instantes para re-verificar.`;
+    }
+
+    // 2. Se NÃO houver nenhuma cobrança pendente, busca pelo último pagamento já aprovado no histórico:
+    const paidSale = await prisma.sale.findFirst({
       where: {
         tenant_id: tenantId,
         status: "paid",
@@ -541,29 +567,10 @@ export async function processMessageWithRules(
       orderBy: { paid_at: "desc" }
     });
 
-    // Se ainda não consta no banco como pago, mas temos uma cobrança pendente e a chave do Asaas:
-    if (!paidSale && pendingSale && pendingSale.payment_id && settings.asaas_api_key) {
-      try {
-        const { getPayment } = await import("@/lib/asaas");
-        const asaasRes = await getPayment(pendingSale.payment_id, settings.asaas_api_key);
-        const st = (asaasRes?.status || "").toUpperCase();
-        if (st === "RECEIVED" || st === "CONFIRMED" || st === "RECEIVED_IN_CASH") {
-          paidSale = await prisma.sale.update({
-            where: { id: pendingSale.id },
-            data: { status: "paid", paid_at: new Date() }
-          });
-        }
-      } catch (e) {
-        console.error("Erro ao consultar Asaas em tempo real:", e);
-      }
-    }
-
     if (paidSale) {
       state = { step: "main_menu", data: {} };
       await saveState(state);
-      return `🎉 *Pagamento Confirmado!*\n\nIdentificamos o seu pagamento para *${paidSale.product_name}* (R$ ${paidSale.amount.toFixed(2).replace(".", ",")}). Sua assinatura está 100% ativa! Como podemos te ajudar agora?`;
-    } else if (pendingSale) {
-      return `🔎 Seu pagamento para *${pendingSale.product_name}* (R$ ${pendingSale.amount.toFixed(2).replace(".", ",")}) ainda consta como pendente na operadora. Se você acabou de concluir a transferência via PIX, a compensação costuma ser automática em até 30 segundos! Digite 'paguei' novamente em instantes para re-verificar.`;
+      return `🎉 *Assinatura Ativa!*\n\nIdentificamos a sua assinatura ativa para *${paidSale.product_name}* (R$ ${paidSale.amount.toFixed(2).replace(".", ",")}). Como podemos te ajudar agora?`;
     } else {
       return `🔎 Não identifiquei nenhum pagamento aprovado recente para este número de WhatsApp. Se você concluiu o pagamento via PIX ou Cartão há poucos instantes, aguarde até 2 minutos para a compensação automática ou fale com nosso suporte humano!`;
     }
