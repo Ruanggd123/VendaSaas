@@ -675,7 +675,7 @@ export async function handleToolCall(
 
   if (toolCall.function.name === "verificar_status_pagamento") {
     try {
-      const lastSale = await prisma.sale.findFirst({
+      let lastSale = await prisma.sale.findFirst({
         where: {
           tenant_id: tenantId,
           notes: { contains: `customer_phone:${contactNumber}` }
@@ -685,6 +685,26 @@ export async function handleToolCall(
 
       if (!lastSale) {
         return "Nenhuma tentativa de pagamento encontrada para este contato.";
+      }
+
+      if (lastSale.status === "pending" && lastSale.payment_id) {
+        try {
+          const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+          const settings = JSON.parse((tenant?.settings as string) || "{}");
+          const apiKey = settings.asaas_api_key || process.env.ASAAS_API_KEY;
+          
+          if (apiKey) {
+            const { getPayment } = await import("@/lib/asaas");
+            const asaasRes = await getPayment(lastSale.payment_id, apiKey);
+            const st = (asaasRes?.status || "").toUpperCase();
+            if (st === "RECEIVED" || st === "CONFIRMED" || st === "RECEIVED_IN_CASH") {
+              lastSale = await prisma.sale.update({
+                where: { id: lastSale.id },
+                data: { status: "paid", paid_at: new Date() }
+              });
+            }
+          }
+        } catch (e) {}
       }
 
       if (lastSale.status === "paid") {
