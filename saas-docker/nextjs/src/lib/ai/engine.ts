@@ -371,13 +371,13 @@ O cliente se chama ${clientName}.
 
     let debtPrompt = "";
     if (pendingSale) {
-      debtPrompt = `\n[INFORMAÇÃO CRÍTICA DE COBRANÇA (DÍVIDA)]:
-O cliente ${clientName} possui uma cobrança PENDENTE para o produto/serviço "${pendingSale.product_name}" no valor de R$ ${pendingSale.amount.toFixed(2)}.
-Link para ele realizar o pagamento seguro: ${pendingSale.payment_link || 'Indisponível'}.
-REGRAS:
-1. Na sua primeira resposta ou saudação, você DEVE alertar educadamente o cliente sobre essa pendência de R$ ${pendingSale.amount.toFixed(2)} e oferecer o link de pagamento.
-2. Diga que ele pode efetuar o pagamento para dar andamento ou liberação ao pedido dele.
-3. Se ele disser que já pagou, você deve usar a ferramenta 'verificar_status_pagamento' para validar a aprovação.`;
+      debtPrompt = `\n[INFORMAÇÃO DE COBRANÇA PENDENTE]:
+O cliente ${clientName} possui um link de pagamento pendente para o produto/serviço "${pendingSale.product_name}" no valor de R$ ${pendingSale.amount.toFixed(2)}.
+Link: ${pendingSale.payment_link || 'Indisponível'}.
+REGRAS DE COBRANÇA:
+1. Se a mensagem do cliente for apenas uma saudação ("Oi", "Olá", "Boa noite"), responda a saudação normalmente PRIMEIRO e só mencione o link de pagamento SE ele perguntar sobre o produto ou como pagar.
+2. NUNCA chame ferramentas de verificação de pagamento se o cliente mandou apenas uma saudação ("Oi", "Olá").
+3. Só use a ferramenta 'verificar_status_pagamento' se o cliente disser que JÁ PAGOU ou pedir para verificar.`;
     }
 
     const basePrompt = settings.ai_prompt || settings.ia_prompt || defaultPrompt;
