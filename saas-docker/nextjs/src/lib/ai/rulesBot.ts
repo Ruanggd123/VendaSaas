@@ -1140,13 +1140,37 @@ export async function processMessageWithRules(
     }
 
     // 2. Falar com Atendente Humano
-    const isHumanIntent = (
-      cleanText.includes("atendente") ||
-      cleanText.includes("humano") ||
-      cleanText.includes("suporte") ||
-      cleanText.includes("falar") ||
+    // Filtro rigoroso: evitar falsos positivos com mensagens pré-formatadas de botões de projeto/rastreio
+    const isProjectTrackingMessage = (
+      cleanText.includes("gostaria de falar sobre o meu projeto") ||
+      cleanText.includes("falar sobre o projeto") ||
+      cleanText.includes("falar sobre meu projeto") ||
+      cleanText.includes("acompanhar meu projeto") ||
+      (cleanText.includes("projeto") && cleanText.includes("desenvolvimento"))
+    );
+
+    const isHumanIntent = !isProjectTrackingMessage && (
+      cleanText === "atendente" ||
+      cleanText === "humano" ||
+      cleanText === "suporte" ||
+      cleanText === "falar com atendente" ||
+      cleanText === "falar com humano" ||
+      cleanText.includes("quero falar com") ||
+      cleanText.includes("preciso de atendente") ||
+      cleanText.includes("falar com suporte") ||
       cleanText === "2"
     );
+
+    if (isProjectTrackingMessage) {
+      const clientFirstName = contactName ? contactName.split(' ')[0] : 'cliente';
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+      return `Olá, ${clientFirstName}! 👋 Que bom ter você aqui!\n\nSua mensagem foi recebida e nosso desenvolvedor responsável pelo seu projeto já está sendo avisado.\n\nEm instantes alguém da nossa equipe entrará em contato com você para acompanhar o andamento! 🚀\n\nEnquanto isso, pode verificar o progresso do seu projeto direto no painel: https://nexus-six-olive.vercel.app/meu-projeto`;
+    }
 
     if (isHumanIntent) {
       await prisma.conversation.updateMany({
@@ -1155,7 +1179,8 @@ export async function processMessageWithRules(
           : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
         data: { ai_paused: true }
       });
-      return "Aguarde um momento, estou transferindo você para um de nossos especialistas. Logo você será atendido! 🧑‍💻";
+      const clientFirstName = contactName ? contactName.split(' ')[0] : '';
+      return `Perfeito${clientFirstName ? `, ${clientFirstName}` : ''}! 😊 Já estou avisando nossa equipe.\n\nUm de nossos especialistas vai te atender em instantes! 🧑‍💻\n\n_Fique à vontade para deixar sua dúvida ou comentário aqui que será respondido em breve._`;
     }
 
     // 3. Catálogo Completo de Serviços
