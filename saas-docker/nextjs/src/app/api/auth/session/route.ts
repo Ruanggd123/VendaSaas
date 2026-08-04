@@ -20,16 +20,17 @@ export async function GET() {
     if (session.tenant_id) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: session.tenant_id },
-        select: { name: true, settings: true },
+        select: { name: true, plan: true, settings: true },
       });
       if (tenant) {
         tenantName = tenant.name;
+        tenantPlan = tenant.plan || "Start";
         try {
           const s = JSON.parse(tenant.settings || '{}');
-          tenantPlan = s.plan_name || s.subscription_plan || "Growth";
-        } catch {
-          tenantPlan = "Growth";
-        }
+          if (s.plan_name || s.subscription_plan) {
+            tenantPlan = s.plan_name || s.subscription_plan;
+          }
+        } catch {}
       }
     }
 

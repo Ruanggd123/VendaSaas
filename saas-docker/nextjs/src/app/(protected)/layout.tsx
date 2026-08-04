@@ -35,6 +35,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import PartnerAccessTimer from "@/components/PartnerAccessTimer";
 import AccountModal from "@/components/AccountModal";
+import { getPlanDetails } from "@/lib/plans";
 
 const navItems = [
   {
@@ -51,7 +52,7 @@ const navItems = [
       { href: "/vendas", label: "Vendas & Cobranças", icon: DollarSign },
       { href: "/autovendas", label: "Afiliados & Saques", icon: Wallet, superAdminOnly: true },
       { href: "/projetos", label: "Projetos (Dev)", icon: Rocket, devOrAdminOnly: true },
-      { href: "/meu-projeto", label: "Meu Site & Briefing", icon: Rocket, clientOnly: true },
+      { href: "/meu-projeto", label: "Meu Site & Briefing", icon: Rocket, clientOnly: true, requiresSite: true },
     ],
   },
   {
@@ -61,7 +62,7 @@ const navItems = [
       { href: "/whatsapp", label: "WhatsApp", icon: Smartphone },
       { href: "/equipe", label: "Equipe", icon: Users },
       { href: "/settings", label: "Configurações", icon: Settings },
-      { href: "/workflow", label: "Workflow", icon: Workflow },
+      { href: "/workflow", label: "Workflow", icon: Workflow, requiresMassDispatch: true },
       { href: "/admin", label: "Super Admin", icon: Shield, superAdminOnly: true },
     ],
   },
@@ -274,6 +275,12 @@ export default function DashboardLayout({
                     if (item.superAdminOnly && role !== "superadmin") return null;
                     if (item.devOrAdminOnly && role !== "superadmin" && role !== "manager" && !(role === "partner" && (userAccount as any).partnerType === "dev")) return null;
                     if (item.clientOnly && (role === "superadmin" || (role === "partner" && (userAccount as any).partnerType === "dev"))) return null;
+
+                    const currentPlan = getPlanDetails(userAccount.tenantPlan);
+                    if (item.requiresSite && !currentPlan.hasSite) return null;
+                    if (item.requiresMassDispatch && !currentPlan.hasMassDispatch) return null;
+                    if (item.requiresMultiUser && currentPlan.maxUsers <= 1) return null;
+
                     const active = isActive(item.href);
                     const Icon = item.icon;
                     return (
