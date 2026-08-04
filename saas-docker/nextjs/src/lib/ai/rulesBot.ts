@@ -218,6 +218,166 @@ function getSchedulableProducts(products: any[]): ProductLike[] {
   return [];
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// MOTOR DE INTENÇÃO SEMÂNTICO CONTEXTUAL
+// Analisa a mensagem como um todo — não por palavras isoladas — para decidir
+// qual é a real intenção do usuário, evitando falsos positivos e respostas
+// mecânicas baseadas em keyword matching simples.
+// ───────────────────────────────────────────────────────────────────────────
+type Intent =
+  | "buy"        // comprar produto, ver planos, assinar
+  | "schedule"   // agendar, marcar horário
+  | "human"      // falar com pessoa, atendente humano
+  | "catalog"    // ver lista completa de produtos/serviços
+  | "quote"      // orçamento, quanto custa
+  | "status"     // verificar pagamento, status do pedido, meu projeto
+  | "project"    // contato sobre projeto em desenvolvimento
+  | "greeting"   // saudação pura sem intenção clara
+  | "menu"       // quer ver o menu de opções
+  | "automated"  // mensagem automática de sistema (não deve ser processada)
+  | "unknown";   // intenção não identificada (deixar IA responder)
+
+function classifyIntent(raw: string): Intent {
+  const text = raw
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // 1. Mensagens automáticas de sistema (bots, notificações, webhooks)
+  const automatedPatterns = [
+    /nova venda confirmada/,
+    /credenciais enviadas/,
+    /ja pode acessar/,
+    /pagamento confirmado/,
+    /pedido liberado automaticamente/,
+    /agendamento confirmado/,
+    /🛒|💰|📋|🔑|✅/,
+  ];
+  if (automatedPatterns.some(p => p.test(raw.toLowerCase()))) return "automated";
+
+  // 2. Saudações puras (sem contexto de ação)
+  const greetingOnlyWords = ["oi", "ola", "ola boa tarde", "boa tarde", "bom dia", "boa noite", "e ai", "eai", "hey", "tudo bem", "tudo bom", "ola tudo bem", "ola tudo bom", "olá"];
+  if (greetingOnlyWords.some(g => text === g || text === g.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) return "greeting";
+
+  // 3. Navegação — quer ver o menu
+  if (/^(menu|0|voltar|inicio|recomecar|reiniciar)$/.test(text)) return "menu";
+
+  // 4. Sobre o projeto em desenvolvimento (mensagem pré-formatada do painel)
+  const isProjectMessage = (
+    text.includes("gostaria de falar sobre") ||
+    text.includes("falar sobre o projeto") ||
+    text.includes("falar sobre meu projeto") ||
+    text.includes("acompanhar meu projeto") ||
+    (text.includes("projeto") && text.includes("desenvolvimento")) ||
+    (text.includes("projeto") && text.includes("site") && !text.includes("quero") && !text.includes("comprar")) ||
+    text.includes("meu projeto")
+  );
+  if (isProjectMessage) return "project";
+
+  // 5. Status / verificar pagamento ou pedido
+  const isStatus = (
+    (text.includes("paguei") && !text.includes("quero")) ||
+    text.includes("verificar pagamento") ||
+    text.includes("meu pedido") ||
+    text.includes("meu status") ||
+    text.includes("confirmacao de pagamento") ||
+    text.includes("ja paguei") ||
+    text.includes("pix caiu")
+  );
+  if (isStatus) return "status";
+
+  // 6. Compra / assinatura
+  const isBuying = (
+    text.includes("quero comprar") ||
+    text.includes("quero assinar") ||
+    text.includes("quero contratar") ||
+    text.includes("comprar") ||
+    text.includes("assinar") ||
+    text.includes("contratar") ||
+    text.includes("quero o plano") ||
+    text.includes("me manda o link") ||
+    text.includes("link de pagamento") ||
+    text.includes("como faço para comprar") ||
+    (text.includes("pix") && text.includes("plano")) ||
+    (text.includes("cartao") && text.includes("plano"))
+  );
+  if (isBuying) return "buy";
+
+  // 7. Agendamento
+  const isScheduling = (
+    text.includes("quero agendar") ||
+    text.includes("marcar horario") ||
+    text.includes("marcar uma reuniao") ||
+    text.includes("agendar uma reuniao") ||
+    text.includes("agendar horario") ||
+    (text.includes("agendar") && !text.includes("projeto")) ||
+    (text.includes("reuniao") && !text.includes("projeto"))
+  );
+  if (isScheduling) return "schedule";
+
+  // 8. Atendimento humano — somente quando a intenção é inequívoca
+  const isHuman = (
+    text === "atendente" ||
+    text === "humano" ||
+    text === "falar com atendente" ||
+    text === "falar com humano" ||
+    text === "falar com pessoa" ||
+    text.includes("quero falar com") ||
+    text.includes("preciso de atendente") ||
+    text.includes("chamar atendente") ||
+    text.includes("falar com suporte") ||
+    text.includes("atendente humano")
+  );
+  if (isHuman) return "human";
+
+  // 9. Orçamento
+  const isQuote = (
+    text.includes("orcamento") ||
+    text.includes("quanto custa") ||
+    text.includes("qual o preco") ||
+    text.includes("qual o valor") ||
+    text.includes("me passa o preco") ||
+    text.includes("preco do plano")
+  );
+  if (isQuote) return "quote";
+
+  // 10. Catálogo / ver serviços
+  const isCatalog = (
+    text.includes("ver catalogo") ||
+    text.includes("ver servicos") ||
+    text.includes("ver planos") ||
+    text.includes("quais os planos") ||
+    text.includes("quais servicos") ||
+    text.includes("lista de servicos") ||
+    text.includes("o que voce oferece") ||
+    text.includes("o que voces oferecem") ||
+    text.includes("servicos disponiveis")
+  );
+  if (isCatalog) return "catalog";
+
+  return "unknown";
+}
+
+// Retorna uma resposta de fallback humanizada e natural (nunca mecânica)
+function getConversationalFallback(firstName: string, settings: any, attempt: number): string {
+  const name = firstName ? `, ${firstName}` : "";
+  const businessName = settings.company_name || settings.businessName || "nossa equipe";
+  
+  const responses = [
+    `Hmm, não consegui entender direito o que você quis dizer${name}. 😅 Pode reformular? Estou aqui para ajudar!\n\nDigite *menu* para ver as opções disponíveis.`,
+    `Eita${name}, acho que não entendi sua mensagem! 😄 Tenta me dizer de outro jeito? Fica à vontade!\n\nOu se preferir, é só digitar *menu* para ver o que temos.`,
+    `Opa${name}! Não identifiquei bem o que você precisa. Pode ser mais específico? 🙏\n\nAlgumas opções rápidas:\n• *Comprar* — ver planos e preços\n• *Agendar* — marcar um horário\n• *Atendente* — falar com nossa equipe`,
+    `Hmm, não entendi bem${name}. 🤔 O que você precisa?\n\n• Para ver os *planos*, digita "Planos"\n• Para *agendar*, digita "Agendar"\n• Para falar com *atendente*, digita "Atendente"\n• Para o *menu*, digita *0*`,
+  ];
+  
+  // Usa tentativa para variar a resposta, mas nunca repete
+  return responses[Math.min(attempt - 1, responses.length - 1)];
+}
+
 function isValidNode(node: any) {
   if (!node) return false;
   const title = (node.title || "").trim();
@@ -1139,48 +1299,37 @@ export async function processMessageWithRules(
       })));
     }
 
-    // 2. Falar com Atendente Humano
-    // Filtro rigoroso: evitar falsos positivos com mensagens pré-formatadas de botões de projeto/rastreio
-    const isProjectTrackingMessage = (
-      cleanText.includes("gostaria de falar sobre o meu projeto") ||
-      cleanText.includes("falar sobre o projeto") ||
-      cleanText.includes("falar sobre meu projeto") ||
-      cleanText.includes("acompanhar meu projeto") ||
-      (cleanText.includes("projeto") && cleanText.includes("desenvolvimento"))
-    );
+    // 2. Usar o motor semântico para detectar intenção de forma inteligente
+    const semanticIntent = classifyIntent(userMessage);
+    const clientFirstName = contactName ? contactName.split(' ')[0] : '';
 
-    const isHumanIntent = !isProjectTrackingMessage && (
-      cleanText === "atendente" ||
-      cleanText === "humano" ||
-      cleanText === "suporte" ||
-      cleanText === "falar com atendente" ||
-      cleanText === "falar com humano" ||
-      cleanText.includes("quero falar com") ||
-      cleanText.includes("preciso de atendente") ||
-      cleanText.includes("falar com suporte") ||
-      cleanText === "2"
-    );
-
-    if (isProjectTrackingMessage) {
-      const clientFirstName = contactName ? contactName.split(' ')[0] : 'cliente';
-      await prisma.conversation.updateMany({
-        where: conversationId
-          ? { id: conversationId, tenant_id: tenantId }
-          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
-        data: { ai_paused: true }
-      });
-      return `Olá, ${clientFirstName}! 👋 Que bom ter você aqui!\n\nSua mensagem foi recebida e nosso desenvolvedor responsável pelo seu projeto já está sendo avisado.\n\nEm instantes alguém da nossa equipe entrará em contato com você para acompanhar o andamento! 🚀\n\nEnquanto isso, pode verificar o progresso do seu projeto direto no painel: https://nexus-six-olive.vercel.app/meu-projeto`;
+    // Mensagem automática de sistema — ignorar completamente
+    if (semanticIntent === "automated") {
+      console.log(`[RulesBot] Mensagem automática de sistema detectada para ${contactNumber}. Ignorando.`);
+      return null;
     }
 
-    if (isHumanIntent) {
+    // Sobre projeto em desenvolvimento
+    if (semanticIntent === "project") {
       await prisma.conversation.updateMany({
         where: conversationId
           ? { id: conversationId, tenant_id: tenantId }
           : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
         data: { ai_paused: true }
       });
-      const clientFirstName = contactName ? contactName.split(' ')[0] : '';
-      return `Perfeito${clientFirstName ? `, ${clientFirstName}` : ''}! 😊 Já estou avisando nossa equipe.\n\nUm de nossos especialistas vai te atender em instantes! 🧑‍💻\n\n_Fique à vontade para deixar sua dúvida ou comentário aqui que será respondido em breve._`;
+      const name = clientFirstName || 'cliente';
+      return `Olá, ${name}! 👋 Que bom te ver por aqui!\n\nSua mensagem foi recebida e nosso desenvolvedor responsável pelo seu projeto já está sendo notificado agora.\n\nEm instantes alguém da nossa equipe entrará em contato para conversar com você sobre o andamento! 🚀\n\nEnquanto isso, você já pode acompanhar o progresso em tempo real pelo painel: https://nexus-six-olive.vercel.app/meu-projeto`;
+    }
+
+    // Atendente humano — intenção inequívoca
+    if (semanticIntent === "human" || cleanText === "2") {
+      await prisma.conversation.updateMany({
+        where: conversationId
+          ? { id: conversationId, tenant_id: tenantId }
+          : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+        data: { ai_paused: true }
+      });
+      return `Perfeito${clientFirstName ? `, ${clientFirstName}` : ''}! 😊 Já estou avisando nossa equipe agora.\n\nUm de nossos especialistas vai entrar em contato em instantes! 🧑‍💻\n\n_Enquanto aguarda, pode deixar sua mensagem aqui que será respondida em breve._`;
     }
 
     // 3. Catálogo Completo de Serviços
@@ -2237,12 +2386,80 @@ export async function processMessageWithRules(
     }
   }
 
-  // Keyword unmatched fallback
+  // Fallback inteligente — tenta usar o motor semântico antes de desistir
+  const semanticFallbackIntent = classifyIntent(userMessage);
+  const clientFirstNameFallback = contactName ? contactName.split(' ')[0] : '';
+
+  // Mensagem automática de sistema — ignora silenciosamente
+  if (semanticFallbackIntent === "automated") {
+    return null;
+  }
+
+  // Projeto em desenvolvimento
+  if (semanticFallbackIntent === "project") {
+    await prisma.conversation.updateMany({
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+      data: { ai_paused: true }
+    });
+    const name = clientFirstNameFallback || 'cliente';
+    return `Olá, ${name}! 👋 Mensagem recebida!\n\nNosso desenvolvedor já foi notificado e entrará em contato em breve. 🚀\n\nAcompanhe o progresso do seu projeto: https://nexus-six-olive.vercel.app/meu-projeto`;
+  }
+
+  // Atendente humano identificado pelo motor semântico
+  if (semanticFallbackIntent === "human") {
+    await prisma.conversation.updateMany({
+      where: conversationId
+        ? { id: conversationId, tenant_id: tenantId }
+        : { tenant_id: tenantId, instance_name: settings._instanceName || "__missing_instance__", contact_number: contactNumber },
+      data: { ai_paused: true }
+    });
+    return `Claro${clientFirstNameFallback ? `, ${clientFirstNameFallback}` : ''}! 😊 Já aviso nossa equipe.\n\nUm especialista estará com você em instantes! 🧑‍💻`;
+  }
+
+  // Interesse em compra identificado — redireciona para catálogo
+  if (semanticFallbackIntent === "buy" || semanticFallbackIntent === "catalog" || semanticFallbackIntent === "quote") {
+    state.step = "main_menu";
+    state.errorCount = 0;
+    await saveState(state);
+    return null; // Deixa a IA inteligente responder com os planos
+  }
+
+  // Agendamento identificado — reinicia fluxo de agendamento
+  if (semanticFallbackIntent === "schedule") {
+    state.step = "main_menu";
+    state.errorCount = 0;
+    await saveState(state);
+    return null;
+  }
+
+  // Fallback conversacional — em vez de "opção inválida", conversa de verdade
   const errorCount = (state.errorCount || 0) + 1;
   state.errorCount = errorCount;
-  
+
+  if (state.step === "main_menu") {
+    // Mensagem livre no menu principal — retorna null e deixa a IA responder
+    console.log(`[RulesBot] Mensagem '${userMessage}' nao casou com nenhum nó do menu. Delegando para a IA.`);
+    state.errorCount = 0;
+    await saveState(state);
+    return null;
+  } else if (state.step.startsWith("submenu:")) {
+    const currentSubmenuId = state.step.replace("submenu:", "");
+    const parentNode = customNodes.find((n: any) => n.id === currentSubmenuId);
+    // Resposta natural em vez de "Opção inválida"
+    const naturalResponses = [
+      `Hmm, não entendi qual opção você escolheu. 😅 Pode digitar o *número* da opção desejada?`,
+      `Acho que não peguei! 😄 Tente digitar apenas o número da opção, como *1*, *2*, etc.`,
+      `Não consegui identificar sua escolha. 🙏 Digite o número correspondente à opção que deseja.`,
+    ];
+    const naturalMsg = naturalResponses[Math.min(errorCount - 1, naturalResponses.length - 1)];
+    await saveState(state);
+    return `${naturalMsg}\n\n${getSubmenuMessage(parentNode, customNodes)}`;
+  }
+
   if (errorCount >= 3) {
-    // Falhou 3 vezes consecutivas. Pausa a IA e transfere para humano.
+    // Após 3 tentativas sem sucesso — transfere para humano com mensagem empática
     await prisma.conversation.updateMany({
       where: conversationId
         ? { id: conversationId, tenant_id: tenantId }
@@ -2250,22 +2467,12 @@ export async function processMessageWithRules(
       data: { ai_paused: true }
     });
     await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-    return "Parece que você está com dificuldade ou é um atendimento automatizado. Estou te transferindo para um atendente humano para te ajudar melhor! Aguarde um momento.";
+    const name = clientFirstNameFallback ? `, ${clientFirstNameFallback}` : '';
+    return `Tudo bem${name}! 😊 Parece que estou tendo dificuldade em te ajudar por aqui. Vou chamar um membro da nossa equipe para continuar esse atendimento com você.\n\nAguarde um momento! 🧑‍💻`;
   }
-  
+
   await saveState(state);
-
-  if (state.step === "main_menu") {
-    // Se a mensagem do cliente for uma pergunta livre (nao casou com nenhum botao/numero), retorna null para permitir que a IA responda
-    console.log(`[RulesBot] Mensagem '${userMessage}' nao casou com nenhum nó do menu. Delegando para a IA.`);
-    return null;
-  } else if (state.step.startsWith("submenu:")) {
-    const currentSubmenuId = state.step.replace("submenu:", "");
-    const parentNode = customNodes.find((n: any) => n.id === currentSubmenuId);
-    return `Opção inválida. Selecione uma das opções abaixo:\n\n${getSubmenuMessage(parentNode, customNodes)}`;
-  }
-
-  return null;
+  return getConversationalFallback(clientFirstNameFallback, settings, errorCount);
 }
 
 function getMainMenuMessage(settings: any): string {
