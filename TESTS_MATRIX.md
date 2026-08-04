@@ -87,6 +87,23 @@ Legenda: ✅ coberto | 🕐 pendente | 🔴 bloqueado (depende de infra)
 | 22 | Resposta concorrente em andamento → ignorada | — | ✅ | — |
 | 23 | Eco rastreado (`outboundEchoCache`) | — | ✅ | — |
 
+## UI (Playwright E2E)
+
+| # | Tela | Cenário | Status |
+|---|------|---------|--------|
+| 1 | Login | Renderiza formulário (e-mail + senha) | ✅ |
+| 2 | Login | Erro com credenciais inválidas | ✅ |
+| 3 | Login | Redirect para dashboard após login válido | ✅ |
+| 4 | Settings | Carrega configurações existentes (GET) | ✅ |
+| 5 | Settings | Round-trip de save (PUT com payload) | ✅ |
+| 6 | Workflow | Carrega nós do fluxo no canvas | ✅ |
+| 7 | Workflow | Import JSON válido → round-trip PUT | ✅ |
+| 8 | Workflow | JSON com sintaxe inválida rejeitado | ✅ |
+| 9 | Workflow | Keyword duplicada entre irmãos rejeitada | ✅ |
+| 10 | Simulador | Menu inicial renderiza opções do fluxo | ✅ |
+| 11 | Simulador | Navegação por opção = rulesBot | ✅ |
+| 12 | Simulador | Handoff humano pausa atendimento | ✅ |
+
 ## Personas (E2E com banco real)
 
 | # | Persona | Cenário | U | W | E |
@@ -99,11 +116,11 @@ Legenda: ✅ coberto | 🕐 pendente | 🔴 bloqueado (depende de infra)
 | 6 | Operador | Venda presencial sem pagamento | — | — | 🔴 |
 | 7 | Atacante | Jailbreak → extração → preço inventado | — | — | 🔴 |
 
-## Contadores (16/04)
+## Contadores (04/08)
 
 | Modo | Total |
 |------|-------|
 | Unitários (U) | 111 |
 | Webhook (W) | 23 |
-| UI Playwright (P) | 5 |
-| **Total** | **139 testes** |
+| UI Playwright (P) | 12 |
+| **Total** | **146 testes** |

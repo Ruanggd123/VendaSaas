@@ -14,6 +14,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:ui": "playwright test",
+    "test:e2e": "playwright test",
     "media:tutorial": "node scripts/platform_tutorial_media.js",
     "postinstall": "prisma generate"
   },

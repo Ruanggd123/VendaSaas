@@ -2,6 +2,7 @@
 
 import WorkflowCanvas from "./WorkflowCanvas";
 import { SmartphoneSimulator } from "../../../components/workflow/SmartphoneSimulator";
+import { validateFlow } from "../../../lib/ai/validateFlow";
 import { useState, useEffect, useRef } from "react";
 import {
   Settings,
@@ -376,6 +377,16 @@ export default function WorkflowPage() {
       const merged = { ...DEFAULT_AI, ...parsed };
       merged.welcome_message = sanitizeWelcomeText(merged.welcome_message);
       if (!Array.isArray(merged.products)) merged.products = [];
+
+      if (Array.isArray(merged.custom_rules_nodes)) {
+        const validation = validateFlow(merged.custom_rules_nodes);
+        if (!validation.valid) {
+          const firstError = validation.errors[0]?.message || "Fluxo inválido.";
+          setAlert({ type: "error", msg: `Fluxo inválido: ${firstError}` });
+          return;
+        }
+      }
+
       settingsRef.current = merged;
       setSettings(merged);
       saveConfig(merged);

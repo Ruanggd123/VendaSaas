@@ -19,12 +19,12 @@
 
 ## Etapa 2 — Infraestrutura de testes
 
-- [ ] Instalar vitest + @playwright/test
-- [ ] Scripts: `test`, `test:watch`, `test:coverage`, `test:e2e`
-- [ ] Guarda `NODE_ENV=test` + tenant sandbox `[TESTE-SANDBOX]`
-- [ ] Mocks Evolution API + Asaas
-- [ ] Fixtures: settings, catálogos, flows JSON, scripts de conversa
-- [ ] CI GitHub Actions: Postgres+pgvector
+- [x] Instalar vitest + @playwright/test
+- [x] Scripts: `test`, `test:watch`, `test:coverage`, `test:e2e`
+- [x] Guarda `NODE_ENV=test` + tenant sandbox `[TESTE-SANDBOX]` (aborta fora de test)
+- [x] Mocks Evolution API + Asaas
+- [x] Fixtures: settings, catálogos, flows JSON, scripts de conversa
+- [x] CI GitHub Actions: Postgres+pgvector (`.github/workflows/ci.yml`)
 
 ## Etapa 3 — Suíte unitária (Vitest)
 
@@ -96,18 +96,18 @@ Status: coberto por `src/app/api/webhooks/evolution/route.test.ts` (23 testes).
 
 ## Etapa 6 — UI (Playwright)
 
-Status: coberto por `e2e/` (5 testes, chromium, webServer `npm run dev`, sessão JWT gerada no globalSetup, APIs mockadas via `page.route`).
+Status: coberto por `e2e/` (12 testes, chromium, webServer `npm run dev`, sessão JWT gerada no globalSetup, APIs mockadas via `page.route`).
 
 - [x] Login: renderiza formulário, erro de credenciais inválidas, redirect pós-login
 - [x] Settings: carrega configurações existentes (GET) + round-trip de save (PUT com payload)
-- [ ] Workflow builder: nós CRUD, keywords, JSON import validado
-- [ ] WhatsApp: modal bot com opção híbrido
-- [ ] Simulador vs rulesBot (consistência)
+- [x] Workflow builder: nós no canvas, JSON import validado (sintaxe + keyword duplicada), round-trip PUT
+- [x] WhatsApp: modal bot com opção híbrido (bug #21 corrigido)
+- [x] Simulador vs rulesBot (consistência): menu inicial, navegação por opção, handoff humano
 
 ## Etapa 7 — Documentação
 
 - [x] `TESTS_MATRIX.md`: matriz persona×cenário×modo
-- [ ] Relatório de bugs com severidade
+- [x] Relatório de bugs com severidade (`RELATORIO_BUGS.md`)
 
 ---
 
