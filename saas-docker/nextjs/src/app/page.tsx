@@ -532,6 +532,16 @@ export default function Home() {
     bot: "bot_pro",
   });
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const ref = p.get("ref") || p.get("aff") || p.get("referral");
+      if (ref) {
+        try { localStorage.setItem("nexus_affiliate_ref", ref.toUpperCase()); } catch {}
+      }
+    }
+  }, []);
+
   const toggleSite = (id: string) => setSelected((prev) => ({ ...prev, site: prev.site === id ? null : id }));
   const toggleBot = (id: string) => setSelected((prev) => ({ ...prev, bot: prev.bot === id ? null : id }));
 

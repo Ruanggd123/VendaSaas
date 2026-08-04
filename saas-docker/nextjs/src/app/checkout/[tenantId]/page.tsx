@@ -142,13 +142,22 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    const urlRef = p.get('ref');
     const urlProduct = p.get('product');
     const urlPhone = p.get('phone');
     const urlOrder = p.get('order');
     const urlName = p.get('name');
     const urlEmail = p.get('email');
-    if (urlRef) setRef(urlRef.toUpperCase());
+    const urlRef = p.get('ref') || p.get('aff') || p.get('referral');
+    if (urlRef) {
+      const cleanRef = urlRef.toUpperCase();
+      setRef(cleanRef);
+      try { localStorage.setItem('nexus_affiliate_ref', cleanRef); } catch {}
+    } else {
+      try {
+        const stored = localStorage.getItem('nexus_affiliate_ref');
+        if (stored) setRef(stored.toUpperCase());
+      } catch {}
+    }
     if (urlPhone) setForm(f => ({ ...f, phone: decodeURIComponent(urlPhone) }));
     if (urlName) setForm(f => ({ ...f, name: decodeURIComponent(urlName) }));
     if (urlEmail) setForm(f => ({ ...f, email: decodeURIComponent(urlEmail) }));
