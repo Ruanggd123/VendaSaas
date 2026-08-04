@@ -82,10 +82,10 @@ Legenda: ✅ coberto | 🕐 pendente | 🔴 bloqueado (depende de infra)
 | 17 | Outbound do operador (fromMe) ignorado | — | ✅ | — |
 | 18 | Cota mensal atingida → bloqueio | — | ✅ | — |
 | 19 | Mensagem de cliente processada (não ignorada) | — | ✅ | — |
-| 20 | Debounce agrupa mensagens (`Mensagem agrupada`) | — | 🕐 | — |
-| 21 | Markers `---IMAGE---`/`---PIX-COPY---`/`---BUTTONS---`/`---LIST---` | — | 🕐 | — |
-| 22 | Resposta concorrente em andamento → ignorada | — | 🕐 | — |
-| 23 | Echo rastreado (`outboundEchoCache`) | — | 🕐 | — |
+| 20 | Debounce agrupa mensagens (`Mensagem agrupada`) | — | ✅ | — |
+| 21 | Markers `---IMAGE---`/`---PIX-COPY---`/`---BUTTONS---`/`---LIST---` | — | ✅ | — |
+| 22 | Resposta concorrente em andamento → ignorada | — | ✅ | — |
+| 23 | Eco rastreado (`outboundEchoCache`) | — | ✅ | — |
 
 ## Personas (E2E com banco real)
 
@@ -104,5 +104,5 @@ Legenda: ✅ coberto | 🕐 pendente | 🔴 bloqueado (depende de infra)
 | Modo | Total |
 |------|-------|
 | Unitários (U) | 111 |
-| Webhook (W) | 19 |
-| **Total** | **130 testes** |
+| Webhook (W) | 23 |
+| **Total** | **134 testes** |

@@ -134,6 +134,8 @@ vi.mock("@/lib/ai/engine", () => ({
 
 import { POST } from "./route";
 import { reserveMonthlyAttendance } from "@/lib/usage";
+import { processMessageWithAI } from "@/lib/ai/engine";
+import { sendWhatsAppMessage, sendWhatsAppMedia } from "@/lib/evolution";
 
 const GLOBAL_TOKEN = "test-global-token-0000";
 const INSTANCE = "inst_webhook";
@@ -193,6 +195,13 @@ beforeEach(() => {
   mockStore.leads.clear();
   mockStore.messages = [];
   vi.clearAllMocks();
+  mockPrismaInstance.systemConfig.deleteMany.mockImplementation((({ where }: any) => {
+    if (where?.key) {
+      const removed = mockStore.systemConfigs.delete(where.key);
+      return Promise.resolve({ count: removed ? 1 : 0 });
+    }
+    return Promise.resolve({ count: 1 });
+  }) as any);
   process.env.EVOLUTION_API_KEY = GLOBAL_TOKEN;
   mockStore.instances.set(INSTANCE, {
     id: "inst_id_1",
@@ -382,5 +391,71 @@ describe("POST /api/webhooks/evolution — Mídia e cota", () => {
     expect(json.success).toBe(true);
     expect(json.ignored).toBeUndefined();
     expect(mockStore.messages.length).toBeGreaterThan(0);
+  });
+});
+
+describe("POST /api/webhooks/evolution — Debounce e concorrência", () => {
+  it("agrupa mensagem concorrente (debounce: outra mais recente reivindicou)", async () => {
+    vi.mocked(mockPrismaInstance.systemConfig.deleteMany).mockImplementation(({ where }: any) =>
+      Promise.resolve({ count: where?.value ? 0 : 1 })
+    );
+    const res = await POST(makeRequest(baseEvent()));
+    const json = await readJson(res);
+    expect(json.ignored).toBe("Mensagem agrupada");
+  });
+
+  it("ignora quando uma resposta concorrente já foi enviada", async () => {
+    vi.mocked(mockPrismaInstance.message.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "resposta_concorrente" } as any);
+    const res = await POST(makeRequest(baseEvent()));
+    const json = await readJson(res);
+    expect(json.ignored).toBe("Resposta concorrente já enviada");
+  });
+});
+
+describe("POST /api/webhooks/evolution — Eco rastreado e markers", () => {
+  it("ignora eco rastreado do bot (outboundEchoCache)", async () => {
+    vi.mocked(processMessageWithAI).mockResolvedValue("Resposta única de teste 001");
+    const firstRes = await POST(makeRequest(baseEvent({ message: { conversation: "quero comprar" } })));
+    const firstJson = await readJson(firstRes);
+    expect(firstJson.success).toBe(true);
+
+    const echoBody = baseEvent({
+      key: { remoteJid: "5511987654321@s.whatsapp.net", fromMe: true, id: "ECHO_TRACKED_" },
+      message: { conversation: "Resposta única de teste 001" },
+    });
+    const res = await POST(makeRequest(echoBody));
+    const json = await readJson(res);
+    expect(json.ignored).toBe("Eco rastreado do bot");
+  });
+
+  it("renderiza response com BUTTONS, PIX-COPY e IMAGE", async () => {
+    mockStore.tenants.set(TENANT_ID, buildTenant({ interactive_poll_enabled: false }));
+    vi.mocked(processMessageWithAI).mockResolvedValue(
+      "Pagamento confirmado\n\n---PIX-COPY---\n0002012652fakepix\n\n---BUTTONS---\nPIX|1\nCartão|2\n\n---IMAGE---\niVBORw0KGgofake"
+    );
+    const res = await POST(makeRequest(baseEvent({ message: { conversation: "quero pagar" } })));
+    const json = await readJson(res);
+    expect(json.success).toBe(true);
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith(
+      INSTANCE,
+      "5511987654321",
+      expect.stringContaining("Pagamento confirmado")
+    );
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith(
+      INSTANCE,
+      "5511987654321",
+      expect.stringContaining("0002012652fakepix")
+    );
+    expect(sendWhatsAppMedia).toHaveBeenCalledWith(
+      INSTANCE,
+      "5511987654321",
+      "iVBORw0KGgofake",
+      "QR Code PIX",
+      "image"
+    );
   });
 });

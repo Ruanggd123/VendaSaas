@@ -79,19 +79,20 @@ Status: **111 testes passando** (7 arquivos)
 
 ## Etapa 5 — Webhook E2E
 
-Status: parcialmente coberto por `src/app/api/webhooks/evolution/route.test.ts` (19 testes).
+Status: coberto por `src/app/api/webhooks/evolution/route.test.ts` (23 testes).
 
 - [x] Idempotência (msg duplicada) — receipt atômico + retry por `providerMessageId`
-- [x] Echo suppression — eco persistente de mídia + eco de resposta do bot
-- [ ] Debounce (testado indiretamente; falta assert de agrupamento `Mensagem agrupada`)
+- [x] Echo suppression — eco persistente de mídia + eco de resposta do bot + eco rastreado (`outboundEchoCache`)
+- [x] Debounce (`Mensagem agrupada` com token de claim)
 - [x] Blacklist `ignored_numbers`
 - [x] Grupos (whitelist)
 - [x] Mídia sem legenda
-- [ ] Markers: `---IMAGE---`, `---PIX-COPY---`, `---BUTTONS---`, `---LIST---`
+- [x] Markers: `---IMAGE---`, `---PIX-COPY---`, `---BUTTONS---`, `---LIST---`
 - [x] Cota mensal atendimentos
 - [x] Autenticação (401 sem/errada token, instância inexistente)
 - [x] Mensagem antiga (sync >24h)
 - [x] Enquete/menu do bot ignorados
+- [x] Resposta concorrente (`Resposta concorrente já enviada`)
 
 ## Etapa 6 — UI (Playwright)
 
