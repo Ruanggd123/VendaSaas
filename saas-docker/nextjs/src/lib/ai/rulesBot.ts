@@ -421,7 +421,10 @@ export async function processMessageWithRules(
   const isResetCommand = ["menu", "0", "voltar", "inicio", "reiniciar", "recomecar"].includes(cleanText);
   const isShortGreeting = words.length > 0 && words.length <= 4 && !hasActionKeyword;
 
-  const isGreetingOrReset = isResetCommand || isShortGreeting;
+  // A saudação curta só deve resetar o estado quando estamos no menu principal.
+  // Em fluxos ativos (collect_data, endereço, checkout, coleta de dados), mensagens
+  // curtas como nome, idade ou endereço NÃO podem ser interpretadas como saudação.
+  const isGreetingOrReset = isResetCommand || (isShortGreeting && state.step === "main_menu");
   if (isGreetingOrReset) {
     state = { step: "main_menu", data: { menu_sent: true } };
     await saveState(state);

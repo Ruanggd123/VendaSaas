@@ -20,7 +20,7 @@ export type FlowValidationResult = {
   warnings: FlowValidationError[];
 };
 
-export function validateFlow(nodes: unknown): FlowValidationResult {
+export function validateFlow(nodes: unknown, products?: { id: string }[]): FlowValidationResult {
   const errors: FlowValidationError[] = [];
   const warnings: FlowValidationError[] = [];
 
@@ -90,6 +90,17 @@ export function validateFlow(nodes: unknown): FlowValidationResult {
         message: "Nó 'collect_data' sem variableName definido.",
       });
     }
+
+    if (n.actionType === "product" && n.productId && products) {
+      const productExists = products.some((p) => String(p.id) === String(n.productId));
+      if (!productExists) {
+        errors.push({
+          nodeId: n.id,
+          field: "productId",
+          message: `productId '${n.productId}' não existe no catálogo.`,
+        });
+      }
+    }
   }
 
   const idsArray = Array.from(ids);
@@ -102,6 +113,52 @@ export function validateFlow(nodes: unknown): FlowValidationResult {
         field: "parentId",
         message: `parentId '${n.parentId}' não existe no fluxo.`,
       });
+    }
+  }
+
+  // Detecta ciclos seguindo a cadeia de parentId
+  const byId = new Map<string, Record<string, any>>();
+  for (const node of nodes) {
+    const n = node as Record<string, any>;
+    if (n?.id) byId.set(String(n.id), n);
+  }
+  for (const node of nodes) {
+    const n = node as Record<string, any>;
+    if (!n?.id) continue;
+    const visited = new Set<string>();
+    let current: Record<string, any> | undefined = n;
+    while (current && current.parentId) {
+      if (visited.has(String(current.id))) {
+        errors.push({
+          nodeId: n.id,
+          field: "parentId",
+          message: `Ciclo detectado envolvendo o nó '${current.id}'.`,
+        });
+        break;
+      }
+      visited.add(String(current.id));
+      current = byId.get(String(current.parentId));
+    }
+  }
+
+  // Keywords duplicadas entre irmãos (mesmo parentId)
+  const siblingKeywords = new Map<string, Map<string, string>>();
+  for (const node of nodes) {
+    const n = node as Record<string, any>;
+    if (n?.keyword === undefined || n?.keyword === null) continue;
+    const parentKey = n.parentId ? String(n.parentId) : "__root__";
+    if (!siblingKeywords.has(parentKey)) siblingKeywords.set(parentKey, new Map());
+    const kwMap = siblingKeywords.get(parentKey)!;
+    const kw = String(n.keyword).trim();
+    if (kw === "") continue;
+    if (kwMap.has(kw)) {
+      errors.push({
+        nodeId: n.id,
+        field: "keyword",
+        message: `Keyword '${kw}' duplicada entre irmãos (também usada por '${kwMap.get(kw)}').`,
+      });
+    } else {
+      kwMap.set(kw, n.id);
     }
   }
 

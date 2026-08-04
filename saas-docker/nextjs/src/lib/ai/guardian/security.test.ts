@@ -68,7 +68,7 @@ describe("validateOutput", () => {
   });
 
   it("redaciona chaves ba1add*", () => {
-    const leaked = "Token: ba1add_FAKE_KEY_for_testing_only";
+    const leaked = "Token: ba1addFakeKeyForTestingOnly1234567890";
     expect(validateOutput(leaked)).toContain("[CHAVE_REMOVIDA]");
   });
 

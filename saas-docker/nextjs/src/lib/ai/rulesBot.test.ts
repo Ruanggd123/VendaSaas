@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock Prisma before importing rulesBot
-const mockStore = {
-  systemConfigs: new Map<string, any>(),
-  tenants: new Map<string, any>(),
-  leads: new Map<string, any>(),
-  sales: new Map<string, any>(),
-  appointments: new Map<string, any>(),
-  whatsappInstances: new Map<string, any>(),
-};
+const { mockStore, mockPrismaInstance } = vi.hoisted(() => {
+  const mockStore = {
+    systemConfigs: new Map<string, any>(),
+    tenants: new Map<string, any>(),
+    leads: new Map<string, any>(),
+    sales: new Map<string, any>(),
+    appointments: new Map<string, any>(),
+    whatsappInstances: new Map<string, any>(),
+  };
 
-vi.mock("@prisma/client", () => {
   const mockPrismaInstance = {
     systemConfig: {
       findUnique: vi.fn(({ where }: any) => Promise.resolve(mockStore.systemConfigs.get(where.key) || null)),
@@ -33,6 +32,11 @@ vi.mock("@prisma/client", () => {
     sale: {
       findFirst: vi.fn(() => Promise.resolve(null)),
       create: vi.fn(({ data }: any) => { const id = "sale_" + Date.now(); mockStore.sales.set(id, { id, ...data }); return Promise.resolve({ id, ...data }); }),
+      update: vi.fn(({ where, data }: any) => {
+        const existing = mockStore.sales.get(where.id);
+        if (existing) Object.assign(existing, data);
+        return Promise.resolve(existing || {});
+      }),
     },
     appointment: {
       findFirst: vi.fn(() => Promise.resolve(null)),
@@ -71,6 +75,11 @@ vi.mock("@prisma/client", () => {
       create: vi.fn(({ data }: any) => Promise.resolve({ id: "usr_mock", ...data })),
     },
   };
+
+  return { mockStore, mockPrismaInstance };
+});
+
+vi.mock("@prisma/client", () => {
   return {
     PrismaClient: class MockPrismaClient {
       systemConfig = mockPrismaInstance.systemConfig;
@@ -172,6 +181,9 @@ beforeEach(() => {
   mockStore.sales.clear();
   mockStore.appointments.clear();
   vi.clearAllMocks();
+  mockPrismaInstance.sale.findFirst.mockResolvedValue(null);
+  mockPrismaInstance.conversation.findFirst.mockResolvedValue(null);
+  mockPrismaInstance.conversation.updateMany.mockResolvedValue({ count: 0 });
 });
 
 describe("processMessageWithRules", () => {
@@ -260,5 +272,175 @@ describe("processMessageWithRules — Checkout flow", () => {
     await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
     const resp = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
     expect(resp).toBeTruthy();
+  });
+});
+
+const stateKeyFor = (contact: string = CONTACT, instance: string = "test_instance") =>
+  `rulesbot_state_${TENANT_ID}_${instance}_${contact}`;
+
+describe("processMessageWithRules — Sessão e Erros", () => {
+  it("expira sessão inativa >30min, reseta para menu e limpa o estado do banco", async () => {
+    const settings = createSettings();
+    const stateKey = stateKeyFor();
+    mockStore.systemConfigs.set(stateKey, {
+      key: stateKey,
+      value: JSON.stringify({
+        step: "collect_data:node_inexistente",
+        data: { collect_variable: "nome" },
+        updatedAt: Date.now() - 31 * 60 * 1000,
+      }),
+    });
+
+    // Se a sessão não expirasse, "João" seria coletado e a resposta viria do collect_data.
+    // Como expirou (volta ao main_menu), a mensagem curta "João" vira saudação → menu de boas-vindas.
+    const resp = await processMessageWithRules(TENANT_ID, CONTACT, "João", settings, false);
+    expect(resp).toContain("Seja bem-vindo");
+    // O estado expirado foi resetado para main_menu (a saudação re-sava um estado novo).
+    const saved = mockStore.systemConfigs.get(stateKey);
+    expect(saved).toBeDefined();
+    expect(JSON.parse(saved.value).step).toBe("main_menu");
+  });
+
+  it("mantém sessão ativa dentro de 30min", async () => {
+    const settings = createSettings();
+    const stateKey = stateKeyFor();
+    mockStore.systemConfigs.set(stateKey, {
+      key: stateKey,
+      value: JSON.stringify({
+        step: "collect_data:node_inexistente",
+        data: { collect_variable: "nome" },
+        updatedAt: Date.now() - 5 * 60 * 1000,
+      }),
+    });
+
+    const resp = await processMessageWithRules(TENANT_ID, CONTACT, "João", settings, false);
+    expect(resp).toContain("Registrado com sucesso");
+  });
+
+  it("transfere para humano e pausa IA após 3 erros consecutivos", async () => {
+    const settings = createSettings();
+    const unmatched = "opcao invalida que nao existe para testar aqui";
+    await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+    await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+    const resp = await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+
+    expect(resp).toContain("transferindo");
+    expect(resp).toContain("atendente humano");
+    const updateManyCalls = vi.mocked(mockPrismaInstance.conversation.updateMany).mock.calls as any[];
+    expect(updateManyCalls.some((c) => (c[0] as any)?.data?.ai_paused === true)).toBe(true);
+  });
+});
+
+describe("processMessageWithRules — Variáveis {var} (collect_data)", () => {
+  const COLLECT_NODES = [
+    { id: "node_catalogo", parentId: null, keyword: "1", title: "📋 Produtos", actionType: "catalog", textContent: "Confira:", showInPoll: true },
+    { id: "node_5", parentId: null, keyword: "5", title: "📝 Cadastro", actionType: "collect_data", variableName: "nome", textContent: "Qual o seu nome?", showInPoll: true },
+    { id: "node_idade", parentId: "node_5", title: "Idade", actionType: "collect_data", variableName: "idade", textContent: "Qual sua idade, {nome}?", showInPoll: false },
+    { id: "node_fim", parentId: "node_idade", title: "Fim", actionType: "text", textContent: "Obrigado {nome}! Você tem {idade} anos.", showInPoll: false },
+  ];
+
+  it("coleta dados e substitui {var} nos nós seguintes", async () => {
+    const settings = createSettings({ custom_rules_nodes: COLLECT_NODES });
+    const r1 = await processMessageWithRules(TENANT_ID, CONTACT, "5", settings, false);
+    expect(r1).toContain("Qual o seu nome");
+
+    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "João", settings, false);
+    expect(r2).toContain("Qual sua idade, João?");
+
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "30", settings, false);
+    expect(r3).toContain("Obrigado João! Você tem 30 anos");
+  });
+});
+
+describe("processMessageWithRules — Finalização do Pedido", () => {
+  it("exige confirmação antes de cobrar e trata PIX sem gateway configurado", async () => {
+    const settings = createSettings({
+      products: [{ name: "Plano Teste", price: "97", requires_payment: true, billing_type: "PIX", delivery_type: "virtual_instant" }],
+    });
+    await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
+
+    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r2).toContain("Resumo do Pedido");
+    expect(r2).toContain("Confirma a compra");
+
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r3).toContain("PIX");
+    expect(r3).toContain("chave de gateway não configurada");
+  });
+
+  it("cancela o pedido na etapa de confirmação e volta ao menu", async () => {
+    const settings = createSettings({
+      products: [{ name: "Plano Teste", price: "97", requires_payment: true, billing_type: "PIX", delivery_type: "virtual_instant" }],
+    });
+    await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
+    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r2).toContain("Confirma a compra");
+
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "2", settings, false);
+    expect(r3).toContain("Produtos");
+    expect(mockStore.sales.size).toBe(0);
+  });
+
+  it("gera PIX copia-e-cola após confirmação quando gateway está configurado", async () => {
+    const settings = createSettings({ asaas_api_key: "asaas_test_123" });
+    const stateKey = stateKeyFor();
+    mockStore.systemConfigs.set(stateKey, {
+      key: stateKey,
+      value: JSON.stringify({
+        step: "awaiting_payment_confirmation",
+        data: {
+          chosenService: { name: "Plano Teste", price: "97", requires_payment: true, delivery_type: "virtual_instant", billing_type: "PIX", description: "Plano unitário" },
+          address: "Envio Digital Imediato",
+          collected: { billingType: "PIX", name: "João Teste", email: "joao@teste.com" },
+        },
+      }),
+    });
+
+    const resp = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(resp).toContain("Resumo do Pedido");
+    expect(resp).toContain("---PIX-COPY---");
+    expect(resp).toContain("00020126580014br.gov.bcb.pix0136mock-pix-payload");
+    expect(mockStore.sales.size).toBe(1);
+    const sale = Array.from(mockStore.sales.values())[0];
+    expect(sale.status).toBe("pending");
+  });
+
+  it("finaliza pedido sem pagamento (presencial) registrando venda", async () => {
+    const settings = createSettings({
+      products: [{ name: "Serviço Presencial", price: "0", requires_payment: false, delivery_type: "physical" }],
+    });
+    await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
+    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r2).toContain("Entrega");
+
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r3).toContain("endereço");
+
+    const r4 = await processMessageWithRules(TENANT_ID, CONTACT, "Rua Teste, 123", settings, false);
+    expect(r4).toContain("registrada com sucesso");
+    expect(mockStore.sales.size).toBe(1);
+    const sale = Array.from(mockStore.sales.values())[0];
+    expect(sale.status).toBe("pending");
+    expect(sale.notes).toContain("presencial");
+  });
+
+  it("considera cobrança pendente expirada após 48h ao digitar 'paguei'", async () => {
+    const settings = createSettings();
+    mockPrismaInstance.sale.findFirst.mockResolvedValue({
+      id: "sale_48h",
+      tenant_id: TENANT_ID,
+      product_name: "Plano Teste",
+      amount: 97,
+      status: "pending",
+      payment_id: null,
+      notes: `customer_phone:${CONTACT}`,
+      created_at: new Date(Date.now() - 50 * 60 * 60 * 1000),
+    } as any);
+
+    const resp = await processMessageWithRules(TENANT_ID, CONTACT, "paguei", settings, false);
+    expect(resp).toContain("48h");
+    expect(resp).toContain("expirou");
+    const updateCalls = vi.mocked(mockPrismaInstance.sale.update).mock.calls;
+    expect(updateCalls.some((c) => (c[0] as any)?.data?.status === "expired")).toBe(true);
   });
 });

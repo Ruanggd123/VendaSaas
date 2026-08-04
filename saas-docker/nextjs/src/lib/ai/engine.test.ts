@@ -220,6 +220,24 @@ describe("processMessageWithAI — Rate Limiting", () => {
   });
 });
 
+describe("processMessageWithAI — Fallback Seguro", () => {
+  it("cai para o rulesBot quando todos os provedores de IA falham", async () => {
+    setupTenant({ deepseek_api_key: "sk-fallback-key-invalida-para-teste" });
+    const prismaModule = await import("@prisma/client");
+    const prisma = new prismaModule.PrismaClient();
+    vi.mocked(prisma.conversation.findFirst).mockResolvedValueOnce({
+      id: "conv_fb_01",
+      ai_paused: false,
+      contact_name: "Teste Fallback",
+      messages: [],
+    } as any);
+
+    const resp = await processMessageWithAI(TENANT_ID, CONTACT, "ola");
+    // O provedor falha (401/erro) → o catch do engine aciona o rulesBot como fallback de segurança
+    expect(resp).toContain("Seja bem-vindo");
+  });
+});
+
 describe("processMessageWithAI — Demo Mode", () => {
   it("ativa modo teste-ia", async () => {
     setupTenant();

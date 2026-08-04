@@ -157,4 +157,77 @@ describe("validateFlow", () => {
     const result = validateFlow(nodes as any);
     expect(result.errors.some((e) => e.message.includes("inválido"))).toBe(true);
   });
+
+  it("rejeita keyword duplicada entre irmãos", () => {
+    const nodes = [
+      { id: "n1", title: "Opção 1", keyword: "1", parentId: null },
+      { id: "n2", title: "Opção 2", keyword: "1", parentId: null },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.field === "keyword" && e.message.includes("duplicada"))).toBe(true);
+  });
+
+  it("aceita keywords iguais em níveis diferentes", () => {
+    const nodes = [
+      { id: "n1", title: "Menu", keyword: "1" },
+      { id: "n2", parentId: "n1", title: "Sub 1", keyword: "1" },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(true);
+  });
+
+  it("detecta ciclo de parentId", () => {
+    const nodes = [
+      { id: "n1", parentId: "n2", title: "A", actionType: "text" },
+      { id: "n2", parentId: "n1", title: "B", actionType: "text" },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.message.includes("Ciclo"))).toBe(true);
+  });
+
+  it("detecta auto-referência (nó filho de si mesmo)", () => {
+    const nodes = [
+      { id: "n1", parentId: "n1", title: "Auto", actionType: "text" },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.message.includes("Ciclo"))).toBe(true);
+  });
+
+  it("aceita cadeia longa sem ciclo", () => {
+    const nodes = [
+      { id: "n1", title: "Raiz", actionType: "text" },
+      { id: "n2", parentId: "n1", title: "Nível 2", actionType: "text" },
+      { id: "n3", parentId: "n2", title: "Nível 3", actionType: "text" },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejeita productId inexistente no catálogo", () => {
+    const nodes = [
+      { id: "n1", title: "Produto", actionType: "product", productId: "prod_inexistente" },
+    ];
+    const result = validateFlow(nodes, [{ id: "prod_real" }]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.field === "productId")).toBe(true);
+  });
+
+  it("aceita productId existente no catálogo", () => {
+    const nodes = [
+      { id: "n1", title: "Produto", actionType: "product", productId: "prod_real" },
+    ];
+    const result = validateFlow(nodes, [{ id: "prod_real" }]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("não valida productId quando catálogo não é informado", () => {
+    const nodes = [
+      { id: "n1", title: "Produto", actionType: "product", productId: "prod_qualquer" },
+    ];
+    const result = validateFlow(nodes);
+    expect(result.valid).toBe(true);
+  });
 });

@@ -28,40 +28,42 @@
 
 ## Etapa 3 — Suíte unitária (Vitest)
 
+Status: **111 testes passando** (7 arquivos)
+
 ### rulesBot
-- [ ] `resolveChoiceIndex` expandido (números, texto, preço, parcial)
-- [ ] Dispatch dos 7 actionTypes (catalog, scheduling, human, collect_data, product, checkout, text/submenu)
-- [ ] Máquina de estados completa (18 steps)
-- [ ] Timeout 30min → main_menu
-- [ ] 3 erros consecutivos → handoff humano
-- [ ] Menu de boas-vindas (`---LIST---`/`---BUTTONS---`)
-- [ ] Variáveis `{var}` substituição
-- [ ] Finalização pedido: PIX/cartão/presencial/cobrança pendente/48h
+- [x] `resolveChoiceIndex` expandido (números, texto, preço, parcial)
+- [x] Dispatch dos 7 actionTypes (catalog, scheduling, human, collect_data, product, checkout, text/submenu)
+- [x] Máquina de estados completa (18 steps)
+- [x] Timeout 30min → main_menu
+- [x] 3 erros consecutivos → handoff humano
+- [x] Menu de boas-vindas (`---LIST---`/`---BUTTONS---`)
+- [x] Variáveis `{var}` substituição
+- [x] Finalização pedido: PIX/cartão/presencial/cobrança pendente/48h
 
 ### guardian
-- [ ] validator: campos obrigatórios, valores inválidos
-- [ ] sanitizeInput: anti-jailbreak, truncamento 350
-- [ ] validateOutput: redação de segredos, blacklist
-- [ ] Rate limit: 5 msgs/10s
+- [x] validator: campos obrigatórios, valores inválidos
+- [x] sanitizeInput: anti-jailbreak, truncamento 350
+- [x] validateOutput: redação de segredos, blacklist
+- [x] Rate limit: 5 msgs/10s
 
 ### tools
-- [ ] 8 AI tools: validação params + efeitos DB
-- [ ] 6 admin tools: validação params + efeitos DB
+- [x] 8 AI tools: validação params + efeitos DB
+- [x] 6 admin tools: validação params + efeitos DB
 
 ### engine
-- [ ] Roteamento ia/regras/hibrido
-- [ ] Priorização providers (DeepSeek 1º)
-- [ ] Prompt: catálogo, debt, RAG, módulos
-- [ ] Demo modes #teste-ia / #teste-regras
-- [ ] Fallback erro → rulesBot
+- [x] Roteamento ia/regras/hibrido
+- [x] Priorização providers (DeepSeek 1º)
+- [x] Prompt: catálogo, debt, RAG, módulos
+- [x] Demo modes #teste-ia / #teste-regras
+- [x] Fallback erro → rulesBot
 
 ### validateFlow (novo)
-- [ ] actionType válido
-- [ ] keyword única entre irmãos
-- [ ] parentId existente (sem órfãos)
-- [ ] productId referenciando produto real
-- [ ] Sem ciclos
-- [ ] variableName único por collect_data
+- [x] actionType válido
+- [x] keyword única entre irmãos
+- [x] parentId existente (sem órfãos)
+- [x] productId referenciando produto real
+- [x] Sem ciclos
+- [x] variableName único por collect_data
 
 ## Etapa 4 — Integração (personas × bot_type)
 
@@ -119,3 +121,4 @@
 | 20 | `queue.ts` (BullMQ) é dead code completo | queue.ts |
 | 21 | WhatsApp modal não tem opção híbrido | whatsapp/page.tsx:491 |
 | 22 | Settings ProdutosTab não tem campo `delivery_type` | settings/page.tsx:634 |
+| 23 | **CORRIGIDO** — Saudação curta reseta estado no meio de fluxos (collect_data, endereço, nome/email, horário): mensagens ≤4 palavras sem keyword de ação eram tratadas como saudação, descartando o estado em andamento | rulesBot.ts:425 |
