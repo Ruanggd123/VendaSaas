@@ -2587,11 +2587,10 @@ async function processarFinalizacaoPedidoRulesBot(
     const requiresPayment = reqPayVal !== false && reqPayVal !== "false" && reqPayVal !== 0 && reqPayVal !== "0" && reqPayVal !== null;
 
     if (requiresPayment) {
-      const productBillingType = (chosenService.billing_type || '').toUpperCase();
-      const chosenBillingType = collectedData?.billingType || '';
-      const billingType = chosenBillingType || productBillingType;
+      const chosenBillingType = (collectedData?.billingType || '').toUpperCase();
+      const billingType = chosenBillingType;
 
-      // If no billing type specified (neither on product nor chosen), ask user
+      // Se o usuário ainda não escolheu explicitamente a forma de pagamento nesta conversa, pergunta obrigatoriamente
       if (!billingType) {
         const stateData: any = {
           step: "awaiting_payment_method",
@@ -2607,7 +2606,8 @@ async function processarFinalizacaoPedidoRulesBot(
           update: { value: JSON.stringify(stateData) },
           create: { key: stateKey, value: JSON.stringify(stateData) }
         });
-        return "Como você prefere pagar?\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2";
+        const effectivePriceStr = `R$ ${getProductPrice(chosenService).toFixed(2).replace(".", ",")}`;
+        return `Você selecionou: *${chosenService.name}* (${effectivePriceStr})\n\nComo você prefere pagar?\n\n1️⃣ *PIX* (gerado no próprio WhatsApp)\n2️⃣ *Cartão de Crédito* (link seguro)\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2`;
       }
 
       // CONFIRMATION STEP: show summary before charging

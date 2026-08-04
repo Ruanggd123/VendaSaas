@@ -970,7 +970,7 @@ export default function Home() {
                 {[
                   {
                     id: "site_basic",
-                    name: "Site Institucional",
+                    name: "Site Institucional Completo",
                     desc: "Landing page avulsa de alta conversão",
                     setup: "R$ 497",
                     color: "border-indigo-500/30",
@@ -988,7 +988,7 @@ export default function Home() {
                   },
                   {
                     id: "site_ent",
-                    name: "E-Commerce Avulso",
+                    name: "Loja Virtual E-Commerce Avulsa",
                     desc: "Loja virtual completa sem mensalidade",
                     setup: "R$ 1.997",
                     color: "border-amber-500/30",
@@ -997,37 +997,57 @@ export default function Home() {
                   },
                 ].map((s) => {
                   const isActive = selected.site === s.id;
+                  const checkoutUrl = `/checkout/3bc0174c-d760-4fc7-9e38-8d20577f5593?product=${encodeURIComponent(s.name)}`;
+                  const waText = `Olá! Quero comprar o *${s.name}* (${s.setup} taxa única) da Nexus.`;
+                  const waUrl = `https://wa.me/${PHONE}?text=${encodeURIComponent(waText)}`;
+
                   return (
-                    <button
+                    <div
                       key={s.id}
                       onClick={() => toggleSite(s.id)}
-                      className={`relative text-left p-6 rounded-3xl border-2 transition-all duration-300 ${
+                      className={`relative text-left p-6 rounded-3xl border-2 transition-all duration-300 flex flex-col justify-between cursor-pointer ${
                         isActive
                           ? "border-indigo-600 bg-white dark:bg-indigo-950/30 shadow-xl shadow-indigo-600/10 ring-1 ring-indigo-600 -translate-y-1"
                           : "bg-white dark:bg-slate-900/90 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
                       }`}
                     >
-                      {s.badge && (
-                        <span className="absolute top-4 right-4 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
-                          {s.badge}
-                        </span>
-                      )}
-                      <h4 className="text-lg font-black text-slate-900 dark:text-white">{s.name}</h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{s.desc}</p>
-                      <div className="text-2xl font-black text-slate-900 dark:text-white mb-4">{s.setup} <span className="text-xs font-normal text-slate-400">taxa única</span></div>
-                      <ul className="space-y-2 mb-6">
-                        {s.features.map((f, i) => (
-                          <li key={i} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" /> {f}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className={`w-full py-2.5 rounded-xl text-xs font-bold text-center border transition-all ${
-                        isActive ? "bg-indigo-600 border-indigo-500 text-white" : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400"
-                      }`}>
-                        {isActive ? "✓ Selecionado" : "Selecionar Este"}
+                      <div>
+                        {s.badge && (
+                          <span className="absolute top-4 right-4 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+                            {s.badge}
+                          </span>
+                        )}
+                        <h4 className="text-lg font-black text-slate-900 dark:text-white">{s.name}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">{s.desc}</p>
+                        <div className="text-2xl font-black text-slate-900 dark:text-white mb-4">{s.setup} <span className="text-xs font-normal text-slate-400">taxa única</span></div>
+                        <ul className="space-y-2 mb-6">
+                          {s.features.map((f, i) => (
+                            <li key={i} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" /> {f}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </button>
+
+                      <div className="space-y-2 pt-2">
+                        <Link
+                          href={checkoutUrl}
+                          className="w-full py-2.5 rounded-xl text-xs font-bold text-center bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-1.5 transition-all shadow-md"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Comprar Online (Cartão/PIX) 🚀
+                        </Link>
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full py-2 rounded-xl text-[11px] font-bold text-center border border-slate-200 dark:border-white/10 hover:border-slate-300 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-all"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Comprar pelo WhatsApp 💬
+                        </a>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
