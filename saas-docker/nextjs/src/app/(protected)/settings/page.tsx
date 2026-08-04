@@ -690,6 +690,24 @@ function ProductsTab({ settings, update, updateProduct, removeProduct, addProduc
                     Assinatura Recorrente
                   </span>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300" htmlFor={`delivery-type-${idx}`}>
+                    Tipo de Entrega
+                  </label>
+                  <select
+                    id={`delivery-type-${idx}`}
+                    value={prod.delivery_type || "virtual_instant"}
+                    onChange={(e) => updateProduct(idx, "delivery_type", e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                  >
+                    <option value="virtual_instant">Virtual imediato</option>
+                    <option value="virtual_deadline">Virtual com prazo</option>
+                    <option value="physical">Físico (entrega)</option>
+                    <option value="service">Serviço presencial</option>
+                    <option value="both">Físico + Virtual</option>
+                  </select>
+                </div>
               </div>
             </div>
           ))

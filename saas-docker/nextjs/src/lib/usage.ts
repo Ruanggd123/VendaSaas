@@ -23,7 +23,7 @@ export async function reserveMonthlyAttendance(input: {
 }) {
   const configured = Number(input.configuredLimit);
   const planLimit = getPlanDetails(input.tenantPlan).maxConversations;
-  const limit = Number.isFinite(configured) && configured >= 0 ? configured : planLimit;
+  const limit = Number.isFinite(configured) && configured > 0 ? configured : planLimit;
   if (limit === null) return { allowed: true, used: null, limit: null, counted: false };
 
   const period = formatBusinessDateKey(new Date()).slice(0, 7);

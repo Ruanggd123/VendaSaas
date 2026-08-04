@@ -83,9 +83,13 @@ export async function processMessageWithAI(tenantId: string, contactNumber: stri
     // --- MODO DE DEMONSTRAÇÃO UNIVERSAL (NEXUS AI SAAS) ---
     if (lowerMessage === 'sair do teste' || lowerMessage === 'parar teste') {
       if (conversation?.contact_name?.includes('[TESTE-')) {
+        const cleanName = (conversation?.contact_name || '')
+          .replace(/\s*\[TESTE-(?:IA|REGRAS)\]\s*/gi, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
         await prisma.conversation.update({
           where: { id: conversation?.id },
-          data: { contact_name: conversation?.contact_name?.replace(/\[TESTE-IA\] |\[TESTE-REGRAS\] /g, '') }
+          data: { contact_name: cleanName || contactNumber }
         });
         return "✅ Modo de demonstração desativado. O bot voltou à operação normal. As próximas mensagens seguirão a configuração da empresa real.";
       }
@@ -167,7 +171,20 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
     if (!isDemoIA && settings.bot_type === "hibrido") {
       const { processMessageWithRules } = await import("./rulesBot");
       const cleanMsg = sanitizedMessage.toLowerCase().trim();
-      const isDirectMenuChoice = /^\d+$/.test(cleanMsg) || ["menu", "voltar", "0", "opções", "opcoes", "inicio", "início", "ajuda", "produtos", "agendar", "catalogo", "catálogo"].includes(cleanMsg);
+      const normalizeForMatch = (text: string) => text
+        .toLowerCase()
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      const products = Array.isArray(settings.products) ? settings.products : [];
+      const productNames = products
+        .map((p: any) => normalizeForMatch(p?.name || ""))
+        .filter((name: string) => name.length >= 3);
+      const isProductNameMatch = productNames.some((name: string) => {
+        const input = normalizeForMatch(cleanMsg);
+        return input === name || name.startsWith(input) || input.startsWith(name);
+      });
+      const isDirectMenuChoice = /^\d+$/.test(cleanMsg) || ["menu", "voltar", "0", "opções", "opcoes", "inicio", "início", "ajuda", "produtos", "agendar", "catalogo", "catálogo"].includes(cleanMsg) || isProductNameMatch;
       if (isDirectMenuChoice) {
         const rulesResp = await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
         if (rulesResp) return rulesResp;

@@ -517,6 +517,7 @@ export default function NativeWhatsAppDashboard() {
                     <option value="">Usar configuração geral do tenant</option>
                     <option value="ia">IA (Inteligência Artificial)</option>
                     <option value="regras">Regras (Botão/Menu)</option>
+                    <option value="hibrido">Híbrido (Regras + IA)</option>
                   </select>
                 </div>
 

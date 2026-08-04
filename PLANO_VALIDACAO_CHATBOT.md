@@ -113,21 +113,21 @@ Status: coberto por `e2e/` (5 testes, chromium, webServer `npm run dev`, sessão
 
 ## Bugs extras encontrados (documentação, não bloqueiam)
 
-| # | Bug | Arquivo |
-|---|-----|---------|
-| 8 | `criar_ordem_servico` status mismatch (diz `aguardando_orçamento`, grava `pending`) | tools.ts:95 vs 576 |
-| 9 | `gerar_link_pagamento` diz Mercado Pago mas é checkout interno, sem Sale | tools.ts:32 |
-| 10 | `ligar_ia` tool existe mas nunca é exposta ao model | tools.ts:446 |
-| 11 | Hybrid-mode não roda `rulesBot` para nomes de produto (só numérico) | engine.ts:167 |
-| 12 | Tenant UUID hardcoded em rulesBot | rulesBot.ts:382 |
-| 13 | Year-2026 coercion silenciosa | tools.ts:362, rulesBot.ts:2317 |
-| 14 | Manager alert no human só faz console.log | rulesBot.ts:1932 |
-| 15 | In-memory limits (rate limit, echo cache) não distribuídos | security.ts, route.ts |
-| 16 | `reserveMonthlyAttendance` com limit 0 bloqueia tudo | usage.ts:24 |
-| 17 | Sales do rulesBot não linkadas a leads | rulesBot.ts:2690 |
-| 18 | Demo-mode regex de limpeza frágil | engine.ts:88 |
-| 19 | `sendWhatsAppButtons`/`sendWhatsAppList` mortas | evolution.ts |
-| 20 | `queue.ts` (BullMQ) é dead code completo | queue.ts |
-| 21 | WhatsApp modal não tem opção híbrido | whatsapp/page.tsx:491 |
-| 22 | Settings ProdutosTab não tem campo `delivery_type` | settings/page.tsx:634 |
+| # | Bug | Arquivo | Status |
+|---|-----|---------|--------|
+| 8 | `criar_ordem_servico` status mismatch (diz `aguardando_orçamento`, grava `pending`) | tools.ts:95 vs 576 | ✅ |
+| 9 | `gerar_link_pagamento` diz Mercado Pago mas é checkout interno, sem Sale | tools.ts:32 | ✅ |
+| 10 | `ligar_ia` tool existe mas nunca é exposta ao model | tools.ts:446 | ✅ |
+| 11 | Hybrid-mode não roda `rulesBot` para nomes de produto (só numérico) | engine.ts:167 | ✅ |
+| 12 | Tenant UUID hardcoded em rulesBot | rulesBot.ts:382 | ✅ |
+| 13 | Year-2026 coercion silenciosa | tools.ts:362, rulesBot.ts:2317 | ✅ |
+| 14 | Manager alert no human só faz console.log | rulesBot.ts:1932 | ✅ |
+| 15 | In-memory limits (rate limit, echo cache) não distribuídos | security.ts, route.ts | ✅ |
+| 16 | `reserveMonthlyAttendance` com limit 0 bloqueia tudo | usage.ts:24 | ✅ |
+| 17 | Sales do rulesBot não linkadas a leads | rulesBot.ts:2690 | ✅ |
+| 18 | Demo-mode regex de limpeza frágil | engine.ts:88 | ✅ |
+| 19 | `sendWhatsAppButtons`/`sendWhatsAppList` mortas | evolution.ts | ✅ |
+| 20 | `queue.ts` (BullMQ) é dead code completo | queue.ts | ✅ |
+| 21 | WhatsApp modal não tem opção híbrido | whatsapp/page.tsx:491 | ✅ |
+| 22 | Settings ProdutosTab não tem campo `delivery_type` | settings/page.tsx:634 | ✅ |
 | 23 | **CORRIGIDO** — Saudação curta reseta estado no meio de fluxos (collect_data, endereço, nome/email, horário): mensagens ≤4 palavras sem keyword de ação eram tratadas como saudação, descartando o estado em andamento | rulesBot.ts:425 |

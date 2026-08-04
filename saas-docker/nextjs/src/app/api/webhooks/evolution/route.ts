@@ -83,29 +83,29 @@ async function releaseConversationProcessingLock(key: string, token: string) {
   await prisma.systemConfig.deleteMany({ where: { key, value: token } }).catch(() => undefined);
 }
 
-async function markPersistentOutboundEcho(instanceName: string, contactNumber: string, content: string) {
+async function markPersistentOutboundEcho(instanceName: string, contactNumber: string, content: string, prefix = "outbound_media_echo_") {
   const key = persistentOutboundEchoKey(instanceName, contactNumber, content);
   await prisma.systemConfig.deleteMany({
     where: {
-      key: { startsWith: "outbound_media_echo_" },
+      key: { startsWith: prefix },
       updated_at: { lt: new Date(Date.now() - 5 * 60 * 1000) },
     },
   });
   await prisma.systemConfig.upsert({
     where: { key },
-    update: { value: String(Date.now() + 2 * 60 * 1000) },
-    create: { key, value: String(Date.now() + 2 * 60 * 1000) },
+    update: { value: `${prefix}${Date.now() + 2 * 60 * 1000}` },
+    create: { key, value: `${prefix}${Date.now() + 2 * 60 * 1000}` },
   });
   return key;
 }
 
-async function consumePersistentOutboundEcho(instanceName: string, contactNumber: string, content: string) {
+async function consumePersistentOutboundEcho(instanceName: string, contactNumber: string, content: string, prefix = "outbound_media_echo_") {
   const key = persistentOutboundEchoKey(instanceName, contactNumber, content);
   const marker = await prisma.systemConfig.findUnique({ where: { key }, select: { value: true } });
   if (!marker) return false;
 
   const removed = await prisma.systemConfig.deleteMany({ where: { key } });
-  return removed.count === 1 && Number(marker.value) > Date.now();
+  return removed.count === 1 && Number(marker.value.replace(prefix, "")) > Date.now();
 }
 
 function getIgnoredNumbers(raw: unknown) {
@@ -140,8 +140,12 @@ async function sendTrackedWhatsAppMessage(
 
   const key = outboundEchoKey(instanceName, contactNumber, content);
   outboundEchoCache.set(key, now + 2 * 60 * 1000);
+  await markPersistentOutboundEcho(instanceName, contactNumber, content, "outbound_text_echo_").catch(() => undefined);
   const sent = await sendWhatsAppMessage(instanceName, contactNumber, content);
-  if (!sent) outboundEchoCache.delete(key);
+  if (!sent) {
+    outboundEchoCache.delete(key);
+    await prisma.systemConfig.deleteMany({ where: { key: persistentOutboundEchoKey(instanceName, contactNumber, content) } }).catch(() => undefined);
+  }
   return sent;
 }
 
@@ -513,6 +517,10 @@ export async function POST(req: Request) {
           (outboundEchoCache.get(outboundEchoKey(instanceName, contactNumber, msgContent)) ?? 0) > Date.now()
         ) {
           console.log(`[Webhook] Ignorando eco rastreado do bot para ${contactNumber}`);
+          return NextResponse.json({ success: true, ignored: "Eco rastreado do bot" });
+        }
+        if (fromMe && !mediaType && msgContent && await consumePersistentOutboundEcho(instanceName, contactNumber, msgContent, "outbound_text_echo_")) {
+          console.log(`[Webhook] Ignorando eco persistente de texto do bot para ${contactNumber}`);
           return NextResponse.json({ success: true, ignored: "Eco rastreado do bot" });
         }
         if (fromMe && mediaType && await consumePersistentOutboundEcho(instanceName, contactNumber, msgContent)) {

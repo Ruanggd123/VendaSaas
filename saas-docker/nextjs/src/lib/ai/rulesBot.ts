@@ -76,6 +76,22 @@ function getLeadLookupWhereClause(tenantId: string, rawPhone: string): any {
   };
 }
 
+async function findOrCreateLeadByPhone(tenantId: string, phone: string, contactName?: string) {
+  const normalized = normalizePhone(phone);
+  const lead = await prisma.lead.findFirst({
+    where: getLeadLookupWhereClause(tenantId, normalized || phone),
+  });
+  if (lead) return lead;
+  return prisma.lead.create({
+    data: {
+      tenant_id: tenantId,
+      phone: normalized || phone,
+      name: contactName || normalized || phone,
+      status: "NEW",
+    },
+  });
+}
+
 function normalizeTextForLookup(value: any): string {
   return String(value || "")
     .trim()
@@ -381,7 +397,8 @@ export async function processMessageWithRules(
     .replace(/[^\w\s]/g, "");
 
   let customNodes = settings.custom_rules_nodes || [];
-  const isMainStore = tenantId === "3bc0174c-d760-4fc7-9e38-8d20577f5593";
+  const mainStoreTenantId = process.env.MAIN_STORE_TENANT_ID || "3bc0174c-d760-4fc7-9e38-8d20577f5593";
+  const isMainStore = tenantId === mainStoreTenantId;
   if (!isMainStore && customNodes.some((n: any) => n.id === "node_plano_growth" || n.productId === "Plano Growth (Mais Vendido ⭐)")) {
     customNodes = [];
   }
@@ -1953,7 +1970,13 @@ export async function processMessageWithRules(
             where: { tenant_id: tenantId }
           });
           if (whatsappInstance) {
-            console.log(`Alertando gerente no número ${settings.manager_phone} sobre intervenção humana para ${contactNumber}`);
+            try {
+              const { sendWhatsAppMessage } = await import("@/lib/evolution");
+              const managerAlert = `🤖 *Intervenção humana solicitada*\n\nO cliente *${contactName || contactNumber}* pediu para falar com um humano.\n\nA IA foi pausada nesta conversa. Assuma o atendimento agora.`;
+              await sendWhatsAppMessage(whatsappInstance.name, settings.manager_phone, managerAlert);
+            } catch (alertError) {
+              console.error(`[RulesBot] Falha ao alertar gerente ${settings.manager_phone}:`, alertError);
+            }
           }
         }
         return nodeText || "";
@@ -2334,7 +2357,7 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
     const today = new Date();
     const todayParts = getZonedDateTimeParts(today);
     let year = todayParts.year;
-    if (year < 2026) year = 2026;
+    if (year < todayParts.year) year = todayParts.year;
     let month = todayParts.month - 1;
     let day = todayParts.day;
 
@@ -2345,7 +2368,7 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
       day = tomorrow.getUTCDate();
       month = tomorrow.getUTCMonth();
       year = tomorrow.getUTCFullYear();
-      if (year < 2026) year = 2026;
+      if (year < todayParts.year) year = todayParts.year;
     } else if (cleanDate.includes("hoje")) {
       // keep today
     } else {
@@ -2368,11 +2391,11 @@ function parseDateAndTime(dateStr: string, timeStr: string): Date | null {
           day = targetDate.getUTCDate();
           month = targetDate.getUTCMonth();
           year = targetDate.getUTCFullYear();
-          if (year < 2026) year = 2026;
+          if (year < todayParts.year) year = todayParts.year;
         }
       }
     }
-    if (year < 2026) year = 2026;
+    if (year < todayParts.year) year = todayParts.year;
 
     const timeParts = timeStr.split(/[:h]/i);
     let hours = 9;
@@ -2397,7 +2420,7 @@ function parseDateOnly(dateStr: string): Date | null {
     const today = new Date();
     const todayParts = getZonedDateTimeParts(today);
     let year = todayParts.year;
-    if (year < 2026) year = 2026;
+    if (year < todayParts.year) year = todayParts.year;
     let month = todayParts.month - 1;
     let day = todayParts.day;
 
@@ -2408,7 +2431,7 @@ function parseDateOnly(dateStr: string): Date | null {
       day = tomorrow.getUTCDate();
       month = tomorrow.getUTCMonth();
       year = tomorrow.getUTCFullYear();
-      if (year < 2026) year = 2026;
+      if (year < todayParts.year) year = todayParts.year;
     } else if (cleanDate.includes("hoje")) {
       // keep today
     } else {
@@ -2431,13 +2454,13 @@ function parseDateOnly(dateStr: string): Date | null {
           day = targetDate.getUTCDate();
           month = targetDate.getUTCMonth();
           year = targetDate.getUTCFullYear();
-          if (year < 2026) year = 2026;
+          if (year < todayParts.year) year = todayParts.year;
         } else {
           return null;
         }
       }
     }
-    if (year < 2026) year = 2026;
+    if (year < todayParts.year) year = todayParts.year;
     const result = zonedDateTimeToUtc({ year, month: month + 1, day, hour: 0, minute: 0 });
     if (isNaN(result.getTime())) return null;
     return result;
@@ -2608,12 +2631,14 @@ async function processarFinalizacaoPedidoRulesBot(
     }
 
     // No payment required: create pending sale and confirm
+    const saleLead = await findOrCreateLeadByPhone(tenantId, contactNumber, contactName);
     await prisma.sale.create({
       data: {
         tenant_id: tenantId,
         product_name: chosenService.name,
         amount: getProductPrice(chosenService),
         status: "pending",
+        lead_id: saleLead.id,
         notes: `customer_phone:${contactNumber} | presencial | address:${address}${extraNotes}`,
         due_date: new Date(Date.now() + 24 * 60 * 60 * 1000)
       }
@@ -2654,9 +2679,11 @@ async function executarPagamentoAposConfirmacao(
   }
 
   // Create retail order (cart)
+  const orderLead = await findOrCreateLeadByPhone(tenantId, contactNumber, contactName);
   const order = await prisma.retailOrder.create({
     data: {
       tenant_id: tenantId,
+      lead_id: orderLead.id,
       total_amount: effectivePrice,
       shipping_address: address,
       status: "cart",
@@ -2734,6 +2761,7 @@ async function executarPagamentoAposConfirmacao(
         });
       }
 
+      const pixLead = await findOrCreateLeadByPhone(tenantId, contactNumber, contactName);
       const sale = operation.sale_id
         ? await prisma.sale.findUnique({ where: { id: operation.sale_id } })
         : await prisma.sale.create({
@@ -2742,6 +2770,7 @@ async function executarPagamentoAposConfirmacao(
               product_name: chosenService.name,
               amount: effectivePrice,
               status: "pending",
+              lead_id: pixLead.id,
               notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp${extraNotes}`,
               due_date: new Date(Date.now() + 7 * 86400000),
               retail_order_id: order.id,
@@ -2842,12 +2871,14 @@ async function executarPagamentoAposConfirmacao(
   if (cleanDigits) checkoutUrl += `&phone=${encodeURIComponent(contactNumber)}`;
   if (customerEmail) checkoutUrl += `&email=${encodeURIComponent(customerEmail)}`;
 
+  const checkoutLead = await findOrCreateLeadByPhone(tenantId, contactNumber, contactName);
   await prisma.sale.create({
     data: {
       tenant_id: tenantId,
       product_name: chosenService.name,
       amount: effectivePrice,
       status: "pending",
+      lead_id: checkoutLead.id,
       notes: `customer_phone:${cleanDigits} | Link Checkout | customer_email:${customerEmail || ''} | customer_name:${customerName || ''}${extraNotes}`,
       due_date: new Date(Date.now() + 7 * 86400000),
       retail_order_id: order.id,
@@ -2885,7 +2916,7 @@ async function obterProximosDiasDisponiveis(tenantId: string, settings: any, dur
   const dates: Date[] = [];
   const now = new Date();
   const todayParts = getZonedDateTimeParts(now);
-  const safeYear = Math.max(todayParts.year, 2026);
+  const safeYear = todayParts.year;
   const current = new Date(Date.UTC(safeYear, todayParts.month - 1, todayParts.day, 12));
 
   // Percorre os próximos 31 dias para encontrar 5 dias com horarios disponiveis

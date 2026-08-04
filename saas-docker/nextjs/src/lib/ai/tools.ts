@@ -29,7 +29,7 @@ export const aiTools = [
     type: "function",
     function: {
       name: "gerar_link_pagamento",
-      description: "Gera um link de pagamento do Mercado Pago para cobrar o cliente. REGRAS: 1. NUNCA chame se o cliente estiver apenas perguntando informações, detalhes, ou como funciona o produto/serviço (ex: 'como funciona o bot?'). 2. APENAS chame se o cliente disser explicitamente que quer comprar, contratar, assinar, ou pedir o link de pagamento.",
+      description: "Gera um link de pagamento (checkout da plataforma) para cobrar o cliente. REGRAS: 1. NUNCA chame se o cliente estiver apenas perguntando informações, detalhes, ou como funciona o produto/serviço (ex: 'como funciona o bot?'). 2. APENAS chame se o cliente disser explicitamente que quer comprar, contratar, assinar, ou pedir o link de pagamento.",
       parameters: {
         type: "object",
         properties: {
@@ -359,8 +359,8 @@ export async function handleToolCall(
       if (isNaN(startDateTime.getTime())) {
         return `Erro ao agendar compromisso: data ou horário inválido.\nEx: 2026-07-30 às 14:00.`;
       }
-      if (startDateTime.getFullYear() < 2026) {
-        startDateTime.setFullYear(2026);
+      if (startDateTime.getFullYear() < new Date().getFullYear()) {
+        startDateTime.setFullYear(new Date().getFullYear());
       }
 
       // Buscar Lead
@@ -440,20 +440,6 @@ export async function handleToolCall(
       return null;
     } catch (e: any) {
       return "Erro ao pausar IA.";
-    }
-  }
-
-  if (toolCall.function.name === "ligar_ia") {
-    try {
-      await prisma.conversation.updateMany({
-        where: conversationId
-          ? { id: conversationId, tenant_id: tenantId }
-          : { tenant_id: tenantId, instance_name: instanceName || "__missing_instance__", contact_number: contactNumber },
-        data: { ai_paused: false }
-      });
-      return "IA ligada com sucesso.";
-    } catch (e: any) {
-      return "Erro ao ligar IA.";
     }
   }
 
@@ -567,13 +553,15 @@ export async function handleToolCall(
   if (toolCall.function.name === "criar_ordem_servico") {
     try {
       const { modelo_aparelho, defeito_relatado, orcamento_estimado } = args;
+      const osLead = await prisma.lead.findFirst({ where: buildLeadLookupWhere(tenantId, contactNumber) });
       const os = await prisma.serviceOrder.create({
         data: {
           tenant_id: tenantId,
+          lead_id: osLead?.id,
           device_model: modelo_aparelho,
           reported_issue: defeito_relatado,
           estimated_budget: orcamento_estimado || null,
-          status: "pending",
+          status: "aguardando_orçamento",
           notes: `Gerado via IA para o número: ${contactNumber}`
         }
       });
@@ -599,9 +587,11 @@ export async function handleToolCall(
   if (toolCall.function.name === "criar_pedido_varejo") {
     try {
       const { produtos, valor_total, endereco_entrega } = args;
+      const orderLead = await prisma.lead.findFirst({ where: buildLeadLookupWhere(tenantId, contactNumber) });
       const order = await prisma.retailOrder.create({
         data: {
           tenant_id: tenantId,
+          lead_id: orderLead?.id,
           total_amount: valor_total,
           shipping_address: endereco_entrega || "Retirada na Loja",
           status: "cart",

@@ -437,7 +437,7 @@ model ServiceOrder {
   device_model     String
   reported_issue   String    @db.Text
   estimated_budget Float?
-  status           String    @default("pending") // pending, diagnosing, waiting_parts, repairing, ready, delivered
+  status           String    @default("aguardando_orçamento") // aguardando_orçamento, diagnosing, waiting_parts, repairing, ready, delivered
   notes            String?   @db.Text
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
