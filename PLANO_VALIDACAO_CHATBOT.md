@@ -79,14 +79,19 @@ Status: **111 testes passando** (7 arquivos)
 
 ## Etapa 5 — Webhook E2E
 
-- [ ] Idempotência (msg duplicada)
-- [ ] Echo suppression
-- [ ] Debounce
-- [ ] Blacklist `ignored_numbers`
-- [ ] Grupos (whitelist)
-- [ ] Mídia sem legenda
+Status: parcialmente coberto por `src/app/api/webhooks/evolution/route.test.ts` (19 testes).
+
+- [x] Idempotência (msg duplicada) — receipt atômico + retry por `providerMessageId`
+- [x] Echo suppression — eco persistente de mídia + eco de resposta do bot
+- [ ] Debounce (testado indiretamente; falta assert de agrupamento `Mensagem agrupada`)
+- [x] Blacklist `ignored_numbers`
+- [x] Grupos (whitelist)
+- [x] Mídia sem legenda
 - [ ] Markers: `---IMAGE---`, `---PIX-COPY---`, `---BUTTONS---`, `---LIST---`
-- [ ] Cota mensal atendimentos
+- [x] Cota mensal atendimentos
+- [x] Autenticação (401 sem/errada token, instância inexistente)
+- [x] Mensagem antiga (sync >24h)
+- [x] Enquete/menu do bot ignorados
 
 ## Etapa 6 — UI (Playwright)
 
@@ -97,7 +102,7 @@ Status: **111 testes passando** (7 arquivos)
 
 ## Etapa 7 — Documentação
 
-- [ ] `TESTS_MATRIX.md`: matriz persona×cenário×modo
+- [x] `TESTS_MATRIX.md`: matriz persona×cenário×modo
 - [ ] Relatório de bugs com severidade
 
 ---
