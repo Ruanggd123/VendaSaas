@@ -897,15 +897,23 @@ export async function POST(req: Request) {
               return NextResponse.json({ success: true, ignored: "Eco da IA (conteúdo)" });
             }
 
-            // 2. Ignorar mensagens de sistema/status que não são input real do cliente
+            // 2. Ignorar mensagens de sistema/status e notificações automáticas de vendas/credenciais
             const lowerMsg = msgContent.trim().toLowerCase();
             if (
               /^por favor, responda apenas/.test(lowerMsg) ||
               /^\[outros\]$/.test(lowerMsg) ||
-              /^\[m[ií]dia:/.test(lowerMsg)
+              /^\[m[ií]dia:/.test(lowerMsg) ||
+              lowerMsg.includes("nova venda confirmada") ||
+              lowerMsg.includes("pagamento confirmado com sucesso") ||
+              lowerMsg.includes("credenciais enviadas ao comprador") ||
+              lowerMsg.includes("seus dados de acesso ao painel") ||
+              lowerMsg.includes("perfeito! criei o seu link de pagamento") ||
+              lowerMsg.includes("assim que o pagamento for confirmado") ||
+              lowerMsg.includes("codigo pix copia e cola") ||
+              lowerMsg.includes("código pix copia e cola")
             ) {
-              console.log(`[Webhook] Ignorando mensagem de sistema/status de ${contactNumber}: "${msgContent.substring(0, 60)}"`);
-              return NextResponse.json({ success: true, ignored: "Sistema/Status" });
+              console.log(`[Webhook] Ignorando mensagem de sistema/notificação automática de ${contactNumber}: "${msgContent.substring(0, 60)}"`);
+              return NextResponse.json({ success: true, ignored: "Sistema/Notificação Automática" });
             }
           }
           // =====================================
