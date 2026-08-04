@@ -8,6 +8,11 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/e2e/storage-state.json
+/e2e/.tmp/
 
 # next.js
 /.next/

@@ -105,4 +105,5 @@ Legenda: ✅ coberto | 🕐 pendente | 🔴 bloqueado (depende de infra)
 |------|-------|
 | Unitários (U) | 111 |
 | Webhook (W) | 23 |
-| **Total** | **134 testes** |
+| UI Playwright (P) | 5 |
+| **Total** | **139 testes** |

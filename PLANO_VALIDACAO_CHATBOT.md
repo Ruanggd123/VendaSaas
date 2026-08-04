@@ -96,7 +96,10 @@ Status: coberto por `src/app/api/webhooks/evolution/route.test.ts` (23 testes).
 
 ## Etapa 6 — UI (Playwright)
 
-- [ ] Settings: todos os campos + round-trip persistência
+Status: coberto por `e2e/` (5 testes, chromium, webServer `npm run dev`, sessão JWT gerada no globalSetup, APIs mockadas via `page.route`).
+
+- [x] Login: renderiza formulário, erro de credenciais inválidas, redirect pós-login
+- [x] Settings: carrega configurações existentes (GET) + round-trip de save (PUT com payload)
 - [ ] Workflow builder: nós CRUD, keywords, JSON import validado
 - [ ] WhatsApp: modal bot com opção híbrido
 - [ ] Simulador vs rulesBot (consistência)
