@@ -675,10 +675,23 @@ export async function handleToolCall(
 
   if (toolCall.function.name === "verificar_status_pagamento") {
     try {
+      const cleanPhone = contactNumber.replace(/\D/g, "");
+      const phoneVariants = [cleanPhone];
+      if (cleanPhone.startsWith("55")) {
+        phoneVariants.push(cleanPhone.slice(2));
+      } else {
+        phoneVariants.push("55" + cleanPhone);
+      }
+      const phoneConditions = phoneVariants.flatMap(pf => [
+        { notes: { contains: `customer_phone:${pf}` } },
+        { notes: { contains: `"customer_phone":"${pf}"` } },
+        { notes: { contains: pf } }
+      ]);
+
       let lastSale = await prisma.sale.findFirst({
         where: {
           tenant_id: tenantId,
-          notes: { contains: `customer_phone:${contactNumber}` }
+          OR: phoneConditions
         },
         orderBy: { created_at: "desc" }
       });
@@ -701,6 +714,11 @@ export async function handleToolCall(
               lastSale = await prisma.sale.update({
                 where: { id: lastSale.id },
                 data: { status: "paid", paid_at: new Date() }
+              });
+            } else if (st === "OVERDUE" || st === "CANCELLED" || st === "EXPIRED") {
+              lastSale = await prisma.sale.update({
+                where: { id: lastSale.id },
+                data: { status: "canceled" }
               });
             }
           }

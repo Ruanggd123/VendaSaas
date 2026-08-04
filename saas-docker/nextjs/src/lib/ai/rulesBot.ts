@@ -335,6 +335,8 @@ export async function processMessageWithRules(
       if (parsed.updatedAt && (Date.now() - Number(parsed.updatedAt) > SESSION_TIMEOUT_MS)) {
         console.log(`[RulesBot] Sessão expirada para ${contactNumber} (> 30min de inatividade). Resetando estado.`);
         state = { step: "main_menu", data: {}, updatedAt: Date.now() };
+        // Limpa row expirada do banco para não acumular lixo
+        await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
       } else {
         state = parsed;
       }
@@ -554,6 +556,20 @@ export async function processMessageWithRules(
       settings, stateKey, collected,
       state.data.originNodeText, contactName
     );
+  }
+
+  if (state.step === "awaiting_payment_confirmation") {
+    const confirmChoice = resolveChoiceIndex(cleanText, ["Confirmar", "Cancelar"]);
+    if (cleanText === "0" || cleanText === "voltar" || cleanText === "menu" || confirmChoice === 1) {
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+      return getMainMenuMessage(settings);
+    }
+    if (confirmChoice === 0 || cleanText.includes("confirma") || cleanText.includes("sim") || cleanText.includes("confirmar")) {
+      return await executarPagamentoAposConfirmacao(
+        tenantId, contactNumber, state.data, settings, stateKey, contactName
+      );
+    }
+    return "Opção inválida. Responda:\n\n1️⃣ *Confirmar* a compra\n2️⃣ *Cancelar*\n\n---BUTTONS---\nConfirmar|1\nCancelar|2";
   }
 
   // Check for pending debt / unpaid sale for this customer
@@ -2568,302 +2584,285 @@ async function processarFinalizacaoPedidoRulesBot(
         return "Como você prefere pagar?\n\n---BUTTONS---\nPIX|1\nCartão de Crédito|2";
       }
 
-      const customerName = collectedData?.name || contactName || '';
-      const customerEmail = collectedData?.email || '';
-      const cleanDigits = contactNumber.replace(/\D/g, "");
-
+      // CONFIRMATION STEP: show summary before charging
       const effectivePrice = getProductPrice(chosenService);
-
-      const order = await prisma.retailOrder.create({
+      const confirmStateData: any = {
+        step: "awaiting_payment_confirmation",
         data: {
-          tenant_id: tenantId,
-          total_amount: effectivePrice,
-          shipping_address: address,
-          status: "cart",
-          items: {
-            create: [{ product_name: chosenService.name, unit_price: effectivePrice, quantity: 1 }]
-          }
-        }
-      });
-
-      // Get Asaas key from settings
-      const asaasKey = settings.asaas_api_key
-        || settings.asaasApiKey
-        || settings.asaas_test_api_key
-        || settings.asaasTestApiKey
-        || settings.asaas_environment_key;
-
-      // PIX direct flow: create payment via Asaas and send PIX data in WhatsApp
-      if (billingType === 'PIX' && asaasKey) {
-        // If missing name, ask for it
-        if (!customerName) {
-          const stateData: any = {
-            step: "awaiting_checkout_name",
-            data: {
-              chosenService,
-              address,
-              collected: collectedData || {},
-              originNodeText,
-              _needsEmail: true,
-            }
-          };
-          await prisma.systemConfig.upsert({
-            where: { key: stateKey },
-            update: { value: JSON.stringify(stateData) },
-            create: { key: stateKey, value: JSON.stringify(stateData) }
-          });
-          return appendNodeCheckoutText(originNodeText, "Para gerar o pagamento via PIX, preciso do seu *nome completo*:");
-        }
-
-        // If missing email, ask for it
-        if (!customerEmail) {
-          const stateData: any = {
-            step: "awaiting_checkout_email",
-            data: {
-              chosenService,
-              address,
-              collected: { ...(collectedData || {}), name: customerName },
-              originNodeText,
-              name: customerName,
-            }
-          };
-          await prisma.systemConfig.upsert({
-            where: { key: stateKey },
-            update: { value: JSON.stringify(stateData) },
-            create: { key: stateKey, value: JSON.stringify(stateData) }
-          });
-          return appendNodeCheckoutText(originNodeText, "Qual o seu *melhor email* para enviarmos a confirmação do pagamento?");
-        }
-
-        // Briefing para serviços sob medida: coleta informações do projeto antes do pagamento
-        const isServiceProduct = String(chosenService?.type || "").trim().toLowerCase() === "service"
-          || String(chosenService?.delivery_type || "").trim().toLowerCase() === "service";
-        const briefingDone = !!(collectedData?.briefing_segmento && collectedData?.briefing_paginas);
-        if (isServiceProduct && !briefingDone) {
-          const stateData: any = {
-            step: "awaiting_checkout_briefing",
-            data: {
-              chosenService,
-              address,
-              collected: collectedData || {},
-              originNodeText,
-              name: customerName,
-              briefingStep: 0,
-            }
-          };
-          await prisma.systemConfig.upsert({
-            where: { key: stateKey },
-            update: { value: JSON.stringify(stateData) },
-            create: { key: stateKey, value: JSON.stringify(stateData) }
-          });
-          return appendNodeCheckoutText(originNodeText, "Perfeito! Antes de gerar o pagamento, preciso de algumas informações do seu projeto:\n\n1️⃣ *Qual o segmento/área do seu negócio?*");
-        }
-
-        try {
-          const asaasUrl = settings.asaas_mode === 'production'
-            ? 'https://asaas.com/api/v3'
-            : 'https://sandbox.asaas.com/api/v3';
-
-          const customer = await createCustomer({
-            name: customerName,
-            email: customerEmail,
-            phone: contactNumber,
-            cpfCnpj: generateCPF(),
-          }, asaasKey, asaasUrl);
-
-          if (!customer.id) {
-            const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway';
-            throw new Error(errMsg);
-          }
-
-          const idempotencyKey = `rules_pix_${order.id}`;
-          let operation = await prisma.paymentOperation.findUnique({ where: { idempotency_key: idempotencyKey } });
-          if (operation?.status === "completed" && operation.result) return operation.result;
-          if (!operation) {
-            operation = await prisma.paymentOperation.create({
-              data: { tenant_id: tenantId, idempotency_key: idempotencyKey, kind: "rules_pix" },
-            });
-          }
-
-          const sale = operation.sale_id
-            ? await prisma.sale.findUnique({ where: { id: operation.sale_id } })
-            : await prisma.sale.create({
-                data: {
-                  tenant_id: tenantId,
-                  product_name: chosenService.name,
-                  amount: effectivePrice,
-                  status: "pending",
-                  notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp${extraNotes}`,
-                  due_date: new Date(Date.now() + 7 * 86400000),
-                  retail_order_id: order.id,
-                },
-              });
-          if (!sale) throw new Error("Venda idempotente não encontrada");
-          if (!operation.sale_id) {
-            await prisma.paymentOperation.update({ where: { id: operation.id }, data: { sale_id: sale.id } });
-          }
-
-          const pay = await createPayment({
-            customer: customer.id,
-            billingType: 'PIX',
-            value: effectivePrice,
-            dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-            description: cleanDescription(chosenService.name),
-            externalReference: `${tenantId}_${sale.id}`,
-          }, asaasKey, asaasUrl, idempotencyKey);
-
-          if (!pay.id) {
-            const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar pagamento PIX';
-            throw new Error(errMsg);
-          }
-
-          // Fallback: se PIX data veio vazio, tenta buscar explicitamente
-          let pixCopy = pay.pixCopiaECola || '';
-          let pixQr = pay.pixQrCodeUrl || '';
-          if ((!pixCopy || !pixQr) && pay.id) {
-            try {
-              const pixFallbackRes = await fetch(`${asaasUrl}/payments/${pay.id}/pixQrCode`, {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'access_token': asaasKey.trim(),
-                }
-              });
-              if (pixFallbackRes.ok) {
-                const pixData = await pixFallbackRes.json();
-                pixCopy = (typeof pixData.payload === 'string'
-                  ? pixData.payload
-                  : (pixData.payload?.payload || pixData.payload?.copyPaste)) || pixCopy;
-                pixQr = pixData.payload?.url || pixData.encodedImage || pixData.qrCodeUrl || pixQr;
-              }
-            } catch (pixErr) {
-              console.error("Erro ao buscar PIX QR code explicitamente:", pixErr);
-            }
-          }
-
-          const pixQrUrl = /^https?:\/\//i.test(pixQr) ? pixQr : "";
-          const finalPaymentLink = pay.invoiceUrl || pixQrUrl;
-          await prisma.sale.update({
-            where: { id: sale.id },
-            data: {
-              payment_link: finalPaymentLink,
-              payment_id: pay.id,
-              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQrUrl} | pix_key:${pixCopy || ''}${extraNotes}`,
-            },
-          });
-
-          await prisma.systemConfig.upsert({
-            where: { key: stateKey },
-            update: { value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
-            create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
-          });
-
-          const displayPriceStr = getProductPriceLabel(chosenService) || `R$ ${effectivePrice.toFixed(2).replace(".", ",")}`;
-
-          let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* ${displayPriceStr}\n📍 *Entrega:* ${address}`;
-
-          if (chosenService.description) {
-            msg += `\n\n📄 *Detalhes do Produto:*\n${chosenService.description}`;
-          }
-          if (Array.isArray(chosenService.features) && chosenService.features.length > 0) {
-            msg += `\n\n✨ *O que está incluso:*\n` + chosenService.features.map((f: any) => `• ${f}`).join("\n");
-          }
-
-          msg += `\n\n💳 *Pagamento via PIX*`;
-
-          if (pixCopy) {
-            msg += `\n\n🔑 O código Pix Copia e Cola será enviado na próxima mensagem para facilitar a cópia.`;
-          }
-
-          // Fallback: se ainda assim veio vazio, usa invoiceUrl como fallback
-          if (!pixCopy && !pixQr && pay.invoiceUrl) {
-            msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;
-          } else if (!pixCopy && !pixQr) {
-            msg += `\n\n❌ Não foi possível gerar o PIX. Tente novamente ou escolha outra forma de pagamento.`;
-          }
-
-          msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
-          if (pixCopy) {
-            msg += `\n\n---PIX-COPY---\n${pixCopy.trim()}`;
-          }
-          if (pixQr) {
-            msg += `\n\n---IMAGE---\n${pixQr.replace(/^data:image\/[^;]+;base64,/, "")}`;
-          }
-
-          const finalMessage = appendNodeCheckoutText(originNodeText, msg);
-          await prisma.paymentOperation.update({
-            where: { id: operation.id },
-            data: { status: "completed", provider_id: pay.id, result: finalMessage },
-          });
-          return finalMessage;
-
-        } catch (e: any) {
-          console.error("Erro ao criar pagamento PIX direto:", e);
-          // Fallback to checkout link
-        }
-      }
-
-      // CREDIT_CARD or fallback: redirect to checkout with pre-filled data
-      const productNameEnc = encodeURIComponent(chosenService.name);
-      const { getAppBaseUrl } = await import("@/lib/auth");
-      const baseUrl = getAppBaseUrl();
-      let checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productNameEnc}&order=${order.id}`;
-      if (customerName) checkoutUrl += `&name=${encodeURIComponent(customerName)}`;
-      if (cleanDigits) checkoutUrl += `&phone=${encodeURIComponent(contactNumber)}`;
-      if (customerEmail) checkoutUrl += `&email=${encodeURIComponent(customerEmail)}`;
-
-      // Registra a venda PENDENTE no banco para vincular ao WhatsApp do cliente imediatamente
-      await prisma.sale.create({
-        data: {
-          tenant_id: tenantId,
-          product_name: chosenService.name,
-          amount: effectivePrice,
-          status: "pending",
-          notes: `customer_phone:${cleanDigits} | Link Checkout | customer_email:${customerEmail || ''} | customer_name:${customerName || ''}${extraNotes}`,
-          due_date: new Date(Date.now() + 7 * 86400000),
-          retail_order_id: order.id,
-          payment_link: checkoutUrl,
-        }
-      }).catch(err => console.error("Erro ao registrar venda pendente do checkout:", err));
-
-      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-
-      return appendNodeCheckoutText(
-        originNodeText,
-        botMessageTemplates.checkout.withPayment({
-          product: chosenService,
+          chosenService,
           address,
-          checkoutLink: checkoutUrl,
-          paymentMode: "link",
-        })
-      );
-
-    } else {
-      await prisma.sale.create({
-        data: {
-          tenant_id: tenantId,
-          product_name: chosenService.name,
-          amount: getProductPrice(chosenService),
-          status: "pending",
-          notes: `customer_phone:${contactNumber} | presencial | address:${address}${extraNotes}`,
-          due_date: new Date(Date.now() + 24 * 60 * 60 * 1000)
+          collected: { ...collectedData, billingType },
+          originNodeText,
         }
+      };
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify(confirmStateData) },
+        create: { key: stateKey, value: JSON.stringify(confirmStateData) }
       });
-
-      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
-
-      return appendNodeCheckoutText(
-        originNodeText,
-        botMessageTemplates.checkout.withoutPayment({
-          product: chosenService,
-          address,
-        })
-      );
+      const billingLabel = billingType === 'PIX' ? 'PIX' : 'Cartão de Crédito';
+      return `📋 *Resumo do Pedido:*\n\n📦 Produto: ${chosenService.name}\n💰 Valor: R$ ${effectivePrice.toFixed(2).replace(".", ",")}\n💳 Pagamento: ${billingLabel}\n\nConfirma a compra?\n\n---BUTTONS---\nConfirmar|1\nCancelar|2`;
     }
+
+    // No payment required: create pending sale and confirm
+    await prisma.sale.create({
+      data: {
+        tenant_id: tenantId,
+        product_name: chosenService.name,
+        amount: getProductPrice(chosenService),
+        status: "pending",
+        notes: `customer_phone:${contactNumber} | presencial | address:${address}${extraNotes}`,
+        due_date: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      }
+    });
+    await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+    return appendNodeCheckoutText(
+      originNodeText,
+      botMessageTemplates.checkout.withoutPayment({
+        product: chosenService,
+        address,
+      })
+    );
   } catch (err: any) {
     console.error("Erro finalizar pedido rulesBot:", err);
     return `❌ Erro ao finalizar pedido: ${err.message}`;
   }
+}
+
+// Função chamada APÓS o cliente confirmar o pagamento (state: awaiting_payment_confirmation)
+async function executarPagamentoAposConfirmacao(
+  tenantId: string,
+  contactNumber: string,
+  stateData: any,
+  settings: any,
+  stateKey: string,
+  contactName?: string
+): Promise<string> {
+  const { chosenService, address, collected, originNodeText } = stateData;
+  const billingType = (collected?.billingType || '').toUpperCase();
+  const customerName = collected?.name || contactName || '';
+  const customerEmail = collected?.email || '';
+  const cleanDigits = contactNumber.replace(/\D/g, "");
+  const effectivePrice = getProductPrice(chosenService);
+
+  let extraNotes = "";
+  if (collected && Object.keys(collected).length > 0) {
+    extraNotes = " | Dados Coletados: " + Object.entries(collected).map(([k, v]) => `${k}=${v}`).join(", ");
+  }
+
+  // Create retail order (cart)
+  const order = await prisma.retailOrder.create({
+    data: {
+      tenant_id: tenantId,
+      total_amount: effectivePrice,
+      shipping_address: address,
+      status: "cart",
+      items: {
+        create: [{ product_name: chosenService.name, unit_price: effectivePrice, quantity: 1 }]
+      }
+    }
+  });
+
+  // Get Asaas key from settings
+  const asaasKey = settings.asaas_api_key
+    || settings.asaasApiKey
+    || settings.asaas_test_api_key
+    || settings.asaasTestApiKey
+    || settings.asaas_environment_key;
+
+  // PIX direct flow
+  if (billingType === 'PIX' && asaasKey) {
+    // Ask for name if missing
+    if (!customerName) {
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify({ step: "awaiting_checkout_name", data: { chosenService, address, collected, originNodeText, _needsEmail: true } }) },
+        create: { key: stateKey, value: JSON.stringify({ step: "awaiting_checkout_name", data: { chosenService, address, collected, originNodeText, _needsEmail: true } }) }
+      });
+      return appendNodeCheckoutText(originNodeText, "Para gerar o pagamento via PIX, preciso do seu *nome completo*:");
+    }
+
+    // Ask for email if missing
+    if (!customerEmail) {
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify({ step: "awaiting_checkout_email", data: { chosenService, address, collected: { ...collected, name: customerName }, originNodeText, name: customerName } }) },
+        create: { key: stateKey, value: JSON.stringify({ step: "awaiting_checkout_email", data: { chosenService, address, collected: { ...collected, name: customerName }, originNodeText, name: customerName } }) }
+      });
+      return appendNodeCheckoutText(originNodeText, "Qual o seu *melhor email* para enviarmos a confirmação do pagamento?");
+    }
+
+    // Briefing para serviços sob medida
+    const isServiceProduct = String(chosenService?.type || "").trim().toLowerCase() === "service"
+      || String(chosenService?.delivery_type || "").trim().toLowerCase() === "service";
+    const briefingDone = !!(collected?.briefing_segmento && collected?.briefing_paginas);
+    if (isServiceProduct && !briefingDone) {
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify({ step: "awaiting_checkout_briefing", data: { chosenService, address, collected, originNodeText, name: customerName, briefingStep: 0 } }) },
+        create: { key: stateKey, value: JSON.stringify({ step: "awaiting_checkout_briefing", data: { chosenService, address, collected, originNodeText, name: customerName, briefingStep: 0 } }) }
+      });
+      return appendNodeCheckoutText(originNodeText, "Perfeito! Antes de gerar o pagamento, preciso de algumas informações do seu projeto:\n\n1️⃣ *Qual o segmento/área do seu negócio?*");
+    }
+
+    try {
+      const asaasUrl = settings.asaas_mode === 'production'
+        ? 'https://asaas.com/api/v3'
+        : 'https://sandbox.asaas.com/api/v3';
+
+      const customer = await createCustomer({
+        name: customerName,
+        email: customerEmail,
+        phone: contactNumber,
+        cpfCnpj: "",
+      }, asaasKey, asaasUrl);
+
+      if (!customer.id) {
+        const errMsg = customer.errors ? customer.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar cliente no gateway';
+        throw new Error(errMsg);
+      }
+
+      const idempotencyKey = `rules_pix_${order.id}`;
+      let operation = await prisma.paymentOperation.findUnique({ where: { idempotency_key: idempotencyKey } });
+      if (operation?.status === "completed" && operation.result) return operation.result;
+      if (!operation) {
+        operation = await prisma.paymentOperation.create({
+          data: { tenant_id: tenantId, idempotency_key: idempotencyKey, kind: "rules_pix" },
+        });
+      }
+
+      const sale = operation.sale_id
+        ? await prisma.sale.findUnique({ where: { id: operation.sale_id } })
+        : await prisma.sale.create({
+            data: {
+              tenant_id: tenantId,
+              product_name: chosenService.name,
+              amount: effectivePrice,
+              status: "pending",
+              notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp${extraNotes}`,
+              due_date: new Date(Date.now() + 7 * 86400000),
+              retail_order_id: order.id,
+            },
+          });
+      if (!sale) throw new Error("Venda idempotente não encontrada");
+      if (!operation.sale_id) {
+        await prisma.paymentOperation.update({ where: { id: operation.id }, data: { sale_id: sale.id } });
+      }
+
+      const pay = await createPayment({
+        customer: customer.id,
+        billingType: 'PIX',
+        value: effectivePrice,
+        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        description: cleanDescription(chosenService.name),
+        externalReference: `${tenantId}_${sale.id}`,
+      }, asaasKey, asaasUrl, idempotencyKey);
+
+      if (!pay.id) {
+        const errMsg = pay.errors ? pay.errors.map((e: any) => e.description).join(', ') : 'Erro ao criar pagamento PIX';
+        throw new Error(errMsg);
+      }
+
+      let pixCopy = pay.pixCopiaECola || '';
+      let pixQr = pay.pixQrCodeUrl || '';
+      if ((!pixCopy || !pixQr) && pay.id) {
+        try {
+          const pixFallbackRes = await fetch(`${asaasUrl}/payments/${pay.id}/pixQrCode`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'access_token': asaasKey.trim() }
+          });
+          if (pixFallbackRes.ok) {
+            const pixData = await pixFallbackRes.json();
+            pixCopy = (typeof pixData.payload === 'string' ? pixData.payload : (pixData.payload?.payload || pixData.payload?.copyPaste)) || pixCopy;
+            pixQr = pixData.payload?.url || pixData.encodedImage || pixData.qrCodeUrl || pixQr;
+          }
+        } catch (pixErr) {
+          console.error("Erro ao buscar PIX QR code explicitamente:", pixErr);
+        }
+      }
+
+      const pixQrUrl = /^https?:\/\//i.test(pixQr) ? pixQr : "";
+      const finalPaymentLink = pay.invoiceUrl || pixQrUrl;
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: {
+          payment_link: finalPaymentLink,
+          payment_id: pay.id,
+          notes: `customer_phone:${cleanDigits} | PIX direto WhatsApp | pix_qr:${pixQrUrl} | pix_key:${pixCopy || ''}${extraNotes}`,
+        },
+      });
+
+      await prisma.systemConfig.upsert({
+        where: { key: stateKey },
+        update: { value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
+        create: { key: stateKey, value: JSON.stringify({ step: "debt_payment_method", data: {} }) },
+      });
+
+      const displayPriceStr = getProductPriceLabel(chosenService) || `R$ ${effectivePrice.toFixed(2).replace(".", ",")}`;
+      let msg = `🛒 *Resumo do Pedido:* ${chosenService.name}\n💰 *Valor:* ${displayPriceStr}\n📍 *Entrega:* ${address}`;
+      if (chosenService.description) msg += `\n\n📄 *Detalhes do Produto:*\n${chosenService.description}`;
+      if (Array.isArray(chosenService.features) && chosenService.features.length > 0) msg += `\n\n✨ *O que está incluso:*\n` + chosenService.features.map((f: any) => `• ${f}`).join("\n");
+      msg += `\n\n💳 *Pagamento via PIX*`;
+      if (pixCopy) msg += `\n\n🔑 O código Pix Copia e Cola será enviado na próxima mensagem para facilitar a cópia.`;
+      if (!pixCopy && !pixQr && pay.invoiceUrl) msg += `\n\n🔗 *Link para pagamento:*\n${pay.invoiceUrl}`;
+      else if (!pixCopy && !pixQr) msg += `\n\n❌ Não foi possível gerar o PIX. Tente novamente ou escolha outra forma de pagamento.`;
+      msg += `\n\nApós a aprovação automática, seu pedido será liberado! 🚀`;
+      if (pixCopy) msg += `\n\n---PIX-COPY---\n${pixCopy.trim()}`;
+      if (pixQr) msg += `\n\n---IMAGE---\n${pixQr.replace(/^data:image\/[^;]+;base64,/, "")}`;
+
+      const finalMessage = appendNodeCheckoutText(originNodeText, msg);
+      await prisma.paymentOperation.update({
+        where: { id: operation.id },
+        data: { status: "completed", provider_id: pay.id, result: finalMessage },
+      });
+      return finalMessage;
+
+    } catch (e: any) {
+      console.error("Erro ao criar pagamento PIX direto:", e);
+      await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+      return `❌ No momento o pagamento via PIX não está disponível. Caso queira prosseguir com a compra, entre em contato com o suporte.`;
+    }
+  }
+
+  // PIX selected but no Asaas key
+  if (billingType === 'PIX' && !asaasKey) {
+    await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+    return `❌ No momento o pagamento via PIX não está disponível (chave de gateway não configurada). Entre em contato com o suporte para concluir sua compra.`;
+  }
+
+  // CREDIT_CARD or fallback
+  const productNameEnc = encodeURIComponent(chosenService.name);
+  const { getAppBaseUrl } = await import("@/lib/auth");
+  const baseUrl = getAppBaseUrl();
+  let checkoutUrl = `${baseUrl}/checkout/${tenantId}?product=${productNameEnc}&order=${order.id}`;
+  if (customerName) checkoutUrl += `&name=${encodeURIComponent(customerName)}`;
+  if (cleanDigits) checkoutUrl += `&phone=${encodeURIComponent(contactNumber)}`;
+  if (customerEmail) checkoutUrl += `&email=${encodeURIComponent(customerEmail)}`;
+
+  await prisma.sale.create({
+    data: {
+      tenant_id: tenantId,
+      product_name: chosenService.name,
+      amount: effectivePrice,
+      status: "pending",
+      notes: `customer_phone:${cleanDigits} | Link Checkout | customer_email:${customerEmail || ''} | customer_name:${customerName || ''}${extraNotes}`,
+      due_date: new Date(Date.now() + 7 * 86400000),
+      retail_order_id: order.id,
+      payment_link: checkoutUrl,
+    }
+  }).catch(err => console.error("Erro ao registrar venda pendente do checkout:", err));
+
+  await prisma.systemConfig.delete({ where: { key: stateKey } }).catch(() => {});
+
+  return appendNodeCheckoutText(
+    originNodeText,
+    botMessageTemplates.checkout.withPayment({
+      product: chosenService,
+      address,
+      checkoutLink: checkoutUrl,
+      paymentMode: "link",
+    })
+  );
 }
 
 async function obterProximosDiasDisponiveis(tenantId: string, settings: any, durationMin: number = 60): Promise<Date[]> {

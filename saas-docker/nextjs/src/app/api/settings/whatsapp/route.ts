@@ -103,6 +103,13 @@ export async function PUT(req: Request) {
       "manager_phone","ignored_numbers","products",
       "enable_groups","whitelisted_groups",
       "custom_rules_nodes",
+      // Módulos ativos (scheduling, payments, debt, reminders, hybrid, google_calendar)
+      "module_scheduling","module_payments","module_debt_collection","module_reminders","module_hybrid_mode","module_google_calendar",
+      // Configuração de pagamento (Asaas/MercadoPago)
+      "payment_provider","asaas_mode","mercadopago_mode",
+      "asaas_environment_key",
+      "plan_solo_price","plan_pro_price","plan_enterprise_price",
+      "auto_charge_enabled","late_fee_percent",
       ...SECRET_KEYS,
     ]);
     for (const key of Object.keys(body)) {

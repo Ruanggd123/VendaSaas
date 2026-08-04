@@ -159,6 +159,9 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       const { processMessageWithRules } = await import("./rulesBot");
       const rulesResp = await processMessageWithRules(tenantId, contactNumber, sanitizedMessage, settings, isMessageToMyself);
       if (rulesResp) return rulesResp;
+      // Bot de regras sem resposta: NÃO cair nos provedores (evita vazar aviso de configuração)
+      console.log(`[Engine] Rules bot sem resposta para "${sanitizedMessage}" no tenant ${tenantId}. Mantendo silencioso.`);
+      return null;
     }
 
     if (!isDemoIA && settings.bot_type === "hibrido") {
