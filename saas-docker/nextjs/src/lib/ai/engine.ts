@@ -188,7 +188,8 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
 
     // Helper para validar se o modelo selecionado pode ser usado com este provedor
     const isModelForGroq = modelValid && (selectedModel.includes("llama") || selectedModel.includes("mixtral") || selectedModel.includes("gemma"));
-    const isModelForOpenRouter = modelValid && (selectedModel.includes("deepseek") || selectedModel.includes("openrouter") || selectedModel.includes("claude") || selectedModel.includes("mistral"));
+    const isModelForOpenRouter = modelValid && ((selectedModel.includes("deepseek") && selectedModel.includes("/")) || selectedModel.includes("openrouter") || selectedModel.includes("claude") || selectedModel.includes("mistral"));
+    const isModelForDeepSeek = modelValid && (selectedModel.includes("deepseek") || selectedModel.includes("reasoner"));
     const isModelForGemini = modelValid && (selectedModel.includes("gemini"));
     const isModelForOpenAI = modelValid && (selectedModel.includes("gpt") || selectedModel.includes("o1") || selectedModel.includes("o3") || selectedModel.includes("dall-e"));
 
@@ -218,7 +219,19 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       });
     }
 
-    // 3. Gemini
+    // 3. DeepSeek (API direta — mais econômico e estável)
+    const deepSeekKey = settings.deepseek_api_key || process.env.DEEPSEEK_API_KEY;
+    if (deepSeekKey && deepSeekKey.trim() !== "") {
+      providers.push({
+        name: "DeepSeek",
+        apiKey: deepSeekKey,
+        baseURL: "https://api.deepseek.com",
+        model: isModelForDeepSeek ? selectedModel : "deepseek-chat",
+        priority: isModelForDeepSeek ? 11 : 9
+      });
+    }
+
+    // 4. Gemini
     const geminiKey = settings.gemini_api_key || process.env.GEMINI_API_KEY;
     if (geminiKey && geminiKey.trim() !== "") {
       providers.push({
@@ -230,7 +243,7 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       });
     }
 
-    // 4. OpenAI
+    // 5. OpenAI
     const openaiKey = settings.openai_api_key && !settings.openai_api_key.startsWith("sk-or-v1")
       ? settings.openai_api_key
       : (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith("sk-or-v1") ? process.env.OPENAI_API_KEY : "");
@@ -243,7 +256,7 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
       });
     }
 
-    // 5. Local (Ollama)
+    // 6. Local (Ollama)
     if (isLocal) {
       providers.push({
         name: "Ollama",
@@ -257,7 +270,7 @@ VOCÊ DEVE RESPONDER ESTRITAMENTE NESTE FORMATO JSON:
     // Fallback global final check
     if (providers.length === 0) {
       console.warn(`Tenant ${tenantId} não tem chaves de IA e não há chaves globais no servidor.`);
-      return "⚠️ *Aviso de Configuração:* O assistente de IA desta empresa não pôde responder porque nenhuma chave de API válida (Groq, OpenRouter, Gemini ou OpenAI) está configurada.";
+      return "⚠️ *Aviso de Configuração:* O assistente de IA desta empresa não pôde responder porque nenhuma chave de API válida (DeepSeek, Groq, OpenRouter, Gemini ou OpenAI) está configurada.";
     }
 
     // Ordenar provedores para priorizar o selecionado

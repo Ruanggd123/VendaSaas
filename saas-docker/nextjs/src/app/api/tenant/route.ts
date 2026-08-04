@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     // Remove chaves secretas quando não há sessão (ex: n8n webhook)
     const SECRET_KEYS = [
-      "openai_api_key","groq_api_key","gemini_api_key",
+      "openai_api_key","groq_api_key","gemini_api_key","deepseek_api_key",
       "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
       "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"
     ];
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     try { parsedSettings = JSON.parse(tenant.settings as string); } catch (e) {}
 
     const safeSettings = { ...parsedSettings as Record<string, unknown> };
-    for (const key of ["openai_api_key","groq_api_key","gemini_api_key","asaas_api_key","asaas_test_api_key","asaas_webhook_secret","mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"]) {
+    for (const key of ["openai_api_key","groq_api_key","gemini_api_key","deepseek_api_key","asaas_api_key","asaas_test_api_key","asaas_webhook_secret","mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"]) {
       delete safeSettings[key];
     }
     return NextResponse.json({ tenant_id: tenant.id, name: tenant.name, plan: tenant.plan, settings: safeSettings });

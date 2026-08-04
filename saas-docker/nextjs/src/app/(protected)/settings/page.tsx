@@ -123,7 +123,7 @@ const DEFAULT_AI: AISettings = {
   manager_phone: "",
   blocked_dates: [],
   openai_api_key: "",
-  ia_model: "gpt-4o-mini",
+  ia_model: "deepseek-chat",
   interactive_poll_enabled: true,
 };
 
@@ -353,10 +353,12 @@ function AIIdentityTab({ settings, update, userRole, saving, onSave }: any) {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">Modelo do Motor de IA</label>
                 <select
-                  value={settings.ia_model || "gpt-4o-mini"}
+                  value={settings.ia_model || "deepseek-chat"}
                   onChange={(e) => update("ia_model", e.target.value)}
                   className="w-full rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
                 >
+                  <option value="deepseek-chat">DeepSeek Chat V3 (Mais Econômico — Recomendado)</option>
+                  <option value="deepseek-reasoner">DeepSeek Reasoner R1 (Raciocínio Profundo)</option>
                   <option value="gpt-4o-mini">GPT-4o Mini (Ultra Rápido & Econômico)</option>
                   <option value="gpt-4o">GPT-4o (Máximo Raciocínio Completo)</option>
                   <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq Cloud)</option>

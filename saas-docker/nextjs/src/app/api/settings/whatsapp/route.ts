@@ -24,7 +24,7 @@ export async function GET() {
 
       // Mascarar chaves secretas também para parceiros
       const SECRET_KEYS = [
-        "openai_api_key","groq_api_key","gemini_api_key",
+        "openai_api_key","groq_api_key","gemini_api_key","deepseek_api_key",
         "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
         "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"
       ];
@@ -57,7 +57,7 @@ export async function GET() {
 
     // Mascarar chaves secretas antes de enviar ao frontend
     const SECRET_KEYS = [
-      "openai_api_key", "groq_api_key", "gemini_api_key",
+      "openai_api_key", "groq_api_key", "gemini_api_key", "deepseek_api_key",
       "asaas_api_key", "asaas_test_api_key", "asaas_webhook_secret",
       "mercadopago_access_token", "mercadopago_test_access_token", "mercadopago_token",
       "openai_key", "asaasApiKey"
@@ -88,7 +88,7 @@ export async function PUT(req: Request) {
     const body = await req.json();
 
     const SECRET_KEYS = [
-      "openai_api_key","groq_api_key","gemini_api_key",
+      "openai_api_key","groq_api_key","gemini_api_key","deepseek_api_key",
       "asaas_api_key","asaas_test_api_key","asaas_webhook_secret",
       "mercadopago_access_token","mercadopago_test_access_token","mercadopago_token","openai_key","asaasApiKey"
     ];
