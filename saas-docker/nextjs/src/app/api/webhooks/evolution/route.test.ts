@@ -360,13 +360,13 @@ describe("POST /api/webhooks/evolution — Supressão de eco", () => {
 });
 
 describe("POST /api/webhooks/evolution — Mídia e cota", () => {
-  it("trata mídia sem legenda como [Mídia: image] e ignora como sistema/status", async () => {
+  it("trata mídia sem legenda como [Mídia: image] e ignora como notificação automática", async () => {
     const body = baseEvent({
       message: { imageMessage: { mimetype: "image/jpeg" } },
     });
     const res = await POST(makeRequest(body));
     const json = await readJson(res);
-    expect(json.ignored).toBe("Sistema/Status");
+    expect(json.ignored).toBe("Sistema/Notificação Automática");
   });
 
   it("ignora outbound enviado pelo operador para outra pessoa (fromMe)", async () => {

@@ -317,17 +317,19 @@ describe("processMessageWithRules — Sessão e Erros", () => {
     expect(resp).toContain("Registrado com sucesso");
   });
 
-  it("transfere para humano e pausa IA após 3 erros consecutivos", async () => {
+  it("delega mensagem livre do menu principal para a IA sem pausar a conversa", async () => {
     const settings = createSettings();
     const unmatched = "opcao invalida que nao existe para testar aqui";
-    await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
-    await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
-    const resp = await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+    const r1 = await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, unmatched, settings, false);
 
-    expect(resp).toContain("transferindo");
-    expect(resp).toContain("atendente humano");
+    // Mensagens livres no menu principal são delegadas para a IA (null) — não pausam
+    expect(r1).toBeNull();
+    expect(r2).toBeNull();
+    expect(r3).toBeNull();
     const updateManyCalls = vi.mocked(mockPrismaInstance.conversation.updateMany).mock.calls as any[];
-    expect(updateManyCalls.some((c) => (c[0] as any)?.data?.ai_paused === true)).toBe(true);
+    expect(updateManyCalls.some((c) => (c[0] as any)?.data?.ai_paused === true)).toBe(false);
   });
 });
 
@@ -359,13 +361,19 @@ describe("processMessageWithRules — Finalização do Pedido", () => {
     });
     await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
 
+    // Seleciona o produto → pergunta a forma de pagamento
     const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
-    expect(r2).toContain("Resumo do Pedido");
-    expect(r2).toContain("Confirma a compra");
+    expect(r2).toContain("Como você prefere pagar");
 
+    // Escolhe PIX → mostra resumo e exige confirmação antes de cobrar
     const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
-    expect(r3).toContain("PIX");
-    expect(r3).toContain("chave de gateway não configurada");
+    expect(r3).toContain("Resumo do Pedido");
+    expect(r3).toContain("Confirma a compra");
+
+    // Confirma a compra → sem gateway configurado, informa impossibilidade
+    const r4 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r4).toContain("PIX");
+    expect(r4).toContain("chave de gateway não configurada");
   });
 
   it("cancela o pedido na etapa de confirmação e volta ao menu", async () => {
@@ -373,11 +381,15 @@ describe("processMessageWithRules — Finalização do Pedido", () => {
       products: [{ name: "Plano Teste", price: "97", requires_payment: true, billing_type: "PIX", delivery_type: "virtual_instant" }],
     });
     await processMessageWithRules(TENANT_ID, CONTACT, "3", settings, false);
-    const r2 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
-    expect(r2).toContain("Confirma a compra");
+    // Seleciona o produto → pergunta a forma de pagamento
+    await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    // Escolhe PIX → chega à confirmação
+    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "1", settings, false);
+    expect(r3).toContain("Confirma a compra");
 
-    const r3 = await processMessageWithRules(TENANT_ID, CONTACT, "2", settings, false);
-    expect(r3).toContain("Produtos");
+    // Cancela → volta ao menu, sem venda registrada
+    const r4 = await processMessageWithRules(TENANT_ID, CONTACT, "2", settings, false);
+    expect(r4).toContain("Produtos");
     expect(mockStore.sales.size).toBe(0);
   });
 
