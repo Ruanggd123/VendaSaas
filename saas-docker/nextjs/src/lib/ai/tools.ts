@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getBusinessDayRange, zonedDateTimeToUtc } from "@/lib/dateTime";
-import { getProductPriceLabel } from "@/lib/currency";
+import { formatBRL, getProductPrice, getProductPriceLabel, parseMoney } from "@/lib/currency";
 
 const prisma = new PrismaClient();
 
@@ -29,17 +29,17 @@ export const aiTools = [
     type: "function",
     function: {
       name: "gerar_link_pagamento",
-      description: "Gera um link de pagamento (checkout da plataforma) para cobrar o cliente. REGRAS: 1. NUNCA chame se o cliente estiver apenas perguntando informações, detalhes, ou como funciona o produto/serviço (ex: 'como funciona o bot?'). 2. APENAS chame se o cliente disser explicitamente que quer comprar, contratar, assinar, ou pedir o link de pagamento.",
+      description: "Gera um link de pagamento (checkout da plataforma) para cobrar o cliente. REGRAS: 1. NUNCA chame se o cliente estiver apenas perguntando informações, detalhes, ou como funciona o produto/serviço (ex: 'como funciona o bot?'). 2. APENAS chame se o cliente disser explicitamente que quer comprar, contratar, assinar, ou pedir o link de pagamento. 3. O VALOR DEVE SER SEMPRE o preço oficial do produto no catálogo (settings.products). NUNCA negocie, reduza ou invente preços: o checkout cobra o preço oficial do catálogo.",
       parameters: {
         type: "object",
         properties: {
           valor: {
             type: "number",
-            description: "Valor da cobrança em reais. Exemplo: 15.50",
+            description: "Preço OFICIAL do produto no catálogo, em reais. NUNCA invente, negocie ou aplique desconto. Exemplo: 497",
           },
           descricao: {
             type: "string",
-            description: "Descrição do produto ou serviço sendo cobrado. Ex: Consulta, Mensalidade",
+            description: "Nome EXATO do produto/serviço como está no catálogo (settings.products). Ex: Site Institucional Completo",
           },
         },
         required: ["valor", "descricao"],
@@ -340,10 +340,29 @@ export async function handleToolCall(
 
   if (toolCall.function.name === "gerar_link_pagamento") {
     try {
-      const productName = encodeURIComponent(args.descricao);
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { settings: true } });
+      let products: any[] = [];
+      try { products = JSON.parse(tenant?.settings as string || '{}').products || []; } catch {}
+
+      const rawDesc = String(args.descricao || "").trim().toLowerCase();
+      const product = products.find((p: any) => {
+        const pName = String(p.name || "").toLowerCase();
+        return pName === rawDesc || pName.includes(rawDesc) || rawDesc.includes(pName);
+      });
+
+      if (!product) {
+        return `PRODUTO NÃO ENCONTRADO NO CATÁLOGO. NUNCA crie link de pagamento para produtos fora do catálogo. Apresente os produtos oficiais do catálogo e pergunte qual o cliente quer comprar. NUNCA invente preços, descontos ou condições.`;
+      }
+
+      const officialPrice = getProductPrice(product);
+      const askedValue = parseMoney(args.valor);
+      if (askedValue !== null && Math.abs(askedValue - officialPrice) > 0.01) {
+        return `VALOR INVÁLIDO: o preço oficial de "${product.name}" é ${formatBRL(officialPrice)} e NÃO é negociável pelo bot. Informe ao cliente o valor oficial do catálogo; nunca gere link com valor diferente.`;
+      }
+
       const { getAppBaseUrl } = await import("@/lib/auth");
-      const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${productName}`;
-      return `Perfeito! Criei o seu link de pagamento para o *${args.descricao}* (R$ ${args.valor}).\n\n🔗 *Clique aqui para concluir:* ${checkoutUrl}\n\nAssim que o pagamento for confirmado, seu pedido será liberado automaticamente! 🚀`;
+      const checkoutUrl = `${getAppBaseUrl()}/checkout/${tenantId}?product=${encodeURIComponent(product.name)}`;
+      return `Perfeito! Criei o seu link de pagamento para o *${product.name}* (${formatBRL(officialPrice)}).\n\n🔗 *Clique aqui para concluir:* ${checkoutUrl}\n\nAssim que o pagamento for confirmado, seu pedido será liberado automaticamente! 🚀`;
     } catch (e: any) {
       return `Erro ao gerar link: ${e.message}`;
     }

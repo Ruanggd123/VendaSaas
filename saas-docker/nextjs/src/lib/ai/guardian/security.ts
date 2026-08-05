@@ -28,10 +28,15 @@ export function checkRateLimit(identifier: string): boolean {
 /**
  * Filtro de Entrada (Input Guardrail)
  * Executado antes de enviar a mensagem para a IA.
+ * 
+ * Normaliza a mensagem para uma forma "compacta" (minúsculas, sem acentos,
+ * sem espaços/pontuação, leet trocado) e compara com padrões de jailbreak.
+ * Isso detecta obfuscação comum (ex: "IgNoRe  as  inStRuçÕeS", "ign0re",
+ * "i g n o r e as instruções") sem depender da digitação exata.
  */
 export function sanitizeInput(message: string, maxLen: number = 350): string {
   if (!message) return "";
-  
+
   let cleanMsg = message.trim();
 
   // 1. Limite de tamanho (previne exaustão de contexto)
@@ -39,32 +44,59 @@ export function sanitizeInput(message: string, maxLen: number = 350): string {
     cleanMsg = cleanMsg.substring(0, maxLen);
   }
 
-  // 2. Filtro anti-jailbreak forte (Regex)
-  const jailbreakPatterns = [
-    /ignore (todas )?as instru(ções|oes) (anteriores|acima)/gi,
-    /ignore (all )?(previous|above) instructions/gi,
-    /você (agora )?(é|es) (um|o) (desenvolvedor|admin|dono|deus)/gi,
-    /you are (now )?(a|an|the) (developer|admin|owner|god)/gi,
-    /escreva o (seu )?prompt (original|interno|completo|de sistema)/gi,
-    /write (your|the) (original|internal|system) prompt/gi,
-    /repita (tudo )?o que eu disse/gi,
-    /repeat (everything )?(i|i just) said/gi,
-    /revele (suas )?instru(ções|oes) (internas|de sistema)/gi,
-    /reveal (your )?(internal|system) instructions/gi,
-    /haja como|act as|atu(e|e) como/gi,
-    /dê (um )?comando|execute (um )?comando|run command/gi,
-    /bypass (regras|segurança|restrições|rules|security|restrictions)/gi,
-    /.ignore (acima|anterior|above|previous)/gi,
-    /system (message|prompt) (:|: )?/gi,
-    /output (the )?(initial|original|full|entire) (prompt|instruction|message)/gi,
-    /role.?play|persona|character.?play/gi,
-    /modo (desenvolvedor|dan|deus|sudo|override)/gi,
-    /developer mode|god mode|dan mode/gi,
+  // 2. Versão compacta: sem caixa, sem acentos, sem separadores, leet trocado
+  const compact = cleanMsg
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[0]/g, "o")
+    .replace(/[1]/g, "i")
+    .replace(/[3]/g, "e")
+    .replace(/[4]/g, "a")
+    .replace(/[5]/g, "s")
+    .replace(/[7]/g, "t")
+    .replace(/[8]/g, "b")
+    .replace(/[@]/g, "a")
+    .replace(/[$]/g, "s")
+    .replace(/[^a-z]/g, "");
+
+  const jailbreakPatterns: RegExp[] = [
+    // Ignorar instruções/regras (PT/EN)
+    /ignore(as|todasas|das)?(instrucoes|regras)(anteriores|acima|passadas|demais)?/,
+    /ignore(allmy|allof|allthe|all|the|your|any|everything|above|previous|earlier|prior|old)?(instructions|rules|prompts?|messages)/,
+    /ignore(everything|that|this)(above|below|before|earlier)?/,
+    /(esqueca|esquecas|desconsidere|naoobedecca)(as|todasas|das)?(instrucoes|regras)/,
+    /forget(all|your|the|any)?(previous|above)?(instructions|rules|prompts?)/,
+    // Escrever/mostrar prompt (PT/EN)
+    /(escreva|mostre|meenvie|reproduza|copie|cole|envie|imprima|saidad)?(o)?(seu)?(prompt|systemprompt|promptdesistema)(original|interno|completo|desistema|anterior)?/,
+    /(write|show|output|send|print|reveal|copy|paste|dump|leak)(your|the|my)?(original|internal|system|full|entire)?(prompt|instructions?|rules|messages)/,
+    // Revelar regras/instruções (PT/EN)
+    /revele(as|o|os|a)?(suas|seus|tuas)?(instrucoes|regras|diretrizes|politicas|prompt)(internas|desistema|completas|ocultas)?/,
+    /reveal(your|the)?(internal|system|secret)?(instructions|rules|prompt|guidelines|policies)/,
+    // Repetir
+    /repita(tudooque|oque|o)?(eu|voce)?(disse|falei|mandei|escreveu)/,
+    /repeateverything(isaid|isay|iwas)?/,
+    // Bypass
+    /bypass(as)?(regras|seguranca|restricoes|limites|guardrails|filtros|rules|security|restrictions)/,
+    /(quebre|quebrar|pule|pular|evite)(as)?(regras|restricoes|seguranca)/,
+    // Modos secretos
+    /modo(desenvolvedor|deus|dan|sudo|override|admin|oculto)/,
+    /(developer|god|dan|sudo|admin|overrid[ae])mode/,
+    // Persona (PT/EN)
+    /hajacomo(um|o|uma|a)?(desenvolvedor|desenvolvedora|admin|hacker|deus|dono|programador|superusuario|sistema)/,
+    /atuacomo(um|o|uma|a)?(desenvolvedor|desenvolvedora|admin|hacker|deus|superusuario)/,
+    /actas(an|a|the)?(developer|admin|hacker|god|owner|programmer|superuser|system)/,
+    /roleplay|persona|characterplay/,
+    // "Você é / agora é" (PT/EN)
+    /(voce|tu)(agora)?(e|era|estasendo|vaiser)(agora)?(um|o|a|uma)?(desenvolvedor|admin|deus|dono|hacker|sistema|superusuario)/,
+    /(you)(are|were|havebecome|willbe|now)(now)?(are)?(a|an|the)?(developer|admin|hacker|god|owner|system|superuser)/,
+    // System prompt/message solto
+    /systemprompt|systemmessage|promptoriginal/,
   ];
 
   for (const pattern of jailbreakPatterns) {
-    if (pattern.test(cleanMsg)) {
-      console.warn("[SECURITY] Tentativa de Jailbreak interceptada no Input:", message);
+    if (pattern.test(compact)) {
+      console.warn("[SECURITY] Tentativa de Jailbreak interceptada no Input (conteúdo ocultado por privacidade).");
       // Substitui o payload malicioso por uma saudação inofensiva
       return "Olá, gostaria de saber mais sobre o sistema.";
     }
@@ -106,9 +138,30 @@ export function validateOutput(aiResponse: string): string {
     const blacklist = [
       "prompt original",
       "instruções de sistema",
-      "system message",
+      "instrucoes de sistema",
+      "instruções internas",
+      "instrucoes internas",
+      "minhas instruções",
+      "minhas instrucoes",
+      "minhas regras internas",
+      "meu prompt",
+      "prompt do sistema",
+      "prompt de sistema",
+      "regras internas",
       "regras de segurança máxima",
-      "anti-jailbreak"
+      "minhas regras de segurança",
+      "anti-jailbreak",
+      "anti-injeção",
+      "anti-injecao",
+      "system message",
+      "system prompt",
+      "internal instructions",
+      "my instructions",
+      "my system prompt",
+      "original prompt",
+      "revealed prompt",
+      "modo admin",
+      "modo administrador",
     ];
 
     const lowerResponse = respostaCliente.toLowerCase();

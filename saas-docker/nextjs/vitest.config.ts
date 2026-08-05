@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
-    exclude: ["node_modules", ".next", "src/lib/currency.test.ts", "src/lib/dateTime.test.ts", "src/lib/usage.test.ts", "src/lib/whatsappOptions.test.ts"],
+    exclude: ["node_modules", ".next", "src/lib/currency.test.ts", "src/lib/dateTime.test.ts", "src/lib/whatsappOptions.test.ts"],
     setupFiles: ["tests/setup.ts"],
     coverage: {
       provider: "v8",

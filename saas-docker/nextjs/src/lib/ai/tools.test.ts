@@ -144,6 +144,10 @@ vi.mock("@/lib/currency", () => ({
   formatBRL: vi.fn((v: number) => `R$ ${v.toFixed(2)}`),
   getProductPrice: vi.fn((p: any) => Number(p?.price) || 0),
   getProductPriceLabel: vi.fn((p: any) => `R$ ${p?.price}`),
+  parseMoney: vi.fn((v: any) => {
+    const n = typeof v === "number" ? v : Number(String(v).replace(/\s/g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }),
 }));
 
 vi.mock("@/lib/ai/guardian/templates", () => ({
@@ -267,8 +271,8 @@ describe("handleToolCall — gerenciar_catalogo", () => {
 });
 
 describe("handleToolCall — gerar_link_pagamento", () => {
-  it("gera link de pagamento com checkout URL", async () => {
-    setupTenantWithProducts([]);
+  it("gera link de pagamento com checkout URL e preço oficial do catálogo", async () => {
+    setupTenantWithProducts([{ name: "Plano Mensal", price: 97 }]);
     const resp = await handleToolCall(
       makeToolCall("gerar_link_pagamento", { valor: 97, descricao: "Plano Mensal" }),
       TENANT_ID, CONTACT
@@ -276,6 +280,37 @@ describe("handleToolCall — gerar_link_pagamento", () => {
     expect(resp).toContain("link de pagamento");
     expect(resp).toContain("checkout");
     expect(resp).toContain("97");
+  });
+
+  it("recusa gerar link com valor diferente do preço oficial (negociação)", async () => {
+    setupTenantWithProducts([{ name: "Site Institucional Completo", price: 497 }]);
+    const resp = await handleToolCall(
+      makeToolCall("gerar_link_pagamento", { valor: 300, descricao: "Site Institucional Completo" }),
+      TENANT_ID, CONTACT
+    );
+    expect(resp).toContain("VALOR INVÁLIDO");
+    expect(resp).not.toContain("checkout");
+  });
+
+  it("usa o nome e preço OFICIAIS do catálogo no link, mesmo se a IA escrever diferente", async () => {
+    setupTenantWithProducts([{ name: "Site Institucional Completo", price: 497 }]);
+    const resp = await handleToolCall(
+      makeToolCall("gerar_link_pagamento", { valor: 497, descricao: "site institucional" }),
+      TENANT_ID, CONTACT
+    );
+    expect(resp).toContain("Site%20Institucional%20Completo");
+    expect(resp).toContain("R$ 497");
+    expect(resp).not.toContain("site%20institucional)");
+  });
+
+  it("recusa gerar link para produto fora do catálogo", async () => {
+    setupTenantWithProducts([{ name: "Plano Mensal", price: 97 }]);
+    const resp = await handleToolCall(
+      makeToolCall("gerar_link_pagamento", { valor: 97, descricao: "Produto Inventado" }),
+      TENANT_ID, CONTACT
+    );
+    expect(resp).toContain("NÃO ENCONTRADO");
+    expect(resp).not.toContain("checkout");
   });
 });
 

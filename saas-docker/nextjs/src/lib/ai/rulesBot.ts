@@ -5,6 +5,7 @@ import { cancelPayment, createCustomer, createPayment, getPixQrCode, updatePayme
 import { getBusinessDayRange, getZonedDateTimeParts, zonedDateTimeToUtc } from "@/lib/dateTime";
 import { createHash } from "crypto";
 import { formatBRL, getProductPrice, getProductPriceLabel } from "@/lib/currency";
+import { normalizePlanId } from "@/lib/plans";
 
 const prisma = new PrismaClient();
 
@@ -827,7 +828,7 @@ export async function processMessageWithRules(
                   data: {
                     name: `Empresa ${clientEmail.split("@")[0]}`,
                     phone: `${contactNumber}_sub_${Date.now()}`,
-                    plan: newlyPaid.product_name,
+                    plan: normalizePlanId(newlyPaid.product_name),
                     subscription_expires_at: new Date(Date.now() + 30 * 86400000),
                   }
                 });
@@ -891,7 +892,7 @@ export async function processMessageWithRules(
             data: {
               name: `Empresa ${clientEmail.split("@")[0]}`,
               phone: `${contactNumber}_sub_${Date.now()}`,
-              plan: mostRecentSale.product_name,
+              plan: normalizePlanId(mostRecentSale.product_name),
               subscription_expires_at: new Date(Date.now() + 30 * 86400000),
             }
           });
@@ -1035,7 +1036,7 @@ export async function processMessageWithRules(
             data: {
               name: `Empresa ${clientEmail.split("@")[0]}`,
               phone: `${contactNumber}_sub_${Date.now()}`,
-              plan: pendingSale.product_name,
+              plan: normalizePlanId(pendingSale.product_name),
               subscription_expires_at: new Date(Date.now() + 30 * 86400000),
             }
           });
