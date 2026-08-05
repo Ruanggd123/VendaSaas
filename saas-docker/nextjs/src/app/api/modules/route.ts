@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { assertModule, MODULES } from '@/lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,11 @@ export async function POST(req: Request) {
     const tenantId = session?.tenant_id || session?.tenantId;
     if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Permitir AI exige o módulo AI no plano
+    if (!assertModule('ai')) {
+      return NextResponse.json({ error: 'Módulo Inteligência Artificial não incluído no seu plano' }, { status: 403 });
     }
 
     const { module_name, action } = await req.json();
@@ -86,6 +92,11 @@ export async function PUT(req: Request) {
     const tenantId = session?.tenant_id || session?.tenantId;
     if (!tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Criar módulo customizado do funil exige o módulo AI no plano
+    if (!assertModule('ai')) {
+      return NextResponse.json({ error: 'Módulo Inteligência Artificial não incluído no seu plano' }, { status: 403 });
     }
 
     const { key, title, icon, description, system_prompt } = await req.json();

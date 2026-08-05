@@ -42,27 +42,27 @@ const navItems = [
     section: "Visão Geral",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/conversas", label: "Conversas", icon: MessageSquare },
+      { href: "/conversas", label: "Conversas", icon: MessageSquare, requiresModule: "conversas" },
     ],
   },
   {
     section: "Operações",
     items: [
-      { href: "/agenda", label: "Agenda", icon: Calendar },
-      { href: "/vendas", label: "Vendas & Cobranças", icon: DollarSign },
+      { href: "/agenda", label: "Agenda", icon: Calendar, requiresModule: "agenda" },
+      { href: "/vendas", label: "Vendas & Cobranças", icon: DollarSign, requiresModule: "crm" },
       { href: "/autovendas", label: "Afiliados & Saques", icon: Wallet, superAdminOnly: true },
       { href: "/projetos", label: "Projetos (Dev)", icon: Rocket, devOrAdminOnly: true },
-      { href: "/meu-projeto", label: "Meu Site & Briefing", icon: Rocket, clientOnly: true, requiresSite: true },
+      { href: "/meu-projeto", label: "Meu Site & Briefing", icon: Rocket, clientOnly: true, requiresModule: "site" },
     ],
   },
   {
     section: "Infraestrutura",
     managerOnly: true,
     items: [
-      { href: "/whatsapp", label: "WhatsApp", icon: Smartphone },
-      { href: "/equipe", label: "Equipe", icon: Users },
+      { href: "/whatsapp", label: "WhatsApp", icon: Smartphone, requiresModule: "whatsapp" },
+      { href: "/equipe", label: "Equipe", icon: Users, requiresModule: "equipe" },
       { href: "/settings", label: "Configurações", icon: Settings },
-      { href: "/workflow", label: "Workflow", icon: Workflow, requiresMassDispatch: true },
+      { href: "/workflow", label: "Workflow", icon: Workflow, requiresModule: "disparos" },
       { href: "/admin", label: "Super Admin", icon: Shield, superAdminOnly: true },
     ],
   },
@@ -96,6 +96,7 @@ export default function DashboardLayout({
     partnerType: ""
   });
   const [isSessionLoaded, setIsSessionLoaded] = useState(false);
+  const [blockedModule, setBlockedModule] = useState<string | null>(null);
 
   const [partnerTrial, setPartnerTrial] = useState<{ expired: boolean; remainingMinutes: number; remainingSeconds: number } | null>(null);
   const [activatingTrial, setActivatingTrial] = useState(false);
@@ -104,6 +105,8 @@ export default function DashboardLayout({
 
   useEffect(() => {
     setMounted(true);
+    const blocked = new URLSearchParams(window.location.search).get("blocked");
+    if (blocked) setBlockedModule(blocked);
     fetch('/api/auth/session')
       .then(r => r.json())
       .then(data => {
@@ -277,6 +280,8 @@ export default function DashboardLayout({
                     if (item.clientOnly && (role === "superadmin" || (role === "partner" && (userAccount as any).partnerType === "dev"))) return null;
 
                     const currentPlan = getPlanDetails(userAccount.tenantPlan);
+                    const planModules = Array.isArray((userAccount as any).modules) ? (userAccount as any).modules : [];
+                    if (item.requiresModule && !planModules.includes(item.requiresModule)) return null;
                     if (item.requiresSite && !currentPlan.hasSite) return null;
                     if (item.requiresMassDispatch && !currentPlan.hasMassDispatch) return null;
                     if (item.requiresMultiUser && currentPlan.maxUsers <= 1) return null;
@@ -430,6 +435,29 @@ export default function DashboardLayout({
         </div>
 
         <div className="p-4 md:p-8 flex-1 relative">
+          {blockedModule && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-700 dark:text-amber-300 text-sm">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+                <span className="font-semibold">Acesso bloqueado: seu plano atual não inclui o módulo <strong>{blockedModule}</strong>.</span>
+              </div>
+              {userAccount.tenantId && (
+                <Link
+                  href={`/tenant/${userAccount.tenantId}/assinatura`}
+                  className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-xl"
+                >
+                  <Zap className="w-3.5 h-3.5" /> Fazer Upgrade
+                </Link>
+              )}
+              <button
+                onClick={() => setBlockedModule(null)}
+                className="text-amber-500 hover:text-amber-700 shrink-0"
+                aria-label="Fechar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           {isPartner && pathname !== "/painel-parceiro" && (!partnerTrial || partnerTrial.expired) ? (
             <div className="max-w-2xl mx-auto my-8 py-10 px-6 bg-white/95 dark:bg-zinc-900/95 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl space-y-6 text-center backdrop-blur-xl">
               <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-0.5 mx-auto animate-bounce">

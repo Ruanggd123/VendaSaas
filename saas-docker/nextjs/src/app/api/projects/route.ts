@@ -23,6 +23,30 @@ export async function GET(request: Request) {
       if (!project) {
         return NextResponse.json({ error: "Projeto não encontrado" }, { status: 404 });
       }
+
+      // Sem sessão (página pública de tracking): retorna APENAS uma visão
+      // sanitizada — sem briefing, sem telefones, sem dados do Tenant.
+      if (!session) {
+        return NextResponse.json({
+          id: project.id,
+          title: project.title,
+          status: project.status,
+          client_name: project.client_name,
+          price: project.price,
+          timelines: project.timelines,
+          partner: { name: project.partner?.name || null },
+        });
+      }
+
+      // Autenticado: apenas quem tem relação com o projeto
+      const isAdmin = session.role === "superadmin" || session.role === "manager" || session.role === "admin";
+      const isPartnerOwner = session.role === "partner" && project.partner_id === session.id;
+      const isOpen = session.role === "partner" && project.status === "OPEN";
+      const isClientOwner = !!project.tenant_id && project.tenant_id === session.tenant_id;
+      if (!isAdmin && !isPartnerOwner && !isOpen && !isClientOwner) {
+        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+      }
+
       return NextResponse.json(project);
     }
 
@@ -65,8 +89,23 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
     const body = await request.json();
-    const { client_name, client_phone, title, description, briefing, price, partner_id } = body;
+    const { client_name, client_phone, title, description, briefing, price } = body;
+
+    if (!client_name || !client_phone || !title) {
+      return NextResponse.json({ error: "Nome, telefone e título são obrigatórios" }, { status: 400 });
+    }
+
+    // partner_id NUNCA vem do corpo público (checkout). Só superadmin/manager
+    // podem atribuir um parceiro ao criar. O fluxo de aceite (/api/projects/accept)
+    // é quem vincula o dev parceiro.
+    let partner_id: string | null = null;
+    if (session && (session.role === "superadmin" || session.role === "manager")) {
+      partner_id = typeof body.partner_id === "string" ? body.partner_id : null;
+    }
+
+    const parsedPrice = Math.max(0, Math.min(parseFloat(price || "0") || 0, 100000000));
 
     const project = await prisma.project.create({
       data: {
@@ -74,9 +113,9 @@ export async function POST(request: Request) {
         client_phone,
         title,
         description,
-        briefing,
-        price: parseFloat(price || "0"),
-        partner_id: partner_id || null,
+        briefing: typeof briefing === "object" ? JSON.stringify(briefing) : briefing,
+        price: parsedPrice,
+        partner_id,
         status: partner_id ? "IN_PROGRESS" : "OPEN",
       },
     });
@@ -108,6 +147,18 @@ export async function PATCH(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "ID do projeto não informado" }, { status: 400 });
+    }
+
+    // Ownership: apenas quem tem relação com o projeto pode alterá-lo
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project) {
+      return NextResponse.json({ error: "Projeto não encontrado" }, { status: 404 });
+    }
+    const isAdmin = session.role === "superadmin" || session.role === "manager" || session.role === "admin";
+    const isPartnerOwner = session.role === "partner" && project.partner_id === session.id;
+    const isClientOwner = !!project.tenant_id && project.tenant_id === session.tenant_id;
+    if (!isAdmin && !isPartnerOwner && !isClientOwner) {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
     const updateData: any = {};

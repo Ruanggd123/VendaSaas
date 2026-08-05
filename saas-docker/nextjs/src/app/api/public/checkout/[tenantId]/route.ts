@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { createCustomer, createPayment, createSubscription, getSubscriptionPayments } from '@/lib/asaas';
 import { createPreference } from '@/lib/mercadopago';
 import { getProductPrice } from '@/lib/currency';
+import { getPlanDetails } from '@/lib/plans';
 
 const prisma = new PrismaClient();
 
@@ -38,12 +39,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ tenantId
     const { tenantId } = await params;
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true, settings: true }
+      select: { id: true, name: true, settings: true, plan: true }
     });
 
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
+
+    // Plano Start não inclui loja/e-commerce/agenda: loja indisponível
+    if (!getPlanDetails(tenant.plan).hasEcommerce && !getPlanDetails(tenant.plan).hasSite) {
+      return NextResponse.json(
+        { error: 'Este comércio ainda não está disponível para o seu plano. Faça upgrade para liberar a loja.' },
+        { status: 403 }
+      );
+    }
+
     let settings: any = {};
     try { settings = JSON.parse(tenant.settings as string); } catch {}
 
@@ -87,6 +97,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenantI
     if (!tenant) {
       return NextResponse.json({ error: 'Loja não encontrada' }, { status: 404 });
     }
+
+    // Plano Start não tem loja/agenda: bloqueia criação de pedidos
+    const plan = getPlanDetails(tenant.plan);
+    if (!plan.hasEcommerce && !plan.hasSite) {
+      return NextResponse.json(
+        { error: 'Este comércio ainda não está disponível para o seu plano. Faça upgrade para liberar a loja.' },
+        { status: 403 }
+      );
+    }
+
     const realTenantId = tenant.id;
 
     const normalizedPhone = phone.replace(/\D/g, '');

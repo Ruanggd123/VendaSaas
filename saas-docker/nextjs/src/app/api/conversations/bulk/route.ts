@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getSession } from "@/lib/auth";
+import { assertModule, MODULES } from "@/lib/permissions";
 import { sendConversationMessage, type SendConversationPayload } from "@/lib/conversations/send";
 
 const prisma = new PrismaClient();
@@ -44,6 +45,10 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+    // Disparo em massa é exclusivo do Plano Scale
+    const denied = await assertModule(MODULES.disparos);
+    if (denied) return denied;
 
     const body = (await req.json().catch(() => null)) as BulkRequestBody | null;
     const mode = body?.mode;

@@ -1,7 +1,37 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const prisma = new PrismaClient();
+
+function safeEqualHex(aHex: string, bHex: string): boolean {
+  try {
+    const a = Buffer.from(aHex, 'hex');
+    const b = Buffer.from(bHex, 'hex');
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+function verifySignature(req: Request, rawBody: string): boolean {
+  const appSecret = process.env.META_APP_SECRET;
+  const signatureHeader = req.headers.get('x-hub-signature-256');
+
+  if (appSecret) {
+    if (!signatureHeader) return false;
+    const signature = signatureHeader.replace(/^sha256=/, '');
+    const expected = createHmac('sha256', appSecret).update(rawBody).digest('hex');
+    return safeEqualHex(expected, signature);
+  }
+
+  // Sem META_APP_SECRET configurado: só processa se explicitamente liberado em dev
+  const allowUnverified = process.env.META_ALLOW_UNVERIFIED === 'true';
+  if (!allowUnverified) {
+    console.warn("⚠️ [Webhook Meta] META_APP_SECRET não configurado — rejeitando payload não assinado. Configure META_APP_SECRET ou META_ALLOW_UNVERIFIED=true em desenvolvimento.");
+  }
+  return allowUnverified;
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -25,7 +55,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    if (!verifySignature(req, rawBody)) {
+      return new NextResponse('Forbidden', { status: 403 });
+    }
+
+    const body = JSON.parse(rawBody);
     
     // Precisaríamos saber de qual tenant é esse webhook (por page id, etc)
     // Para simplificar, vamos atribuir ao primeiro tenant se houver

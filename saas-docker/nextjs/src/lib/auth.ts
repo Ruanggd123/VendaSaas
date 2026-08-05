@@ -36,10 +36,27 @@ export async function login(user: any) {
     tenant_id: user.tenant_id,
     tenantId: user.tenant_id,
     role: user.role,
+    plan: user.plan ?? null,
     accessExpiresAt: user.accessExpiresAt ?? null
   });
 
   (await cookies()).set("session", session, { expires, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+}
+
+// Re-emite o cookie de sessão com o plano atualizado (usado quando o plano
+// muda durante a sessão, para o middleware refletir imediatamente)
+export async function refreshSessionPlan(plan: string | null | undefined) {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  if (!session) return;
+  try {
+    const payload = await decrypt(session);
+    if (!payload) return;
+    payload.plan = plan ?? null;
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const newToken = await encrypt(payload);
+    cookieStore.set("session", newToken, { expires, httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+  } catch {}
 }
 
 export async function logout() {

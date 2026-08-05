@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getSession } from "@/lib/auth";
+import { assertModule, MODULES } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export async function GET(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.site);
+    if (denied) return denied;
 
     // Buscar projeto vinculado ao tenant_id do cliente ou telefone
     let project = null;
@@ -47,6 +50,8 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.site);
+    if (denied) return denied;
 
     const body = await request.json().catch(() => ({}));
     const { title, client_phone } = body;

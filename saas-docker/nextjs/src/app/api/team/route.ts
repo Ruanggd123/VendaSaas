@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs"; 
 import { getPlanDetails } from "@/lib/plans";
+import { assertModule, MODULES } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export async function GET(req: Request) {
     if (!session || session.role === 'partner') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+
+    const denied = await assertModule(MODULES.equipe);
+    if (denied) return denied;
 
     const team = await prisma.user.findMany({
       where: { tenant_id: session.tenant_id, role: "agent" },
@@ -33,6 +37,9 @@ export async function POST(req: Request) {
     if (!session || (session.role !== 'admin' && session.role !== 'superadmin')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+
+    const denied = await assertModule(MODULES.equipe);
+    if (denied) return denied;
 
     const { name, email, password } = await req.json();
     if (!name || !email || !password) {

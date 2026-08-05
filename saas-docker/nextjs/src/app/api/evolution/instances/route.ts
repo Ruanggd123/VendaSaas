@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from "@/lib/auth";
 import { verifyInstanceOwnership } from "@/lib/instance-ownership";
 import { PrismaClient } from "@prisma/client";
+import { getPlanDetails } from "@/lib/plans";
 
 const prisma = new PrismaClient();
 const EVOLUTION_URL = process.env.EVOLUTION_URL || 'https://evolution-api-03xi.onrender.com';
@@ -51,6 +52,24 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
+    // Respeita o limite de instâncias do plano (paralelo ao /api/whatsapp/connect)
+    if (session.role !== 'superadmin' && session.role !== 'partner') {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: session.tenant_id },
+        select: { plan: true },
+      });
+      const planLimit = getPlanDetails(tenant?.plan || "solo").maxWhatsappInstances;
+      const instanceCount = await prisma.whatsappInstance.count({
+        where: { tenant_id: session.tenant_id },
+      });
+      if (instanceCount >= planLimit) {
+        return NextResponse.json(
+          { error: `Seu plano permite no máximo ${planLimit} conexão(ões) de WhatsApp. Faça upgrade para liberar mais.` },
+          { status: 403 }
+        );
+      }
+    }
+
     const body = await req.json();
     // Extrair apenas campos permitidos para evitar mass assignment
     const allowedFields = ['instanceName', 'qrcode', 'number'];

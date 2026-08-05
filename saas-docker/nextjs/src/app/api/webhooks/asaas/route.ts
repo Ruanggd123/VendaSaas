@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from 'bcryptjs';
 import { sendWhatsAppMessage } from '@/lib/evolution';
 import { calculateCommissionForSale } from '@/lib/partners';
+import { normalizePlanId } from '@/lib/plans';
 
 const prisma = new PrismaClient();
 
@@ -288,7 +289,7 @@ export async function POST(req: Request) {
                   data: {
                     name: `${clientName} (Empresa)`,
                     phone: clientPhone ? `${clientPhone}_sub_${Date.now()}` : `phone_${Date.now()}`,
-                    plan: sale.product_name,
+                    plan: normalizePlanId(sale.product_name),
                     subscription_expires_at: new Date(Date.now() + 30 * 86400000),
                   }
                 });

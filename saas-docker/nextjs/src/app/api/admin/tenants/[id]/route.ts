@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { normalizePlanId } from '@/lib/plans';
 
 const prisma = new PrismaClient();
 
@@ -41,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const updateData: any = {};
     if (plan) {
-      updateData.plan = plan;
+      updateData.plan = normalizePlanId(plan);
     }
     
     if (addDays) {

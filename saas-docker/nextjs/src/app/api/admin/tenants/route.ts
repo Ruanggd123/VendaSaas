@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { getSession } from "@/lib/auth";
+import { normalizePlanId } from "@/lib/plans";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
         data: {
           name,
           phone,
-          plan: plan || "solo",
+          plan: normalizePlanId(plan || "solo"),
           subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });

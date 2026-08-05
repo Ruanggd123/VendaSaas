@@ -3,8 +3,25 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function isAuthorized(req: Request): boolean {
+  // Se SAAS_WEBHOOK_SECRET estiver configurado, exige o header — o integrador
+  // externo (n8n/Asaas) deve enviar x-saas-webhook-secret.
+  const secret = process.env.SAAS_WEBHOOK_SECRET;
+  if (secret) {
+    const provided = req.headers.get("x-saas-webhook-secret");
+    return !!provided && provided === secret;
+  }
+  // Sem segredo configurado: aceita por compatibilidade, mas alerta.
+  console.warn("⚠️ [Webhook SaaS] SAAS_WEBHOOK_SECRET não configurado — chamadas sem autenticação serão aceitas. Configure o segredo em produção.");
+  return true;
+}
+
 export async function POST(req: Request) {
   try {
+    if (!isAuthorized(req)) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const body = await req.json();
     console.log("🔔 [Webhook SaaS Assinaturas] Recebido evento:", body.event);
 
@@ -12,8 +29,8 @@ export async function POST(req: Request) {
     if (body.event === "PAYMENT_RECEIVED" || body.event === "PAYMENT_CONFIRMED") {
       const externalRef = body.payment?.externalReference; // Esperado: "tenantId_saas_plan"
 
-      if (externalRef && externalRef.includes("_saas_plan")) {
-        const tenantId = externalRef.split("_")[0];
+      if (externalRef && /^[0-9a-f-]{36}_saas_plan/i.test(String(externalRef))) {
+        const tenantId = String(externalRef).split("_")[0];
 
         const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
         

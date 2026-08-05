@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { zonedDateTimeToUtc } from "@/lib/dateTime";
+import { assertModule, MODULES } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 export const dynamic = "force-dynamic";
@@ -73,6 +74,8 @@ export async function GET(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.agenda);
+    if (denied) return denied;
 
     const isPartner = session.role === 'partner';
     const partnerLeadIds = isPartner
@@ -126,6 +129,8 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.agenda);
+    if (denied) return denied;
 
     const body = await req.json();
     const { service_name, service_price, duration_min, scheduled_at, lead_id, notes } = body;
@@ -188,6 +193,8 @@ export async function PATCH(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.agenda);
+    if (denied) return denied;
 
     const body = await req.json();
     const { id, status, notes } = body;
@@ -229,6 +236,8 @@ export async function DELETE(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.agenda);
+    if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

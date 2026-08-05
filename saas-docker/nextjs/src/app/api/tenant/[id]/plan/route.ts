@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { PLANS } from '@/lib/plans';
-import { getSession } from "@/lib/auth";
+import { PLANS, normalizePlanId } from '@/lib/plans';
+import { getSession, refreshSessionPlan } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
@@ -21,6 +21,11 @@ export async function PUT(
 
     if (!planId || !PLANS[planId]) {
       return NextResponse.json({ error: 'Plano inválido' }, { status: 400 });
+    }
+
+    // Apenas o próprio tenant ou superadmin pode alterar o plano desta conta
+    if (id !== session.tenant_id && session.role !== 'superadmin') {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
     const plan = PLANS[planId];
@@ -49,6 +54,11 @@ export async function PUT(
         notes: 'Assinatura via gestão interna (Mock Gateway)'
       }
     });
+
+    // Atualiza o plano no cookie da sessão para refletir imediatamente no middleware
+    if (id === session.tenant_id) {
+      await refreshSessionPlan(normalizePlanId(planId));
+    }
 
     return NextResponse.json({
       success: true,

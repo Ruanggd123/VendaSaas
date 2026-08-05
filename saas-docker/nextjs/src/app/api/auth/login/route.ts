@@ -29,11 +29,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
       }
 
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: user.tenant_id },
+        select: { plan: true }
+      });
+
       await login({
         id: user.id,
         email: user.email,
         tenant_id: user.tenant_id,
-        role: user.role
+        role: user.role,
+        plan: tenant?.plan || "solo"
       });
 
       return NextResponse.json({ success: true }, { status: 200 });

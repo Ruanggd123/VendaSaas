@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { assertModule, MODULES } from '@/lib/permissions';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PDFParse } from 'pdf-parse';
 
@@ -15,6 +16,8 @@ export async function POST(req: Request) {
     if (!session?.tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.ai);
+    if (denied) return denied;
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

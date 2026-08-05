@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { normalizePlanId } from "@/lib/plans";
+import { getPlanModules } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 
@@ -54,6 +56,8 @@ export async function GET() {
         tenant_id: session.tenant_id,
         tenant_name: tenantName,
         tenant_plan: tenantPlan,
+        plan_id: normalizePlanId(tenantPlan),
+        modules: getPlanModules(tenantPlan),
         referral_code: referralCode,
       }
     }, { status: 200 });

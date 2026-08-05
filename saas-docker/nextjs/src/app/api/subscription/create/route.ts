@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createCustomer, createSubscription } from '@/lib/asaas';
 import { getSession } from '@/lib/auth';
+import { normalizePlanId } from '@/lib/plans';
 
 const prisma = new PrismaClient();
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        plan: planType,
+        plan: normalizePlanId(planType),
         status: 'pending',
         subscription_expires_at: new Date(Date.now() + 30 * 86400000)
       }

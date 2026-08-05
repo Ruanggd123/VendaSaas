@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { assertModule, MODULES } from "@/lib/permissions";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -12,6 +13,8 @@ export async function GET() {
     if (!session || !session.tenant_id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.crm);
+    if (denied) return denied;
 
     const isPartner = session.role === 'partner';
     const leads = await prisma.lead.findMany({
@@ -37,6 +40,8 @@ export async function PATCH(req: Request) {
     if (!session || !session.tenant_id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.crm);
+    if (denied) return denied;
 
     const { id, status } = await req.json();
 

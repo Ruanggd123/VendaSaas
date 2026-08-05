@@ -127,21 +127,131 @@ export const PLANS: Record<string, Plan> = {
   },
 };
 
+// Fonte única de verdade: normaliza QUALQUER valor de plano (canônico, legado
+// ou nome cru de produto salvo por webhooks) para os ids canônicos
+// start | plano_97 | growth | scale.
+// Plano desconhecido => start (fail-closed: MENOS acesso, nunca mais).
+export const normalizePlanId = (raw: string | null | undefined): string => {
+  const value = (raw || "").toLowerCase().trim();
+  if (!value) return PLANS.start.id;
+
+  // 1. Ids canônicos exatos
+  if (value === "start" || value === "plano_97" || value === "growth" || value === "scale") {
+    return value;
+  }
+
+  // 2. Planos altos PRIMEIRO (ex: "497" contém "97", "growth" não pode cair em check anterior)
+  if (
+    value.includes("497") || value.includes("scale") ||
+    value.includes("loja_gratis") || value.includes("loja") ||
+    value.includes("business") || value.includes("enterprise") ||
+    value.includes("corporativo") || value.includes("e-commerce") || value.includes("ecommerce")
+  ) {
+    return PLANS.scale.id;
+  }
+
+  // 3. Plano Growth (crm / equipe / pro ia)
+  if (
+    value.includes("147") || value.includes("growth") ||
+    value.includes("crm_gratis") || value.includes("pro ia") ||
+    value.includes("equipe") || value.includes("crm") || value.includes("multi") ||
+    value.includes("pro")
+  ) {
+    return PLANS.growth.id;
+  }
+
+  // 4. Plano 97 (site / agendamento / ia)
+  if (
+    value.includes("97") || value.includes("site_gratis") ||
+    value.includes("site") || value.includes("plataforma")
+  ) {
+    return PLANS.plano_97.id;
+  }
+
+  // 5. Planos básicos (termos genéricos por último)
+  if (
+    value.includes("start") || value.includes("67") ||
+    value.includes("solo") || value.includes("fixo") ||
+    value.includes("bot") || value.includes("starter")
+  ) {
+    return PLANS.start.id;
+  }
+
+  // 6. Fallback fail-closed
+  return PLANS.start.id;
+};
+
 export const getPlanDetails = (planId: string): Plan => {
-  const normalized = (planId || "").toLowerCase().trim();
+  return PLANS[normalizePlanId(planId)] || PLANS.start;
+};
 
-  if (normalized.includes("start") || normalized.includes("67") || normalized.includes("solo") || normalized.includes("fixo")) {
-    return PLANS.start;
-  }
-  if (normalized.includes("97") || normalized.includes("site_gratis") || (normalized.includes("site") && !normalized.includes("growth") && !normalized.includes("scale"))) {
-    return PLANS.plano_97;
-  }
-  if (normalized.includes("growth") || normalized.includes("147") || normalized.includes("crm_gratis") || normalized.includes("pro") || normalized.includes("equipe")) {
-    return PLANS.growth;
-  }
-  if (normalized.includes("scale") || normalized.includes("497") || normalized.includes("loja_gratis") || normalized.includes("loja") || normalized.includes("business") || normalized.includes("enterprise")) {
-    return PLANS.scale;
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// Matriz de permissões por módulo (PURA: sem imports externos para ser usável
+// no middleware/edge). Fonte da verdade para UI, middleware e APIs.
+// ─────────────────────────────────────────────────────────────────────────────
+export const MODULES = {
+  conversas: "conversas",
+  agenda: "agenda",
+  crm: "crm",
+  whatsapp: "whatsapp",
+  equipe: "equipe",
+  site: "site",
+  ai: "ai",
+  ecommerce: "ecommerce",
+  disparos: "disparos",
+} as const;
 
-  return PLANS.growth;
+export type ModuleId = (typeof MODULES)[keyof typeof MODULES];
+
+export const MODULE_LABELS: Record<ModuleId, string> = {
+  conversas: "Conversas & Bot",
+  agenda: "Agenda de Horários",
+  crm: "CRM de Vendas",
+  whatsapp: "Conexão WhatsApp",
+  equipe: "Equipe (Multiatendimento)",
+  site: "Site & Briefing",
+  ai: "Inteligência Artificial",
+  ecommerce: "Loja Virtual E-Commerce",
+  disparos: "Disparos em Massa",
+};
+
+// Módulos que cada plano lista como acesso (espelha PLANS + checklist de vendas)
+export const PLAN_MODULES: Record<string, ModuleId[]> = {
+  start: ["conversas", "whatsapp"],
+  plano_97: ["conversas", "whatsapp", "agenda", "site", "ai"],
+  growth: ["conversas", "whatsapp", "agenda", "site", "ai", "crm", "equipe"],
+  scale: ["conversas", "whatsapp", "agenda", "site", "ai", "crm", "equipe", "ecommerce", "disparos"],
+};
+
+export const getPlanModules = (planId: string | null | undefined): ModuleId[] => {
+  const normalized = normalizePlanId(planId ?? "");
+  return PLAN_MODULES[normalized] || PLAN_MODULES.start;
+};
+
+export const planHas = (planId: string | null | undefined, module: ModuleId): boolean => {
+  return getPlanModules(planId).includes(module);
+};
+
+// Rota -> módulo pago exigido (usado no middleware para bloquear URL direta)
+export const ROUTE_MODULE_MAP: { prefix: string; module: ModuleId }[] = [
+  { prefix: "/conversas", module: MODULES.conversas },
+  { prefix: "/agenda", module: MODULES.agenda },
+  { prefix: "/vendas", module: MODULES.crm },
+  { prefix: "/ecommerce", module: MODULES.ecommerce },
+  { prefix: "/workflow", module: MODULES.disparos },
+  { prefix: "/equipe", module: MODULES.equipe },
+  { prefix: "/meu-projeto", module: MODULES.site },
+];
+
+// Retorna o módulo bloqueado para esta rota segundo o plano, ou null se liberado
+export const blockedModuleForPath = (
+  pathname: string,
+  planId: string | null | undefined
+): ModuleId | null => {
+  const lower = pathname.toLowerCase();
+  const modules = getPlanModules(planId);
+  for (const { prefix, module } of ROUTE_MODULE_MAP) {
+    if (lower.startsWith(prefix) && !modules.includes(module)) return module;
+  }
+  return null;
 };

@@ -922,14 +922,14 @@ function WidgetTab({ tenantId }: { tenantId: string }) {
 // ─────────────────────────────────────────────
 
 const ALL_TABS = [
-  { id: "ai", label: "🤖 Identidade IA" },
-  { id: "schedule", label: "⏰ Horários & Feriados" },
-  { id: "products", label: "🛒 Produtos & Serviços" },
-  { id: "modules", label: "🧩 Módulos" },
-  { id: "widget", label: "💬 Widget Site" },
-  { id: "knowledge", label: "🧠 Conhecimento (RAG)" },
-  { id: "payment", label: "💳 Pagamento" },
-  { id: "blacklist", label: "🚫 Lista Negra" },
+  { id: "ai", label: "🤖 Identidade IA", requiresModule: "ai" as const },
+  { id: "schedule", label: "⏰ Horários & Feriados", requiresModule: null },
+  { id: "products", label: "🛒 Produtos & Serviços", requiresModule: null },
+  { id: "modules", label: "🧩 Módulos", requiresModule: "ai" as const },
+  { id: "widget", label: "💬 Widget Site", requiresModule: null },
+  { id: "knowledge", label: "🧠 Conhecimento (RAG)", requiresModule: "ai" as const },
+  { id: "payment", label: "💳 Pagamento", requiresModule: null },
+  { id: "blacklist", label: "🚫 Lista Negra", requiresModule: null },
 ];
 
 export default function SettingsPage() {
@@ -938,6 +938,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [tenantId, setTenantId] = useState("");
   const [userRole, setUserRole] = useState<string>("");
+  const [userModules, setUserModules] = useState<string[]>([]);
   const [bannerAlert, setBannerAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [settings, setSettings] = useState<AISettings>(DEFAULT_AI);
   const router = useRouter();
@@ -947,6 +948,7 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d?.user?.role) setUserRole(d.user.role);
+        if (Array.isArray(d?.user?.modules)) setUserModules(d.user.modules);
       })
       .catch(() => {});
 
@@ -1043,6 +1045,9 @@ export default function SettingsPage() {
     if (tab.id === "knowledge") {
       return userRole === "superadmin";
     }
+    if (tab.requiresModule && !userModules.includes(tab.requiresModule)) {
+      return false;
+    }
     return true;
   });
 
@@ -1050,7 +1055,10 @@ export default function SettingsPage() {
     if (activeTab === "knowledge" && userRole !== "superadmin") {
       setActiveTab("ai");
     }
-  }, [userRole, activeTab]);
+    if (activeTab === "ai" && !userModules.includes("ai")) {
+      setActiveTab("schedule");
+    }
+  }, [userRole, activeTab, userModules]);
 
   if (loading) {
     return (

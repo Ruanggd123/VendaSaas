@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt, encrypt } from '@/lib/auth';
+import { blockedModuleForPath } from '@/lib/plans';
 
 const protectedRoutes = [
   '/whatsapp', '/dashboard', '/admin', '/painel-parceiro',
   '/agenda', '/autovendas', '/conversas', '/equipe',
-  '/onboarding', '/projetos', '/settings', '/vendas', '/workflow'
+  '/onboarding', '/projetos', '/settings', '/vendas', '/workflow',
+  '/meu-projeto'
 ];
+
+const MANAGER_ROLES = ['superadmin', 'manager', 'admin'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -73,6 +77,26 @@ export async function middleware(request: NextRequest) {
       // --- PROTEÇÃO DO PAINEL PARCEIRO ---
       if (lowerPathname.startsWith('/painel-parceiro') && payload.role !== 'partner') {
         return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+
+      // --- PROTEÇÃO POR PLANO: módulo não incluso no plano => bloqueado mesmo via URL direta ---
+      if (payload.role !== 'superadmin') {
+        const plan = payload.plan || null;
+        const blockedModule = blockedModuleForPath(lowerPathname, plan);
+
+        if (blockedModule) {
+          return NextResponse.redirect(
+            new URL(`/dashboard?blocked=${blockedModule}`, request.url)
+          );
+        }
+
+        // --- GATES POR ROLE (painéis restritos) ---
+        if (lowerPathname.startsWith('/autovendas') && !MANAGER_ROLES.includes(payload.role)) {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        if (lowerPathname.startsWith('/projetos') && !MANAGER_ROLES.includes(payload.role) && payload.role !== 'partner') {
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
       }
 
     } catch (error) {

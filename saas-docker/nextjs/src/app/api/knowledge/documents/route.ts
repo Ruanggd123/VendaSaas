@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { assertModule, MODULES } from '@/lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,8 @@ export async function GET(req: Request) {
     if (!session?.tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.ai);
+    if (denied) return denied;
 
     const documents = await prisma.document.findMany({
       where: { tenant_id: session.tenantId },
@@ -37,6 +40,8 @@ export async function DELETE(req: Request) {
     if (!session?.tenantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const denied = await assertModule(MODULES.ai);
+    if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

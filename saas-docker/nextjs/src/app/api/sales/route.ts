@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { assertModule, MODULES } from "@/lib/permissions";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from 'bcryptjs';
 import { sendWhatsAppMessage } from '@/lib/evolution';
@@ -187,6 +188,8 @@ export async function GET(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.crm);
+    if (denied) return denied;
 
     const isPartner = session.role === 'partner';
     const partnerLeadIds = isPartner
@@ -261,6 +264,8 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.crm);
+    if (denied) return denied;
 
     const body = await req.json();
     const { product_name, amount, lead_id, due_date, notes } = body;
@@ -300,6 +305,8 @@ export async function PATCH(req: Request) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const denied = await assertModule(MODULES.crm);
+    if (denied) return denied;
 
     const body = await req.json();
     const { id, status, delivery_status, shipping_address } = body;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
+import { assertModule, MODULES } from '@/lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -9,6 +10,8 @@ export async function GET(request: NextRequest) {
   if (!session || !session.tenant_id) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
+  const denied = await assertModule(MODULES.crm);
+  if (denied) return denied;
 
   const searchParams = request.nextUrl.searchParams;
   const requestedTenantId = searchParams.get('tenantId');

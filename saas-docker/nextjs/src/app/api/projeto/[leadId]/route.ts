@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getSession } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 export const dynamic = 'force-dynamic';
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: Request, { params }: { params: Promise<{ leadId: string }> }) {
   try {
     const { leadId } = await params;
+    const session = await getSession();
     const lead = await prisma.lead.findUnique({
       where: { id: leadId },
       include: {
@@ -34,6 +36,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ leadId:
       timeline.push({ status: projectStatus, date: projectUpdatedAt });
     }
 
+    // A página pública de tracking usa a UUID do lead como token de capacidade.
+    // Sem sessão, devolvemos apenas o necessário p/ acompanhamento — sem valores
+    // de vendas e sem o WhatsApp do desenvolvedor (o botão já usa número fixo).
+    const isOwner = session && (session.role === 'superadmin' || session.role === 'manager' || session.role === 'admin' || lead.tenant_id === session.tenant_id || (session.role === 'partner' && lead.partner_id === session.id));
+
     return NextResponse.json({
       id: lead.id,
       clientName: lead.name,
@@ -43,14 +50,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ leadId:
       projectStatus,
       projectUpdatedAt,
       devName: lead.partner?.name || 'Desenvolvedor',
-      devWhatsapp: lead.partner?.whatsappNumber || lead.phone,
-      sales: lead.sales.map(s => ({
-        amount: s.amount,
-        status: s.status,
-        isRecurring: s.is_recurring,
-        paidAt: s.paid_at,
-        createdAt: s.created_at,
-      })),
+      devWhatsapp: isOwner ? (lead.partner?.whatsappNumber || lead.phone) : null,
+      sales: isOwner
+        ? lead.sales.map(s => ({
+            amount: s.amount,
+            status: s.status,
+            isRecurring: s.is_recurring,
+            paidAt: s.paid_at,
+            createdAt: s.created_at,
+          }))
+        : [],
       timeline,
     });
   } catch (error: any) {
