@@ -4,3 +4,13 @@ node_modules
 *.zip
 *.tar.gz
 *.rar
+ollama
+postgres
+evolution-manager
+temp_manager
+saas-docker/ollama
+saas-docker/postgres
+saas-docker/evolution-manager
+saas-docker/temp_manager
+saas-docker/nextjs/node_modules
+saas-docker/nextjs/.next
