@@ -9,3 +9,7 @@ saas-docker/ollama/
 saas-docker/redis/
 saas-docker/backups/
 saas-docker/cookies*.txt
+saas-docker/n8n/
+saas-docker/evolution/
+cloudflared.exe
+ngrok.exe
